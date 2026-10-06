@@ -53,7 +53,7 @@ NICOLY（docomo 関連の携帯催事を受託し、個人事業主へ再委託�
 - **金額系のテーブルを追加・変更したら、管理者から読めないことを確認するテストを必ず追加する**（`tests/rls/`）。
 - ビューを作るときは `with (security_invoker = true)` を付ける（付けないと RLS をすり抜ける）。
 - `security definer` 関数は `set search_path = ''` を付け、関数内で権限と対象行を必ず確認する。
-- サービスキー（`SUPABASE_SERVICE_ROLE_KEY`）はサーバー側だけで使う。`NEXT_PUBLIC_` を付けない。クライアントコンポーネントから import しない。
+- サービスキー（`SUPABASE_SECRET_KEY`、`sb_secret_`）はサーバー側だけで使う。`NEXT_PUBLIC_` を付けない。クライアントコンポーネントから import しない。
 - 基本は削除しない（無効化・アーカイブ）。マスタは「無効化」で過去データを壊さない。
 - 金額・実績・アサインの状態・営業ステータスの変更は監査ログ（`audit_logs`）に残す。
 
