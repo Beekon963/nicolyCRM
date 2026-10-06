@@ -1,0 +1,28 @@
+# NICOLY CRM
+
+NICOLY の社内CRM（現場・アサイン・実績・営業・お金の管理）。
+
+| ドキュメント | 内容 |
+|---|---|
+| [docs/requirements.md](docs/requirements.md) | 要件定義（原文） |
+| [docs/phase0-questions.md](docs/phase0-questions.md) | Phase 0 の確認事項と回答 |
+| [docs/design/screens.md](docs/design/screens.md) | 画面一覧・画面遷移 |
+| [docs/design/database.md](docs/design/database.md) | DB スキーマ（ER図） |
+| [docs/design/security.md](docs/design/security.md) | 権限と RLS の方針 |
+| [docs/design/plan.md](docs/design/plan.md) | フェーズ計画 |
+| [docs/setup.md](docs/setup.md) | Supabase・Vercel のセットアップ手順 |
+| [CLAUDE.md](CLAUDE.md) | 開発ルール |
+
+## 技術構成
+
+Next.js（App Router / TypeScript）・Tailwind CSS・shadcn/ui ／ Supabase（PostgreSQL・Auth・RLS・Storage、東京リージョン）／ Vercel（Pro、東京 hnd1）
+
+## 開発
+
+```bash
+npm install
+cp .env.example .env.local   # 値を入れる（docs/setup.md 参照）
+npm run dev                  # http://localhost:3000
+npm run check                # lint + 型チェック + 単体テスト
+npm run test:e2e             # 画面テスト（スマホ幅 375px と PC）
+```
