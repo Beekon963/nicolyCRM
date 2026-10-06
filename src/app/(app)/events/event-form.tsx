@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDownIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { CountStepper } from "@/components/app/count-stepper";
@@ -200,7 +201,7 @@ export function EventForm({
             {holidays[date] && <Badge tone="alert">{holidays[date]}</Badge>}
             {mode === "single" && (
               <Button asChild variant="link" size="sm">
-                <a href="/events/bulk">期間でまとめて作る</a>
+                <Link href="/events/bulk">期間でまとめて作る</Link>
               </Button>
             )}
           </div>
