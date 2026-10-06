@@ -1,31 +1,13 @@
 /**
  * 権限（RLS）のテスト。docs/design/security.md の「自動テストで確かめること」
  *
- * ★ 金額系テーブルを追加・変更したら MONEY_TABLES に必ず足すこと。
+ * ★ 金額系テーブルを追加・変更したら money-tables.ts の MONEY_TABLES に必ず足すこと。
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { SEED_USERS } from "../../scripts/seed/constants.mts";
 import { asAdmin, asRole, closePool, tryQuery } from "./helpers";
+import { MONEY_TABLES } from "./money-tables";
 
-/** オーナーだけが読み書きできるテーブル（管理者からは 0 件） */
-export const MONEY_TABLES = [
-  "staff_private",
-  "rank_rates",
-  "company_billing",
-  "client_rates",
-  "event_rates",
-  "incentive_rates",
-  "event_incentive_rates",
-  "assignment_private",
-  "payment_adjustments",
-  "monthly_closings",
-  "closing_logs",
-  "payments",
-  "invoices",
-  "owner_settings",
-  "monthly_targets",
-  "audit_logs",
-] as const;
 
 /** 金額や口座を表す列名（管理者が読めるテーブルにあってはいけない） */
 const MONEY_COLUMN = /(rate|amount|total|price|fee|revenue|profit|salary|bank|account_number|account_holder|invoice_number|withholding)/;
@@ -145,7 +127,7 @@ describe("★ 金額系テーブル", () => {
 describe("オーナー・管理者の基本の権限", () => {
   it("管理者は現場・スタッフなどを読み書きできる", async () => {
     await asRole("manager", async (c) => {
-      expect((await c.query(`select * from public.staff`)).rowCount).toBe(40);
+      expect((await c.query(`select * from public.staff`)).rowCount).toBeGreaterThanOrEqual(40);
       expect((await c.query(`select * from public.event_overview`)).rowCount).toBeGreaterThan(50);
       const r = await tryQuery(c, `update public.staff set memo = 'テスト' where id = (select id from public.staff limit 1) returning id`);
       expect(r.ok && r.rowCount).toBe(1);

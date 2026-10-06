@@ -5,10 +5,8 @@
  *   DB の `date` 型ともそのまま対応する。
  * - サーバー（Vercel / Supabase）は UTC で動くため、`new Date().getDate()` などの
  *   ローカル時刻メソッドは使わない。必ず `todayJst()` などを使う。
- * - 祝日データ（@holiday-jp/holiday_jp）は大きいので、クライアント側では import せず
- *   サーバー側で必要な期間だけ計算して渡す。
+ * - 祝日は ./holidays.ts（データが大きいのでサーバー側だけで使い、必要な期間だけ画面に渡す）。
  */
-import holidayJp from "@holiday-jp/holiday_jp";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 export const TIME_ZONE = "Asia/Tokyo";
@@ -21,9 +19,7 @@ const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"] as const;
 export type WeekdayJa = (typeof WEEKDAYS_JA)[number];
 
-const holidays = holidayJp.holidays as Record<string, { name: string }>;
-
-function parse(date: DateString): { y: number; m: number; d: number } {
+export function parse(date: DateString): { y: number; m: number; d: number } {
   const match = DATE_RE.exec(date);
   if (!match) throw new Error(`日付の形式が不正です: ${date}`);
   const y = Number(match[1]);
@@ -90,16 +86,6 @@ export function weekdayJa(date: DateString): WeekdayJa {
 export function isWeekend(date: DateString): boolean {
   const w = weekdayJa(date);
   return w === "土" || w === "日";
-}
-
-/** 日本の祝日名（祝日でなければ null） */
-export function holidayName(date: DateString): string | null {
-  parse(date);
-  return holidays[date]?.name ?? null;
-}
-
-export function isHoliday(date: DateString): boolean {
-  return holidayName(date) !== null;
 }
 
 /** 画面表示用: `10/6(火)` */

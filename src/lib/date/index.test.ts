@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { holidayName, holidaysBetween, isHoliday } from "./holidays";
 import {
   addDays,
   diffDays,
@@ -6,9 +7,7 @@ import {
   formatLongJa,
   formatShortJa,
   formatTimeJst,
-  holidayName,
   isDateString,
-  isHoliday,
   jstToInstant,
   monthRange,
   nextMonth,
@@ -91,6 +90,7 @@ describe("曜日・祝日・表示", () => {
     expect(holidayName("2026-11-03")).toBe("文化の日");
     expect(isHoliday("2026-10-12")).toBe(true); // スポーツの日
     expect(isHoliday("2026-10-13")).toBe(false);
+    expect(holidaysBetween("2026-11-01", "2026-11-30")).toEqual({ "2026-11-03": "文化の日", "2026-11-23": "勤労感謝の日" });
   });
 
   it("表示形式", () => {
