@@ -30,7 +30,19 @@ export const TARGETS: Record<ImportTarget, { label: string; fields: FieldDef[]; 
       { key: "roles", label: "役割", aliases: ["役割", "ポジション"], help: "「クローザー・キャッチャー」のように複数可" },
       { key: "areas", label: "対応エリア", aliases: ["エリア", "対応エリア"], help: "設定にないエリアは新しく作ります" },
       { key: "status", label: "状態", aliases: ["状態", "ステータス"], help: "稼働中 / 休止 / 終了（空なら稼働中）" },
-      { key: "memo", label: "メモ", multi: true, aliases: ["メモ", "備考", "キャッチ力", "クローザー力", "立ち回り", "知識", "メールアドレス", "メール", "誓約書送付", "受理"], help: "複数の列を「列名: 値」でまとめて入れます" },
+      {
+        key: "memo",
+        label: "メモ",
+        multi: true,
+        // Phase 0 決定8 の列と、メンバー名簿・スキルシートの仕事に関わる列。
+        // 性別・生年月日・最終学歴・現住所・緊急連絡先は自動では選ばない（必要なら画面で選ぶ）
+        aliases: [
+          ...["メモ", "備考", "要確認メモ", "キャッチ力", "クローザー力", "立ち回り", "知識", "メールアドレス", "メール"],
+          ...["誓約書送付", "受理", "誓約書受理", "口座登録", "旧ランク", "催事経験の開始", "経験キャリア", "経験形態"],
+          ...["平均獲得件数", "直近実績", "副商材実績", "実績の区分", "人柄・強み", "直近入店店舗"],
+        ],
+        help: "複数の列を「列名: 値」でまとめて入れます",
+      },
       { key: "base_daily_rate", label: "基本日当", ownerOnly: true, aliases: ["基本日当", "日当", "単価"], help: "空ならランクの基準日当" },
       { key: "withholding_method", label: "源泉徴収の方式", ownerOnly: true, aliases: ["源泉", "源泉徴収"], help: "なし / 報酬・料金 / 外交員報酬" },
       { key: "invoice_number", label: "インボイス登録番号", ownerOnly: true, aliases: ["インボイス", "インボイス登録番号", "登録番号"] },
@@ -76,7 +88,13 @@ TARGETS.partner = { ...TARGETS.client, label: "協力会社", fields: TARGETS.cl
 /** 取り込まない列（要件 §14「UPDRAFT のデータ」は作らない） */
 export const IGNORED_HEADERS = ["UPD_ID", "整理番号"];
 
-const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+/** 列名の比較用。全角半角・空白の違いと、末尾の「(11月表)」のような補足は無視する */
+const norm = (s: string) =>
+  s
+    .normalize("NFKC")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
 
 /** 列名から項目を自動で対応づける。{ 項目key: 列番号[] } */
 export function autoMap(target: ImportTarget, headers: string[]): Record<string, number[]> {

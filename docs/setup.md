@@ -88,17 +88,20 @@ npx supabase db push
 ## ⑤ Vercel（Pro）
 
 1. https://vercel.com/ に GitHub アカウントでサインアップし、**Pro** プランのチームを作る（月 $20。商用利用は Pro が必要）
-2. **Add New… → Project → Import Git Repository** で `Beekon963/nicolyCRM` を選ぶ
-3. **Environment Variables** に次を入れる
+2. 先に GitHub で、本番に出すブランチを `main` にしておく
+   - リポジトリの **Settings → General → Default branch** の ⇄ ボタン → `main` → **Update**
+   - 開発は別のブランチで進め、「プルリクエスト」を **Merge** したものだけが本番に出ます
+3. **Add New… → Project → Import Git Repository** で `Beekon963/nicolyCRM` を選ぶ（Project Name は `nicoly-crm` がおすすめ。URL が `https://nicoly-crm.vercel.app` になります）
+4. **Environment Variables** に次を入れる
 
 | 名前 | 値 |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | 本番の Project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 本番の Publishable key |
 | `SUPABASE_SECRET_KEY` | 本番の Secret key |
-| `NEXT_PUBLIC_SITE_URL` | `https://（Vercel の URL）`（最初は空でデプロイし、URL が決まったら入れて再デプロイ） |
 
-4. **Deploy**。関数のリージョンはリポジトリの `vercel.json` で東京（`hnd1`）に固定済みです。
+5. **Deploy**。関数のリージョンはリポジトリの `vercel.json` で東京（`hnd1`）に固定済みです。
+   - アプリの URL（`https://（プロジェクト名）.vercel.app`）は自動で使われます。独自ドメインを使う場合だけ、`NEXT_PUBLIC_SITE_URL` に `https://（独自ドメイン）` を入れて再デプロイしてください。
 
 ## ⑥ 最初のオーナーアカウント
 

@@ -11,7 +11,11 @@ export function supabasePublishableKey(): string {
   return v;
 }
 
-/** アプリの公開URL（マイページURL・メール内リンクの組み立てに使う） */
+/**
+ * アプリの公開URL（マイページURLの組み立てに使う。サーバー側だけで呼ぶ）。
+ * NEXT_PUBLIC_SITE_URL がなければ、Vercel が自動で入れる本番のドメインを使う。
+ */
 export function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  return (process.env.NEXT_PUBLIC_SITE_URL || (vercel ? `https://${vercel}` : "http://localhost:3000")).replace(/\/$/, "");
 }
