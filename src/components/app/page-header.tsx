@@ -8,12 +8,15 @@ export function PageHeader({
   description,
   back,
   actions,
+  actionsBelow,
   className,
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   back?: string;
   actions?: React.ReactNode;
+  /** ボタンが多いとき、スマホではボタンを見出しの下の行に出す */
+  actionsBelow?: boolean;
   className?: string;
 }) {
   return (
@@ -24,10 +27,10 @@ export function PageHeader({
         </Link>
       )}
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-xl font-bold">{title}</h1>
+        <h1 className="text-xl font-bold break-words">{title}</h1>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className={cn("flex flex-wrap items-center gap-2", actionsBelow && "max-md:w-full")}>{actions}</div>}
     </div>
   );
 }
