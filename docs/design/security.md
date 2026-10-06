@@ -27,7 +27,7 @@ RLS の判定には次の関数を使う（`security definer`、`app_users` を�
 | ★ `audit_logs` | 読むだけ | 不可（実績の履歴だけ専用関数で見られる） | 不可 |
 | `rate_limits` | 不可 | 不可 | 不可（関数だけが使う） |
 
-**★ 金額系テーブル（オーナーのみ）**: `staff_private`（日当・源泉・インボイス・契約書・口座）、`assignment_private`、`company_billing`、`client_rates`、`event_rates`、`incentive_rates`、`event_incentive_rates`、`payment_adjustments`、`monthly_closings`、`closing_logs`、`payments`、`invoices`、`owner_settings`、`monthly_targets`、`audit_logs`
+**★ 金額系テーブル（オーナーのみ）**: `staff_private`（日当・源泉・インボイス・契約書・口座）、`rank_rates`（ランクごとの基準日当）、`assignment_private`、`company_billing`、`client_rates`、`event_rates`、`incentive_rates`、`event_incentive_rates`、`payment_adjustments`、`monthly_closings`、`closing_logs`、`payments`、`invoices`、`owner_settings`、`monthly_targets`、`audit_logs`
 
 **例外**: 交通費・経費の申請額（`expenses.amount`）は、要件 §3 のとおり管理者も見て承認できる。
 
@@ -87,7 +87,7 @@ RLS の判定には次の関数を使う（`security definer`、`app_users` を�
 
 ## 6. 変更履歴（監査ログ）
 
-- 対象: 金額系の全テーブル、`assignments`（状態）、`report_items`・`reports`（速報・確定）、`expenses`（状態・金額）、`companies`（営業ステータス・次回アクション）、`staff_private`。
+- 対象: 金額系の全テーブル（`rank_rates` を含む）、`assignments`（状態）、`report_items`・`reports`（速報・確定）、`expenses`（状態・金額）、`companies`（営業ステータス・次回アクション）、`staff_private`。
 - DB のトリガーで「誰が（ユーザー or スタッフ）・いつ・どのテーブルのどの行を・変更前・変更後」を自動記録する。画面側の書き忘れが起きない。
 - 閲覧はオーナーのみ（変更履歴画面）。実績の修正履歴だけは実績確認画面で管理者も見られる（金額を含まない）。
 

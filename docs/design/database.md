@@ -1,6 +1,6 @@
 # DB スキーマ設計（Phase 0 案）
 
-要件 §8 のデータモデル案を精査したもの。**承認後、Phase 1 の最初にマイグレーションとして作成する。**
+要件 §8 のデータモデル案を精査し、Phase 0 の回答（[../phase0-questions.md](../phase0-questions.md)）を反映したもの。**承認後、Phase 1 の最初にマイグレーションとして作成する。**
 `★` はオーナーのみ読み書きできるテーブル（管理者からは RLS で読めない）。権限の詳細は [security.md](security.md)。
 
 ## 1. 設計の方針（かんたんに）
@@ -34,6 +34,8 @@ erDiagram
   assignments ||--o{ report_items : "獲得件数"
   items ||--o{ report_items : "獲得項目"
   assignments ||--o{ expenses : "交通費・経費"
+  companies ||--o{ company_items : "この取引先で使う獲得項目"
+  items ||--o{ company_items : ""
 
   events {
     uuid id PK
@@ -81,6 +83,10 @@ erDiagram
     int confirmed_count "確定件数"
     enum diff_reason "キャンセル/否認/入力ミス/その他"
     text diff_note
+  }
+  company_items {
+    uuid company_id PK
+    uuid item_id PK
   }
   expenses {
     uuid id PK
@@ -184,6 +190,15 @@ erDiagram
 
 マスタ（`roles` 役割 / `items` 獲得項目 / `ranks` ランク / `areas` エリア）はすべて `id, name, sort_order, is_active`（ランクは定義メモ `description` も）。
 
+| マスタ | 初期値（Phase 0 で決定。設定画面で追加・名前変更・並び替え・無効化できる） |
+|---|---|
+| 役割 | クローザー / キャッチャー / ディレクター |
+| 獲得項目 | 新規 / MNP / 機種変更 / ドコモ光 / home 5G / dカード・でんき等の付帯 |
+| ランク | SS / S / A＋ / A / B / C / D / E（上ほど高い。候補一覧の並び順にも使う） |
+| エリア | 空（取り込み・登録時に作る） |
+
+獲得項目は取引先ごとに使うものを選べる（`company_items`）。選んでいない取引先の現場では、有効な項目をすべて出す。
+
 ### 2-3. 営業（取引先・協力会社）
 
 ```mermaid
@@ -240,6 +255,8 @@ erDiagram
 erDiagram
   companies ||--o| company_billing : "★請求設定"
   companies ||--o{ client_rates : "★標準単価"
+  venues ||--o{ client_rates : "★取引先×会場の標準"
+  ranks ||--o| rank_rates : "★ランクごとの基準日当"
   events ||--o{ event_rates : "★現場ごとの上書き"
   items ||--o| incentive_rates : "★インセンティブ標準単価"
   events ||--o{ event_incentive_rates : "★現場ごとの上書き"
@@ -255,9 +272,14 @@ erDiagram
     text invoice_note "請求書送付先メモ"
     bool bill_transport "交通費を請求に含める"
   }
+  rank_rates {
+    uuid rank_id PK
+    int base_daily_rate "基準日当（登録・取り込み時の初期値）"
+  }
   client_rates {
     uuid id PK
     uuid company_id FK
+    uuid venue_id FK "空なら取引先全体の標準"
     enum kind "人日/現場固定/成果"
     uuid role_id FK "人日のとき"
     uuid item_id FK "成果のとき"
@@ -383,6 +405,9 @@ erDiagram
 | 現場のステータスを保存しない | 自動切替（人員確定・実施済）を確実にするため。中止だけ保存 |
 | `rate_limits` を追加 | マイページのレート制限用（要件 §4.5） |
 | 「主な取引先」（会場）は保存しない | 過去の現場から自動で出す |
+| ★`rank_rates` を追加 | Phase 0 決定2。ランクごとの基準日当（スタッフ登録・取り込み時の初期値） |
+| `company_items` を追加 | Phase 0 決定3。取引先ごとに使う獲得項目 |
+| `client_rates` に `venue_id` を追加 | Phase 0 決定4。取引先×会場ごとの標準単価。使う順は 現場の上書き（`event_rates`）→ 取引先×会場 → 取引先 |
 
 ## 6. 制約・ルール（DB で守るもの）
 

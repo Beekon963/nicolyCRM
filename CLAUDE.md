@@ -4,6 +4,7 @@
 
 NICOLY（docomo 関連の携帯催事を受託し、個人事業主へ再委託する会社）の社内CRM。
 要件定義は `docs/requirements.md`、設計は `docs/design/`、フェーズ計画は `docs/design/plan.md`。
+Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`（**要件と食い違う点はこちらを優先**）。
 **作業を始める前に、該当する要件と設計を読むこと。**
 
 ## 最優先の考え方
