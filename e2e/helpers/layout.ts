@@ -15,5 +15,6 @@ export function resultLinks(page: Page) {
 export async function openFirst(page: Page, listPath: string, q: string) {
   await page.goto(`${listPath}?q=${encodeURIComponent(q)}`);
   await resultLinks(page).first().click();
-  await page.waitForLoadState("networkidle");
+  await page.waitForURL(new RegExp(`${listPath}/[^/?]+`));
+  await page.getByRole("main").getByRole("heading", { level: 1 }).last().waitFor();
 }

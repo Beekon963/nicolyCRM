@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { freeFutureDate, one, sql } from "../helpers/db";
+import { cleanupEvent, freeFutureDate, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /** 未来の現場（クローザー1名）に2人を打診中にしておく */
@@ -103,6 +103,7 @@ test("稼働日の夜、件数・コメント・交通費を1分以内に報告�
   expect(Object.fromEntries(items.map((i) => [i.name, i.reported_count]))).toEqual({ MNP: 2, 新規: 1 });
   const exp = await one<{ amount: number; status: string }>(`select amount, status from expenses where assignment_id = $1 and kind = 'transport'`, [a.id]);
   expect(exp).toEqual({ amount: 640, status: "pending" });
+  await cleanupEvent(ev.id);
 });
 
 test("使えない URL では何も表示しない", async ({ page }) => {
