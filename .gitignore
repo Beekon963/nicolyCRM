@@ -46,3 +46,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# 開発用ダミーデータ（scripts/seed/generate.mts で毎回作る）
+/supabase/seed.sql
