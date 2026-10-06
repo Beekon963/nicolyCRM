@@ -10,11 +10,11 @@
 - [x] 画面一覧・画面遷移（[screens.md](screens.md)）、DB スキーマ（[database.md](database.md)）、権限と RLS（[security.md](security.md)）
 - [x] Supabase・Vercel のセットアップ手順（[../setup.md](../setup.md)）
 - [x] §13 の前提とスプレッドシートから出てきた確認事項への回答（[../phase0-questions.md](../phase0-questions.md)）
-- [ ] この設計の承認
+- [x] この設計の承認（2026-10-06）
 
 **お願いすること**: この設計の承認、Supabase の開発用プロジェクトと Google ログインの準備（setup.md の ①〜③）、ロゴ画像
 
-## Phase 1: 現場・アサイン・実績（最優先）
+## Phase 1: 現場・アサイン・実績（最優先）— 実装完了・確認待ち
 
 小さく区切って作り、区切りごとに動くものをお見せします（承認は Phase 1 の最後にまとめて）。
 

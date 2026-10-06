@@ -262,3 +262,22 @@ describe("候補一覧の並び順（要件 §4.3）", () => {
     });
   });
 });
+
+describe("日本時間（受け入れテスト: 0時前後で「今日」「明日」がずれない）", () => {
+  it("DB の「今日」は日本時間で求めている（UTC 14:59:59 は当日、15:00:00 は翌日）", async () => {
+    const r = await asAdmin(async (c) =>
+      (
+        await c.query(`select
+          to_char(('2026-10-06 14:59:59+00'::timestamptz at time zone 'Asia/Tokyo')::date, 'YYYY-MM-DD') as before_midnight,
+          to_char(('2026-10-06 15:00:00+00'::timestamptz at time zone 'Asia/Tokyo')::date, 'YYYY-MM-DD') as after_midnight,
+          public.jst_today() = (now() at time zone 'Asia/Tokyo')::date as same_rule,
+          current_setting('TimeZone') as db_tz`)
+      ).rows[0],
+    );
+    expect(r.before_midnight).toBe("2026-10-06");
+    expect(r.after_midnight).toBe("2026-10-07");
+    expect(r.same_rule).toBe(true);
+    // DB 自体は UTC で動いている（だから jst_today() を使う）
+    expect(r.db_tz).toBe("UTC");
+  });
+});

@@ -83,10 +83,17 @@ Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`
 npm run dev          # 開発サーバー（http://localhost:3000）
 npm run check        # lint + 型チェック + 単体テスト（コミット前に必ず通す）
 npm run test         # 単体テスト（Vitest、TZ=UTC で実行）
-npm run test:e2e     # 画面テスト（Playwright、スマホ幅 375px と PC）
 npm run db:start     # ローカルの Supabase を起動（Docker が必要）
-npm run db:reset     # ローカル DB を作り直してマイグレーションと seed を流す
+npm run db:reset     # ダミーデータを作り直し、ローカル DB にマイグレーションと seed を流す
+npm run db:types     # DB の型（src/lib/supabase/database.types.ts）を作り直す（マイグレーションを変えたら必ず）
+npm run env:local    # ローカルの Supabase につなぐ .env.local を作る
+npm run test:db      # DB・権限のテスト（ローカルの Supabase が必要）
+npm run test:e2e     # 画面テスト（スマホ幅 375px と PC）。npm run build && npm run start で本番ビルドを起動してから
 ```
+
+- 画面テストは DB にデータを足すので、気になったら `npm run db:reset` で作り直す。今日の日付で現場を作るテストは `cleanupEvent()` で後片付けする。
+- 新しい画面を作ったら `e2e/owner/no-scroll.spec.ts`（375px 横スクロール）と `e2e/manager/money-leak.spec.ts`（管理者に金額が漏れない）に足す。
+- 新しい DB 関数は anon から実行できない設定になっている（`20261006000008_grants.sql`）。マイページ用だけ `grant execute ... to anon` する。
 
 ## その他
 

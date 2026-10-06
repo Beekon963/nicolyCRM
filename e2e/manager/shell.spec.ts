@@ -10,3 +10,10 @@ test("管理者にはオーナー専用のメニューが出ず、開いても�
   const res = await page.goto("/settings");
   expect(res?.status()).toBe(404);
 });
+
+test("管理者はデータ取り込み・変更履歴を開けない", async ({ page }) => {
+  for (const path of ["/import", "/audit", "/settings/users"]) {
+    const res = await page.goto(path);
+    expect(res?.status(), path).toBe(404);
+  }
+});

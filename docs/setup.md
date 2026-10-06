@@ -28,7 +28,8 @@
 5. **Authentication → URL Configuration**
    - Site URL: `http://localhost:3000`
    - Redirect URLs に追加: `http://localhost:3000/auth/callback`
-6. **Project Settings → API Keys** で次の3つを控える（あとで `.env.local` と Vercel に入れます）
+6. **Authentication → Emails → Templates → Magic Link** を ④ の 4 と同じように変更する
+7. **Project Settings → API Keys** で次の3つを控える（あとで `.env.local` と Vercel に入れます）
    - Project URL（`https://（英数字）.supabase.co`）
    - Publishable key（`sb_publishable_` で始まる）
    - Secret key（`sb_secret_` で始まる。**秘密**。人に送らない）
@@ -69,13 +70,20 @@ Supabase 標準のメール送信は「プロジェクトのメンバー宛て�
    - Site URL: `https://（Vercel の URL）`
    - Redirect URLs: `https://（Vercel の URL）/auth/callback`
    - Google の OAuth クライアントに `https://（本番の英数字）.supabase.co/auth/v1/callback` を追加
-4. DB を作る（パソコンのターミナルで、このリポジトリのフォルダから）
+4. **Authentication → Emails → Templates → Magic Link** を次のように変更（ログイン用メールを日本語にし、別の端末で開いてもログインできるリンクにする）
+   - Subject: `NICOLY CRM ログイン用リンク`
+   - Message body: リポジトリの `supabase/templates/magic_link.html` の中身をそのまま貼り付け
+5. DB を作る（パソコンのターミナルで、このリポジトリのフォルダから）
 
 ```bash
 npx supabase login
 npx supabase link --project-ref （本番の英数字）
 npx supabase db push
 ```
+
+> 開発用プロジェクト（①）にも同じ手順で DB を作れます。開発用にだけダミーデータを入れる場合は、
+> `npx supabase link --project-ref （開発用の英数字）` のあとに
+> `npm run db:seed:generate && npx supabase db reset --linked` を実行します（**本番では絶対に実行しないでください。データが消えます**）。
 
 ## ⑤ Vercel（Pro）
 
@@ -94,7 +102,24 @@ npx supabase db push
 
 ## ⑥ 最初のオーナーアカウント
 
-Phase 1 で、オーナー（森部さん）のアカウントを作るコマンドを用意してお知らせします。以降の管理者の招待は、アプリの「設定 → ユーザー」から行えます。
+パソコンのターミナルで、このリポジトリのフォルダから実行します。
+
+1. 本番の接続先を書いたファイル `.env.production.local` を作る（コミットされません）
+
+```bash
+cat > .env.production.local <<'ENV'
+NEXT_PUBLIC_SUPABASE_URL=https://（本番の英数字）.supabase.co
+SUPABASE_SECRET_KEY=（本番の Secret key）
+ENV
+```
+
+2. オーナーを登録する（メールアドレスは Google アカウントのアドレス）
+
+```bash
+node --env-file=.env.production.local scripts/create-owner.mts （メールアドレス） "森部 太陽"
+```
+
+3. アプリの URL を開き、「Google でログイン」でログインできれば完了です。以降の管理者の招待は、アプリの「設定 → ユーザー」から行えます。
 
 ---
 
@@ -106,12 +131,15 @@ Phase 1 で、オーナー（森部さん）のアカウントを作るコマン
 git clone https://github.com/Beekon963/nicolyCRM.git
 cd nicolyCRM
 npm install
-cp .env.example .env.local   # 開発用 Supabase の値を入れる
-npm run dev                  # http://localhost:3000 を開く
+npm run db:start      # ローカルの Supabase を起動（Docker Desktop が必要）
+npm run db:reset      # DB を作ってダミーデータを入れる
+npm run env:local     # .env.local を作る
+npm run dev           # http://localhost:3000 を開く
 ```
 
-- Node.js 22 以上が必要です。
-- ローカルで DB ごと動かす場合（`npm run db:start`）は Docker Desktop が必要です。
+- Node.js 22.18 以上が必要です。
+- ダミーデータのログイン: `owner@example.com`（オーナー）/ `manager@example.com`（管理者）。ログイン画面でメールのリンクを受け取り、http://127.0.0.1:54324 （ローカルのメール受信箱）でリンクを開きます。
+- テスト: `npm run check`（単体）、`npm run test:db`（DB・権限）、`npm run test:e2e`（画面。本番ビルドで動かす）
 
 ## 月額の目安
 
