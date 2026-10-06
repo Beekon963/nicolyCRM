@@ -49,3 +49,6 @@ next-env.d.ts
 
 # 開発用ダミーデータ（scripts/seed/generate.mts で毎回作る）
 /supabase/seed.sql
+
+# Playwright のログイン状態
+/e2e/.auth/

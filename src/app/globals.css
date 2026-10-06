@@ -3,7 +3,7 @@
 
 /*
  * 白ベースのシンプルなUI（要件 §9-10）。
- * --brand は NICOLY のブランドカラーが決まったら差し替える（Phase 0 で確認中）。
+ * --brand はロゴの青。ロゴの赤は「要対応」の赤と紛らわしいのでボタンには使わない。
  * 状態の色: 赤 = 要対応 / 黄 = 待ち / 緑 = 完了（要件 §9-5）。
  */
 :root {
@@ -15,7 +15,9 @@
   --border: #e5e7eb;
   --input: #d1d5db;
   --ring: var(--brand);
-  --brand: #2563eb;
+  --brand: #004aae;
+  --brand-red: #e20012;
+  --brand-purple: #2e1a6a;
   --brand-foreground: #ffffff;
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
