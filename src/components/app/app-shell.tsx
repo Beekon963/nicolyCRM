@@ -72,14 +72,16 @@ export function AppShell({ user, children }: { user: AppUser; children: React.Re
         <main className="flex w-full min-w-0 flex-1 flex-col pb-24 md:pb-8">{children}</main>
       </div>
 
-      {/* スマホ: 右下の ＋（現場を作る） */}
-      <Link
-        href="/events/new"
-        aria-label="現場を作る"
-        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg md:hidden"
-      >
-        <PlusIcon className="size-7" />
-      </Link>
+      {/* スマホ: 右下の ＋（現場を作る）。入力画面では保存ボタンと重ならないよう一覧の画面だけに出す */}
+      {(pathname === "/" || pathname === "/events") && (
+        <Link
+          href="/events/new"
+          aria-label="現場を作る"
+          className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg md:hidden"
+        >
+          <PlusIcon className="size-7" />
+        </Link>
+      )}
 
       {/* スマホ: 下部タブ */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
