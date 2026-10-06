@@ -697,6 +697,19 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
+                },"rate_limits": {
+                  Row: {
+                    "count": number,"key": string,"window_start": string
+                  }
+                  Insert: {
+                    "count"?: number,"key": string,"window_start": string
+                  }
+                  Update: {
+                    "count"?: number,"key"?: string,"window_start"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"report_items": {
                   Row: {
                     "assignment_id": string,"confirmed_count": number | null,"diff_note": string,"diff_reason": Database["public"]['Enums']["diff_reason"] | null,"item_id": string,"reported_count": number | null
@@ -993,8 +1006,47 @@ isOneToOne: false
 "month_start":
 { Args: { "d": string }; Returns: string
                            },
+"mypage_availability_get":
+{ Args: { "p_month": string,"p_token": string }; Returns: Json
+                           },
+"mypage_availability_save":
+{ Args: { "p_days": Json,"p_memo": string,"p_month": string,"p_submit": boolean,"p_token": string }; Returns: Json
+                           },
+"mypage_event_json":
+{ Args: { "p_event_id": string }; Returns: Json
+                           },
+"mypage_history":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_me":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_offers":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_report_get":
+{ Args: { "p_assignment_id": string,"p_token": string }; Returns: Json
+                           },
+"mypage_report_save":
+{ Args: { "p_assignment_id": string,"p_comment": string,"p_items": Json,"p_other_amount": number,"p_other_memo": string,"p_token": string,"p_transport_amount": number,"p_transport_memo": string }; Returns: Json
+                           },
+"mypage_reports":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_respond":
+{ Args: { "p_accept": boolean,"p_assignment_id": string,"p_token": string }; Returns: Json
+                           },
+"mypage_schedule":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_staff":
+{ Args: { "p_token": string }; Returns: Record<string, unknown>
+                           },
 "new_mypage_token":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"rate_limit_hit":
+{ Args: { "p_key": string,"p_limit": number }; Returns: boolean
                            },
 "report_history":
 { Args: { "p_assignment_id": string }; Returns: {
@@ -1003,6 +1055,9 @@ isOneToOne: false
                            },
 "search_norm":
 { Args: { "t": string }; Returns: string
+                           },
+"setting_int":
+{ Args: { "p_default": number,"p_key": string }; Returns: number
                            },
 "staff_avg_confirmed":
 { Args: { "p_since": string }; Returns: {
