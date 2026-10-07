@@ -94,6 +94,8 @@ npm run test:e2e     # 画面テスト（スマホ幅 375px と PC）。npm run 
 - 画面テストは DB にデータを足すので、気になったら `npm run db:reset` で作り直す。今日の日付で現場を作るテストは `cleanupEvent()` で後片付けする。
 - 新しい画面を作ったら `e2e/owner/no-scroll.spec.ts`（375px 横スクロール）と `e2e/manager/money-leak.spec.ts`（管理者に金額が漏れない）に足す。
 - 新しい DB 関数は anon から実行できない設定になっている（`20261006000008_grants.sql`）。マイページ用だけ `grant execute ... to anon` する。
+- 本番に出すのは `main` だけ（Vercel は `main` を公開する）。開発ブランチから `main` へのプルリクエストをユーザーが Merge する。
+- 本番の DB への反映は、ユーザーが GitHub Actions の「本番のデータベースを更新」（`.github/workflows/deploy-db.yml`）を手動で実行する（確認だけ → 本番に反映する）。自動では反映しない。マイグレーションを足した PR では、Merge のあとにこの手順が必要なことをユーザーに伝える。
 
 ## その他
 

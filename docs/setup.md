@@ -1,40 +1,59 @@
-# セットアップ手順（Supabase・Vercel）
+# セットアップ手順（本番を始める）
 
-コマンドはそのままコピーして貼り付ければ動くように書いています。`（ ）` の部分だけご自身の値に置き換えてください。
+**ブラウザの操作だけで完結します**（パソコンでコマンドを打つ必要はありません）。
 
-## いつ何をやるか
+- キーやパスワードは**チャットやリポジトリに貼らず**、Supabase・GitHub・Vercel の画面に直接入力してください。
+- `（ ）` の部分はご自身の値に置き換えてください。
 
-| タイミング | やること | 所要時間の目安 |
+## 全体の流れ
+
+| 順番 | やること | 目安 |
 |---|---|---|
-| **いま（Phase 0 の承認と一緒に）** | ① Supabase の開発用プロジェクト ② Google ログインの準備 ③ メール送信の準備 | 30〜40分 |
-| Phase 1 の最後（本番デプロイ前） | ④ Supabase の本番用プロジェクト（Pro）⑤ Vercel（Pro）⑥ 最初のオーナーアカウント | 30分 |
+| ① | Supabase の本番プロジェクトを作る | 10分 |
+| ② | Google ログインの準備（おすすめ） | 10分 |
+| ③ | メール送信の準備（管理者を招待するときに必要） | 10分 |
+| ④ | GitHub: 本番用の `main` と、合言葉（Secrets）の登録 | 10分 |
+| ⑤ | データベースを作る（GitHub のボタン） | 5分 |
+| ⑥ | Vercel でアプリを公開する | 10分 |
+| ⑦ | 最初のオーナーを登録する（GitHub のボタン） | 3分 |
+| ⑧ | ログインして名簿を取り込む | 10分 |
 
-キーやパスワードは**チャットやリポジトリに貼らず**、Supabase・Vercel の画面に直接入力してください。こちらで必要な値は、その都度お知らせします。
+②・③ は後回しにもできます。そのときは、⑦で **Supabase に登録したのと同じメールアドレス** をオーナーにすれば、ログイン画面の「ログイン用のリンクを受け取る」でログインできます。Supabase 標準のメールは、Supabase の組織のメンバー宛てにだけ、1時間に数通まで送れます。
 
 ---
 
-## ① Supabase の開発用プロジェクト（無料）
+## ① Supabase の本番プロジェクト（Pro）
 
-1. https://supabase.com/dashboard を開き、GitHub アカウントなどでサインアップ
-2. **組織（Organization）を作る**: 名前 `NICOLY 開発`、プラン **Free**
-   - 本番用（Pro）とは**別の組織**にします。Pro の組織に開発用プロジェクトを作ると、その分の料金が追加でかかるためです。
-3. **New project**
-   - Name: `nicoly-crm-dev`
-   - Database Password: 「Generate a password」で作り、パスワード管理アプリなどに保存
+1. https://supabase.com/dashboard/organizations で組織を作る（すでにあればそれを使う）
+   - 名前 `NICOLY`、プラン **Pro**（月 $25。日次バックアップ付き）
+2. **New project**
+   - Name: `nicoly-crm`
+   - Database Password: 「Generate a password」で作り、**パスワード管理アプリなどに保存**（④で使います）
    - Region: **Northeast Asia (Tokyo)**
-4. 作成後、左メニュー **Authentication → Sign In / Providers**
+3. 左メニュー **Authentication → Sign In / Providers**
    - **Allow new users to sign up** を **オフ**（招待制にするため）
    - **Email** は有効のまま
-5. **Authentication → URL Configuration**
-   - Site URL: `http://localhost:3000`
-   - Redirect URLs に追加: `http://localhost:3000/auth/callback`
-6. **Authentication → Emails → Templates → Magic Link** を ④ の 4 と同じように変更する
-7. **Project Settings → API Keys** で次の3つを控える（あとで `.env.local` と Vercel に入れます）
-   - Project URL（`https://（英数字）.supabase.co`）
-   - Publishable key（`sb_publishable_` で始まる）
-   - Secret key（`sb_secret_` で始まる。**秘密**。人に送らない）
+4. **Authentication → URL Configuration**
+   - Site URL: `https://nicoly-crm.vercel.app`
+   - Redirect URLs に追加: `https://nicoly-crm.vercel.app/auth/callback`
+   - ⑥ で URL が違うものになった場合は、ここを書き換えます
+5. **Authentication → Emails → Templates → Magic Link**（ログイン用メールを日本語にし、別の端末で開いてもログインできるリンクにする）
+   - Subject: `NICOLY CRM ログイン用リンク`
+   - Message body: GitHub のリポジトリで `supabase/templates/magic_link.html` を開き、右上のコピーボタンでコピーして貼り付け
+6. 次の値を控える（④・⑥ で使います）
 
-## ② Google ログインの準備
+| 値 | 場所 |
+|---|---|
+| プロジェクトの英数字（Project ID） | **Project Settings → General** |
+| Project URL | `https://（プロジェクトの英数字）.supabase.co` |
+| Publishable key（`sb_publishable_` で始まる） | **Project Settings → API Keys** |
+| Secret key（`sb_secret_` で始まる。**秘密**） | **Project Settings → API Keys** |
+| データベースのパスワード | 2 で保存したもの（忘れたら **Project Settings → Database → Reset database password**） |
+
+7. アクセストークンを作る: https://supabase.com/dashboard/account/tokens → **Generate new token** → 名前 `github`
+   - 表示された `sbp_` で始まる値を控えます（一度しか表示されません。**秘密**）
+
+## ② Google ログインの準備（おすすめ）
 
 1. https://console.cloud.google.com/ を開き、上部のプロジェクト選択 →「新しいプロジェクト」→ 名前 `nicoly-crm`
 2. 左メニュー **APIとサービス → OAuth 同意画面**（「Google Auth Platform」と表示される場合もあります）
@@ -43,14 +62,12 @@
    - 公開ステータスは「本番環境」に変更（メール・名前だけを使うので Google の審査は不要です）
 3. **認証情報（クライアント）→ 認証情報を作成 → OAuth クライアント ID**
    - アプリケーションの種類: **ウェブ アプリケーション**
-   - 承認済みのリダイレクト URI: `https://（SupabaseのProject URLの英数字部分）.supabase.co/auth/v1/callback`
+   - 承認済みのリダイレクト URI: `https://（プロジェクトの英数字）.supabase.co/auth/v1/callback`
 4. 表示された **クライアント ID** と **クライアント シークレット** を、Supabase の **Authentication → Sign In / Providers → Google** に貼り付けて有効化
-
-本番用プロジェクトを作ったら、同じ Google の OAuth クライアントに本番用のリダイレクト URI も追加します（④で案内します）。
 
 ## ③ メール送信の準備（招待メール・ログインリンク用）
 
-Supabase 標準のメール送信は「プロジェクトのメンバー宛てにしか送れない・1時間に2通まで」の制限があり、実運用では使えません。次のどちらかを設定します（どちらも無料の範囲で足ります）。
+Supabase 標準のメール送信は「組織のメンバー宛てにしか送れない・1時間に数通まで」の制限があり、管理者の招待には使えません。次のどちらかを設定します（どちらも無料の範囲で足ります）。
 
 | | A. 会社のドメインがある（例: `@nicoly.co.jp`） | B. ドメインがない |
 |---|---|---|
@@ -58,77 +75,109 @@ Supabase 標準のメール送信は「プロジェクトのメンバー宛て�
 | 準備 | Resend に登録 → ドメインを追加し、表示される DNS 設定をドメイン管理画面に追加 → SMTP 用の API キーを作成 | 送信用の Gmail で2段階認証をオン → https://myaccount.google.com/apppasswords でアプリパスワードを作成 |
 | Supabase の設定（**Authentication → Emails → SMTP Settings**） | Host `smtp.resend.com` / Port `465` / User `resend` / Password（API キー）/ 送信元 `noreply@（ドメイン）` | Host `smtp.gmail.com` / Port `465` / User（Gmail アドレス）/ Password（アプリパスワード）/ 送信元（同じ Gmail アドレス） |
 
-> ログインは Google アカウントだけでもできます。全員が Google アカウントでログインするなら③は後回しでも構いません（ただし招待メールの送信には③が必要です）。
+> 全員が Google アカウントでログインするなら、③は後回しでも構いません（ただし招待メールの送信には③が必要です）。
 
----
+## ④ GitHub（本番用の main と合言葉）
 
-## ④ Supabase の本番用プロジェクト（Pro）
+https://github.com/Beekon963/nicolyCRM を開いて操作します。
 
-1. 新しい組織: 名前 `NICOLY`、プラン **Pro**（月 $25。日次バックアップ付き）
-2. New project: Name `nicoly-crm`、Region **Northeast Asia (Tokyo)**
-3. ①の 4〜6、②の 3〜4、③ と同じ設定をする。ただし URL は本番のもの
-   - Site URL: `https://（Vercel の URL）`
-   - Redirect URLs: `https://（Vercel の URL）/auth/callback`
-   - Google の OAuth クライアントに `https://（本番の英数字）.supabase.co/auth/v1/callback` を追加
-4. **Authentication → Emails → Templates → Magic Link** を次のように変更（ログイン用メールを日本語にし、別の端末で開いてもログインできるリンクにする）
-   - Subject: `NICOLY CRM ログイン用リンク`
-   - Message body: リポジトリの `supabase/templates/magic_link.html` の中身をそのまま貼り付け
-5. DB を作る（パソコンのターミナルで、このリポジトリのフォルダから）
+1. **本番用の `main` を作る**
+   - ファイル一覧の上にあるブランチ名のボタン（`claude/nicoly-crm-requirements-2zdjuu`）→ **View all branches** → **New branch**
+   - Name: `main`、Source: `claude/nicoly-crm-requirements-2zdjuu` → **Create new branch**
+2. **`main` を既定にする**: **Settings → General → Default branch** の ⇄ ボタン → `main` → **Update**（確認が出たら了承）
+   - これで、`main` に入ったものだけが本番に出ます。今後の変更はこちらで「プルリクエスト」を作るので、内容を確認して **Merge** してください
+3. **合言葉（Secrets）を登録する**: **Settings → Secrets and variables → Actions → New repository secret** を4回
 
-```bash
-npx supabase login
-npx supabase link --project-ref （本番の英数字）
-npx supabase db push
-```
+| Name | Secret |
+|---|---|
+| `SUPABASE_PROJECT_REF` | プロジェクトの英数字 |
+| `SUPABASE_DB_PASSWORD` | データベースのパスワード |
+| `SUPABASE_ACCESS_TOKEN` | アクセストークン（`sbp_` で始まる） |
+| `SUPABASE_SECRET_KEY` | Secret key（`sb_secret_` で始まる） |
 
-> 開発用プロジェクト（①）にも同じ手順で DB を作れます。開発用にだけダミーデータを入れる場合は、
-> `npx supabase link --project-ref （開発用の英数字）` のあとに
-> `npm run db:seed:generate && npx supabase db reset --linked` を実行します（**本番では絶対に実行しないでください。データが消えます**）。
+登録した値は、GitHub の画面でも見えなくなります。⑤・⑦ のボタンを押したときだけ使われます。
 
-## ⑤ Vercel（Pro）
+## ⑤ データベースを作る（GitHub のボタン）
 
-1. https://vercel.com/ に GitHub アカウントでサインアップし、**Pro** プランのチームを作る（月 $20。商用利用は Pro が必要）
-2. 先に GitHub で、本番に出すブランチを `main` にしておく
-   - リポジトリの **Settings → General → Default branch** の ⇄ ボタン → `main` → **Update**
-   - 開発は別のブランチで進め、「プルリクエスト」を **Merge** したものだけが本番に出ます
-3. **Add New… → Project → Import Git Repository** で `Beekon963/nicolyCRM` を選ぶ（Project Name は `nicoly-crm` がおすすめ。URL が `https://nicoly-crm.vercel.app` になります）
-4. **Environment Variables** に次を入れる
+1. リポジトリの **Actions** タブ → 左の一覧から **本番のデータベースを更新** → 右の **Run workflow**
+   - Use workflow from: `main`
+   - 何をするか: **確認だけ（反映しない）**
+   - **Run workflow** を押す
+2. 1〜2分で緑のチェック（✓）が付きます。開くと「反映される変更の一覧」に `20261006000001_base.sql` などが並んでいます（この時点では本番は変わっていません）
+3. もう一度 **Run workflow** → 何をするか: **本番に反映する** → **Run workflow**。緑のチェックが付けば完了です
+
+- 赤い ✕ が付いたときは、開いてエラーの文を確認してください（Secrets の入れ忘れ・打ち間違いが多いです）。分からなければ画面の写真を送ってください
+- 今後、機能の追加でデータベースが変わるときは、こちらからお知らせします。同じ手順（確認だけ → 本番に反映する）で反映してください
+- ダミーデータは入りません
+
+## ⑥ Vercel（Pro）
+
+④の 2（`main` を既定にする）を先に済ませてください。Vercel は既定のブランチを本番として公開します。
+
+1. https://vercel.com/ で **Pro** プランのチームを使う（月 $20。商用利用は Pro が必要）
+2. **Add New… → Project → Import Git Repository** で `Beekon963/nicolyCRM` を選ぶ
+   - Project Name: `nicoly-crm`（URL が `https://nicoly-crm.vercel.app` になります）
+3. **Environment Variables** に次を入れる
 
 | 名前 | 値 |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | 本番の Project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 本番の Publishable key |
-| `SUPABASE_SECRET_KEY` | 本番の Secret key |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL（`https://（プロジェクトの英数字）.supabase.co`） |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key |
+| `SUPABASE_SECRET_KEY` | Secret key |
 
-5. **Deploy**。関数のリージョンはリポジトリの `vercel.json` で東京（`hnd1`）に固定済みです。
-   - アプリの URL（`https://（プロジェクト名）.vercel.app`）は自動で使われます。独自ドメインを使う場合だけ、`NEXT_PUBLIC_SITE_URL` に `https://（独自ドメイン）` を入れて再デプロイしてください。
+4. **Deploy**。関数のリージョンはリポジトリの `vercel.json` で東京（`hnd1`）に固定済みです
+   - 公開後の URL が `https://nicoly-crm.vercel.app` でなかった場合は、① の 4 の URL をその URL に書き換えてください
+   - 独自ドメインを使う場合だけ、`NEXT_PUBLIC_SITE_URL` に `https://（独自ドメイン）` を入れて再デプロイしてください
 
-## ⑥ 最初のオーナーアカウント
+## ⑦ 最初のオーナーを登録する（GitHub のボタン）
 
-パソコンのターミナルで、このリポジトリのフォルダから実行します。
+1. **Actions** タブ → **オーナーを登録** → **Run workflow**
+   - Use workflow from: `main`
+   - メールアドレス: ログインに使うアドレス（Google でログインするなら、その Google アカウントのアドレス）
+   - 名前: `森部 太陽`
+   - **Run workflow** を押す
+2. 緑のチェックが付けば完了です（同じメールアドレスで何度実行しても大丈夫です）
 
-1. 本番の接続先を書いたファイル `.env.production.local` を作る（コミットされません）
+## ⑧ ログインして名簿を取り込む
 
-```bash
-cat > .env.production.local <<'ENV'
-NEXT_PUBLIC_SUPABASE_URL=https://（本番の英数字）.supabase.co
-SUPABASE_SECRET_KEY=（本番の Secret key）
-ENV
-```
-
-2. オーナーを登録する（メールアドレスは Google アカウントのアドレス）
-
-```bash
-node --env-file=.env.production.local scripts/create-owner.mts （メールアドレス） "森部 太陽"
-```
-
-3. アプリの URL を開き、「Google でログイン」でログインできれば完了です。以降の管理者の招待は、アプリの「設定 → ユーザー」から行えます。
+1. `https://nicoly-crm.vercel.app` を開き、「Google でログイン」（または「ログイン用のリンクを受け取る」）でログインする
+2. 名簿を取り込む: [manual_admin.md](manual_admin.md) の「7. データ取り込み」を参照
+3. 管理者の招待は「設定 → ユーザー」から行えます（③ が必要です）
 
 ---
 
-## 開発用パソコンでの起動（必要な場合だけ）
+## 付録A: パソコンのコマンドで ⑤・⑦ を行う場合
 
-普段の開発はこちらで行うため、必須ではありません。手元で動かしたい場合:
+Node.js 22.18 以上と、このリポジトリのコピーが必要です。
+
+```bash
+git clone https://github.com/Beekon963/nicolyCRM.git
+cd nicolyCRM
+npm install
+npx supabase login
+npx supabase link --project-ref （プロジェクトの英数字）
+npx supabase db push
+```
+
+オーナーの登録:
+
+```bash
+cat > .env.production.local <<'ENV'
+NEXT_PUBLIC_SUPABASE_URL=https://（プロジェクトの英数字）.supabase.co
+SUPABASE_SECRET_KEY=（Secret key）
+ENV
+node --env-file=.env.production.local scripts/create-owner.mts （メールアドレス） "森部 太陽"
+```
+
+## 付録B: 開発用の Supabase プロジェクト（任意）
+
+普段の開発はこちらの環境で行うため、必須ではありません。ダミーデータで試す場所がほしい場合だけ作ります。
+
+1. 本番とは**別の組織**（プラン **Free**）に、`nicoly-crm-dev` を Tokyo で作る（Pro の組織に作ると料金が追加でかかるため）
+2. ① の 3〜5 と同じ設定をする。ただし URL は `http://localhost:3000` と `http://localhost:3000/auth/callback`
+3. 付録A と同じ手順でつなぎ、ダミーデータを入れる場合は `npm run db:seed:generate && npx supabase db reset --linked`（**本番では絶対に実行しないでください。データが消えます**）
+
+## 付録C: 開発用パソコンでの起動
 
 ```bash
 git clone https://github.com/Beekon963/nicolyCRM.git
@@ -150,6 +199,7 @@ npm run dev           # http://localhost:3000 を開く
 |---|---|---|
 | Vercel | Pro | 約 $20 |
 | Supabase（本番） | Pro | 約 $25 |
-| Supabase（開発） | Free | 0円 |
+| Supabase（開発用。作る場合） | Free | 0円 |
 | メール送信（Resend / Gmail） | 無料枠 | 0円 |
+| GitHub（ボタンの実行） | 無料枠 | 0円 |
 | 合計 | | 約 $45（7,000円前後） |

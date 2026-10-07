@@ -1,5 +1,5 @@
 /**
- * 最初のオーナーアカウントを作る（docs/setup.md ⑥）。
+ * 最初のオーナーアカウントを作る（docs/setup.md ⑦ の GitHub のボタンからも、付録A のコマンドからも使う）。
  *
  *   node --env-file=.env.production.local scripts/create-owner.mts you@example.com "森部 太陽"
  *

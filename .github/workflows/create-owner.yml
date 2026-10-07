@@ -1,0 +1,50 @@
+# 最初のオーナーを登録する（docs/setup.md ⑦）。GitHub の「Actions」タブから手動で動かす。
+# 中身は scripts/create-owner.mts と同じ。すでにいるユーザーならオーナーとして登録し直す。
+name: オーナーを登録
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: ログインに使うメールアドレス（Google アカウントのアドレス）
+        required: true
+      name:
+        description: 名前（例 山田 太郎）
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    name: オーナーを登録
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      OWNER_EMAIL: ${{ inputs.email }}
+      OWNER_NAME: ${{ inputs.name }}
+    steps:
+      - name: 設定の確認
+        run: |
+          echo "::add-mask::$OWNER_EMAIL"
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::「Use workflow from」で main を選んで実行してください"
+            exit 1
+          fi
+          missing=""
+          for v in SUPABASE_PROJECT_REF SUPABASE_SECRET_KEY; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::GitHub の Secrets に次の値が入っていません:$missing（docs/setup.md ④ を参照）"
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 登録
+        run: NEXT_PUBLIC_SUPABASE_URL="https://${SUPABASE_PROJECT_REF}.supabase.co" node scripts/create-owner.mts "$OWNER_EMAIL" "$OWNER_NAME"
