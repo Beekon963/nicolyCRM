@@ -15,6 +15,11 @@ on:
 permissions:
   contents: read
 
+# 途中のコマンドが失敗したら止める（パイプの途中の失敗も含む）
+defaults:
+  run:
+    shell: bash
+
 jobs:
   create:
     name: オーナーを登録
