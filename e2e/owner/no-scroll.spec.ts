@@ -47,6 +47,8 @@ test("全画面がスマホ幅 375px で横スクロールしない", async ({ p
     "/sales/new",
     `/sales/${ids.company}`,
     `/sales/${ids.company}/edit`,
+    "/settings/money",
+    "/settings/targets",
     "/venues",
     "/venues/new",
     `/venues/${ids.venue}`,

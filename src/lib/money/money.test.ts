@@ -206,3 +206,19 @@ describe("粗利", () => {
     expect(grossProfit({ invoiceSubtotal: 85000, billedTransport: 2000, reward: 44000, unbilledExpenses: 1000, taxRatePercent: 10 })).toBe(85000 - 2000 - 40000 - 1000);
   });
 });
+
+describe("金額の表示と入力", async () => {
+  const { formatYen, parseYen } = await import("./format");
+  it("表示は3桁区切りに「円」", () => {
+    expect(formatYen(25000)).toBe("25,000円");
+    expect(formatYen(-3000)).toBe("−3,000円");
+    expect(formatYen(null)).toBe("−");
+  });
+  it("入力は全角・カンマ・「円」付きでも読む。空は null、数字でなければ NaN", () => {
+    expect(parseYen("25,000")).toBe(25000);
+    expect(parseYen("２５０００円")).toBe(25000);
+    expect(parseYen("")).toBeNull();
+    expect(parseYen("abc")).toBeNaN();
+    expect(parseYen("1.5")).toBeNaN();
+  });
+});

@@ -16,9 +16,13 @@ import { formatTime, formatTimeRange } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 import { AssignmentPanel, type PanelAssignment } from "./assignment-panel";
 import { EventActions } from "./event-actions";
+import { EventMoneySection } from "./event-money";
+import { loadEventMoney } from "./event-money-data";
 
-export async function EventDetailView({ detail, masters, back }: { detail: Detail; masters: Masters; back: string }) {
+export async function EventDetailView({ detail, masters, back, isOwner = false }: { detail: Detail; masters: Masters; back: string; isOwner?: boolean }) {
   const { event: e, venue, requirements, assignments } = detail;
+  // ★ お金はオーナーのときだけ取りに行く（管理者には渡さない）
+  const money = isOwner ? await loadEventMoney(e.id!, e.client_id!, e.venue_id!, masters) : null;
   const supabase = await createClient();
   const { data: templates } = await supabase.from("message_templates").select("kind, body");
   const tpl = (k: string) => templates?.find((t) => t.kind === k)?.body ?? "";
@@ -174,6 +178,11 @@ export async function EventDetailView({ detail, masters, back }: { detail: Detai
             報告済み {panel.filter((a) => a.status === "confirmed" && a.reported).length}/{panel.filter((a) => a.status === "confirmed").length}人、
             未確定 {e.unconfirmed_result_count}人
           </p>
+        </Section>
+      )}
+      {money && (
+        <Section title="単価（この現場だけ・オーナーのみ）" className="border-primary/30">
+          <EventMoneySection eventId={e.id!} money={money.view} rates={money.rates} incentives={money.incentives} daily={money.daily} />
         </Section>
       )}
     </div>
