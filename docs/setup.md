@@ -50,7 +50,10 @@
 | Secret key（`sb_secret_` で始まる。**秘密**） | **Project Settings → API Keys** |
 | データベースのパスワード | 2 で保存したもの（忘れたら **Project Settings → Database → Reset database password**） |
 
-7. アクセストークンを作る: https://supabase.com/dashboard/account/tokens → **Generate new token** → 名前 `github`
+7. アクセストークンを作る: https://supabase.com/dashboard/account/tokens → **Generate new token**
+   - Name: `github`、Expires in: いちばん長いもの（`Never` があればそれ）
+   - Resource access: **Project** → このプロジェクトだけを選ぶ（「Create legacy token」は使わない）
+   - Permissions: Project **Read** / Database **Read and write** / Application services **Read** / Infrastructure and delivery **Read** / Account and organization **No access**
    - 表示された `sbp_` で始まる値を控えます（一度しか表示されません。**秘密**）
 
 ## ② Google ログインの準備（おすすめ）
@@ -95,7 +98,8 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 | `SUPABASE_ACCESS_TOKEN` | アクセストークン（`sbp_` で始まる） |
 | `SUPABASE_SECRET_KEY` | Secret key（`sb_secret_` で始まる） |
 
-登録した値は、GitHub の画面でも見えなくなります。⑤・⑦ のボタンを押したときだけ使われます。
+- 値は Supabase のコピーボタンでコピーして貼ってください。チャットやメモからコピーすると、最後に改行が入って失敗することがあります
+- 登録した値は、GitHub の画面でも見えなくなります。⑤・⑦ のボタンを押したときだけ使われます
 
 ## ⑤ データベースを作る（GitHub のボタン）
 
@@ -124,6 +128,10 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL（`https://（プロジェクトの英数字）.supabase.co`） |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key |
 | `SUPABASE_SECRET_KEY` | Secret key |
+
+   - 種類は、`NEXT_PUBLIC_` で始まる2つを **Config**、`SUPABASE_SECRET_KEY` を **Secret** にします（`NEXT_PUBLIC_` の2つは画面で使う公開用の値です。種類はあとから変えられないので、間違えたら消して入れ直します）
+   - Environments は Production・Preview・Development の全部
+   - 取り込みのときに入れ忘れた場合は、プロジェクトの **Settings → Environment Variables** で入れてから、**Deployments** のいちばん上の行の「…」→ **Redeploy** で公開し直します（入れただけでは反映されません。入っていないと「Internal Server Error」になります）
 
 4. **Deploy**。関数のリージョンはリポジトリの `vercel.json` で東京（`hnd1`）に固定済みです
    - 公開後の URL が `https://nicoly-crm.vercel.app` でなかった場合は、① の 4 の URL をその URL に書き換えてください
