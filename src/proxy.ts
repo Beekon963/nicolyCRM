@@ -7,7 +7,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * - ログインしていない人が管理画面を開いたらログイン画面へ移す（本当の防御は RLS）
  * - マイページ・見るだけリンクは URL の鍵が漏れないよう Referrer を送らない・キャッシュしない
  */
-const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/s/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
+// /api/cron/ は Cron 用（中で CRON_SECRET を確かめる）
+const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/s/", "/api/cron/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

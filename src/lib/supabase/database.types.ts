@@ -799,6 +799,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"sheet_exports": {
+                  Row: {
+                    "id": number,"message": string,"ok": boolean,"ran_at": string,"source": string
+                  }
+                  Insert: {
+                    "id"?: never,"message"?: string,"ok": boolean,"ran_at"?: string,"source": string
+                  }
+                  Update: {
+                    "id"?: never,"message"?: string,"ok"?: boolean,"ran_at"?: string,"source"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"staff": {
                   Row: {
                     "created_at": string,"id": string,"kana": string,"line_name": string,"line_user_id": string | null,"memo": string,"mypage_token": string,"name": string,"nearest_station": string,"phone": string,"phone_digits": string | null,"rank_id": string | null,"search_text": string | null,"status": Database["public"]['Enums']["staff_status"],"token_rotated_at": string | null,"updated_at": string
@@ -993,7 +1006,13 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "company_key":
+            "board_json":
+{ Args: { "m_end": string,"m_start": string }; Returns: Json
+                           },
+"board_snapshot":
+{ Args: { "p_month": string }; Returns: Json
+                           },
+"company_key":
 { Args: { "t": string }; Returns: string
                            },
 "digits_only":

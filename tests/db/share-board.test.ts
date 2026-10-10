@@ -64,3 +64,31 @@ describe("見るだけリンクで読める内容", () => {
     expect(stopped.error).toBe("invalid_token");
   });
 });
+
+describe("スプレッドシートへの書き出し用", () => {
+  it("board_snapshot・board_json は秘密キー（service_role）だけが実行できる（ログインした人・anon は不可）", async () => {
+    const can = await asAdmin(async (c) =>
+      (
+        await c.query(`select r.rolname, p.proname, has_function_privilege(r.rolname, p.oid, 'execute') as ok
+                         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                         cross join (values ('anon'), ('authenticated'), ('service_role')) r(rolname)
+                        where n.nspname = 'public' and p.proname in ('board_snapshot', 'board_json') order by 2, 1`)
+      ).rows,
+    );
+    expect(can).toEqual([
+      { rolname: "anon", proname: "board_json", ok: false },
+      { rolname: "authenticated", proname: "board_json", ok: false },
+      { rolname: "service_role", proname: "board_json", ok: true },
+      { rolname: "anon", proname: "board_snapshot", ok: false },
+      { rolname: "authenticated", proname: "board_snapshot", ok: false },
+      { rolname: "service_role", proname: "board_snapshot", ok: true },
+    ]);
+  });
+
+  it("書き出しの記録は管理者が読めるが、書けない", async () => {
+    await asRole("manager", async (c) => {
+      await c.query(`select * from public.sheet_exports`);
+      await expect(c.query(`insert into public.sheet_exports (ok, source) values (true, 'button')`)).rejects.toThrow(/row-level security/);
+    });
+  });
+});
