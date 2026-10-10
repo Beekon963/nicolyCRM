@@ -786,6 +786,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"share_links": {
+                  Row: {
+                    "is_active": boolean,"kind": string,"rotated_at": string,"token": string,"updated_by": string | null
+                  }
+                  Insert: {
+                    "is_active"?: boolean,"kind": string,"rotated_at"?: string,"token"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "is_active"?: boolean,"kind"?: string,"rotated_at"?: string,"token"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"staff": {
                   Row: {
                     "created_at": string,"id": string,"kana": string,"line_name": string,"line_user_id": string | null,"memo": string,"mypage_token": string,"name": string,"nearest_station": string,"phone": string,"phone_digits": string | null,"rank_id": string | null,"search_text": string | null,"status": Database["public"]['Enums']["staff_status"],"token_rotated_at": string | null,"updated_at": string
@@ -1058,6 +1071,9 @@ isOneToOne: false
                            },
 "setting_int":
 { Args: { "p_default": number,"p_key": string }; Returns: number
+                           },
+"share_board":
+{ Args: { "p_month": string,"p_token": string }; Returns: Json
                            },
 "staff_avg_confirmed":
 { Args: { "p_since": string }; Returns: {

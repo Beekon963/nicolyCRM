@@ -5,22 +5,29 @@ import { Button } from "@/components/ui/button";
 import { requireMember } from "@/lib/auth";
 import { addDays, monthOf, nextMonth, parse, todayJst } from "@/lib/date";
 import { loadBoard } from "@/lib/data/board";
+import { siteUrl } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
 import { EventsViewTabs } from "../view-tabs";
 import { BoardScreen } from "./board-screen";
+import { ShareLink } from "./share-link";
 
 export const metadata = { title: "稼働表 | NICOLY CRM" };
 
 export default async function BoardPage({ searchParams }: PageProps<"/events/board">) {
-  await requireMember();
+  const me = await requireMember();
   const sp = await searchParams;
   const raw = typeof sp.month === "string" ? sp.month : "";
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : monthOf(todayJst());
-  const data = await loadBoard(month);
+  const supabase = await createClient();
+  const [data, { data: share }] = await Promise.all([loadBoard(month), supabase.from("share_links").select("token, is_active").eq("kind", "board").maybeSingle()]);
   const { y, m } = parse(`${month}-01`);
 
   return (
     <>
-      <PageHeader title="稼働表" />
+      <PageHeader
+        title="稼働表"
+        actions={<ShareLink link={share ? { url: `${siteUrl()}/s/${share.token}`, active: share.is_active } : null} isOwner={me.role === "owner"} />}
+      />
       <EventsViewTabs current="board" month={month} />
       <div className="flex items-center justify-between px-4 pb-2">
         <Button asChild variant="ghost" size="sm">
