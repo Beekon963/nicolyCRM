@@ -16,6 +16,7 @@ const PAGES = [
   "/sales?kind=partner",
   "/events",
   "/events?view=calendar",
+  "/events/board",
   "/events/new",
   "/events/bulk",
   "/availability",

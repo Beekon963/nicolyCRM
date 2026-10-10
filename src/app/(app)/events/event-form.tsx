@@ -25,6 +25,7 @@ export type EventFormInitial = EventInput & { id?: string; date: string };
 export function EventForm({
   mode,
   initial,
+  defaults,
   clients,
   venues,
   roles,
@@ -32,6 +33,8 @@ export function EventForm({
 }: {
   mode: "single" | "bulk" | "edit";
   initial?: EventFormInitial;
+  /** 稼働表の空いたマスから作るときの初期値 */
+  defaults?: { date?: string; client_id?: string };
   clients: Opt[];
   venues: Opt[];
   roles: Opt[];
@@ -41,7 +44,7 @@ export function EventForm({
   const today = todayJst();
   const [form, setForm] = useState<EventInput>(
     initial ?? {
-      client_id: "",
+      client_id: defaults?.client_id ?? "",
       venue_id: "",
       start_time: "10:00",
       end_time: "19:00",
@@ -52,7 +55,7 @@ export function EventForm({
       requirements: roles.map((r, i) => ({ role_id: r.id, required_count: i === 0 ? 1 : 0 })),
     },
   );
-  const [date, setDate] = useState(initial?.date ?? addDays(today, 1));
+  const [date, setDate] = useState(initial?.date ?? defaults?.date ?? addDays(today, 1));
   const presets = presetRanges(today);
   const [range, setRange] = useState({ from: presets[0].from, to: presets[0].to, weekdays: presets[0].weekdays as Weekday[] });
   const [excluded, setExcluded] = useState<string[]>([]);
