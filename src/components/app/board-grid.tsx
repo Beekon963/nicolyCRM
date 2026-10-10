@@ -6,7 +6,7 @@ import { AVAILABILITY_MARK, type Board, type BoardDay, type BoardEventChip, type
 import { cn } from "@/lib/utils";
 
 /** 日付の列の幅（会場名が長くても広がらないように固定） */
-const DAY_W = "w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem]";
+const DAY_W = "w-[5.5rem] min-w-[5.5rem] max-w-[5.5rem] md:w-[7rem] md:min-w-[7rem] md:max-w-[7rem]";
 
 /**
  * 稼働表の表（今の月のスプレッドシートと同じ並び）。管理画面と「見るだけリンク」で共通。
@@ -165,7 +165,7 @@ function EventChip({ e }: { e: BoardEventChip }) {
       )}
       title={e.venueName}
     >
-      <span className="truncate">{e.venueName}</span>
+      <span className="line-clamp-2 break-all">{e.venueName}</span>
       <span className="font-bold">
         {e.cancelled ? "中止" : `${e.confirmed}/${e.required}`}
         {e.offered > 0 && !e.cancelled && <span className="ml-1 font-normal text-status-waiting">打{e.offered}</span>}
@@ -182,7 +182,7 @@ function StaffCellView({ cell }: { cell: BoardStaffCell | undefined }) {
         key={a.id}
         title={`${a.venueName}（${a.clientName}）`}
         className={cn(
-          "truncate rounded px-1 leading-snug",
+          "line-clamp-2 rounded px-1 leading-snug break-all",
           a.status === "confirmed" && "bg-status-done-bg text-status-done",
           a.status === "offered" && "bg-status-waiting-bg text-status-waiting",
           a.status === "waitlisted" && "bg-muted text-muted-foreground",
