@@ -118,7 +118,7 @@ export async function EventDetailView({ detail, masters, back }: { detail: Detai
       </Section>
 
       <Section title="アサイン">
-        <AssignmentPanel assignments={panel} isPast={isPast} isTomorrowOrToday={isTomorrowOrToday} overCapacityRoles={overCapacity} />
+        <AssignmentPanel assignments={panel} isPast={isPast} isTomorrowOrToday={isTomorrowOrToday} overCapacityRoles={overCapacity} recordOnly={e.report_required === false} />
       </Section>
 
       <Section title="現場の情報">

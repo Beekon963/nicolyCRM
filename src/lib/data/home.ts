@@ -38,7 +38,8 @@ export async function getHomeData() {
       .eq("status", "confirmed")
       .lt("event.date", today)
       .gte("event.date", addDays(today, -30))
-      .is("event.cancelled_at", null),
+      .is("event.cancelled_at", null)
+      .eq("event.report_required", true),
     supabase.from("expenses").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("staff").select("id", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("availability_submissions").select("staff_id, staff:staff!inner(status)").eq("month", `${next}-01`).not("submitted_at", "is", null).eq("staff.status", "active"),

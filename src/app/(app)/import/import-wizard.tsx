@@ -13,11 +13,13 @@ import { autoMap, IGNORED_HEADERS, mapRow, TARGETS, type ImportTarget } from "@/
 import type { PreviewRow } from "@/lib/import/validate";
 import { cn } from "@/lib/utils";
 import { previewImport, runImport, type ImportReport } from "./actions";
+import { MonthSheetImport } from "./month-sheet-import";
 
 type Step = "target" | "file" | "map" | "preview" | "done";
 
-export function ImportWizard() {
+export function ImportWizard({ roles }: { roles: { id: string; name: string }[] }) {
   const [step, setStep] = useState<Step>("target");
+  const [monthSheet, setMonthSheet] = useState(false);
   const [target, setTarget] = useState<ImportTarget>("staff");
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
@@ -43,6 +45,15 @@ export function ImportWizard() {
   const ok = preview.filter((p) => !p.errors.length && p.inFileDuplicateOf == null && (!p.duplicate || overwrite.includes(p.index)));
   const errorCount = preview.filter((p) => p.errors.length).length;
   const dupCount = preview.filter((p) => p.duplicate).length;
+
+  if (monthSheet) {
+    return (
+      <div className="flex flex-col gap-4 px-4 pb-8">
+        <h2 className="text-lg font-bold">月の稼働表（今のスプレッドシート）</h2>
+        <MonthSheetImport roles={roles} onBack={() => setMonthSheet(false)} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-8">
@@ -70,6 +81,14 @@ export function ImportWizard() {
               <span className="text-sm text-muted-foreground">{TARGETS[t].dupHelp}</span>
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setMonthSheet(true)}
+            className="flex min-h-16 flex-col items-start justify-center rounded-lg border p-4 text-left hover:bg-accent sm:col-span-2"
+          >
+            <span className="font-bold">月の稼働表（今のスプレッドシート）</span>
+            <span className="text-sm text-muted-foreground">月のシート（202611 など）から、現場・アサイン・稼働可能日・単価をまとめて取り込みます</span>
+          </button>
         </div>
       )}
 

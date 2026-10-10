@@ -458,13 +458,13 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"start_time": string | null,"updated_at": string,"venue_id": string
+                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"report_required": boolean,"start_time": string | null,"updated_at": string,"venue_id": string
                   }
                   Insert: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
                   }
                   Update: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
                   }
                   Relationships: [
                     {
@@ -954,7 +954,7 @@ isOneToOne: false
           Views: {
             "event_overview": {
                   Row: {
-                    "belongings": string | null,"by_role": Json | null,"cancel_reason": string | null,"cancelled_at": string | null,"client_id": string | null,"confirm_notice_pending": number | null,"confirmed_total": number | null,"created_at": string | null,"created_by": string | null,"date": string | null,"end_time": string | null,"group_id": string | null,"id": string | null,"meeting_place": string | null,"meeting_time": string | null,"notes": string | null,"offered_count": number | null,"oldest_offer_at": string | null,"reminder_pending": number | null,"required_total": number | null,"shortage_total": number | null,"start_time": string | null,"status": string | null,"unconfirmed_result_count": number | null,"unreported_count": number | null,"updated_at": string | null,"venue_id": string | null,"waitlisted_count": number | null
+                    "belongings": string | null,"by_role": Json | null,"cancel_reason": string | null,"cancelled_at": string | null,"client_id": string | null,"confirm_notice_pending": number | null,"confirmed_total": number | null,"created_at": string | null,"created_by": string | null,"date": string | null,"end_time": string | null,"group_id": string | null,"id": string | null,"meeting_place": string | null,"meeting_time": string | null,"notes": string | null,"offered_count": number | null,"oldest_offer_at": string | null,"reminder_pending": number | null,"report_required": boolean | null,"required_total": number | null,"shortage_total": number | null,"start_time": string | null,"status": string | null,"unconfirmed_result_count": number | null,"unreported_count": number | null,"updated_at": string | null,"venue_id": string | null,"waitlisted_count": number | null
                   }
                   Relationships: [
                     {
