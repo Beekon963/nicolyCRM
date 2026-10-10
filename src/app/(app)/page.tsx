@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireMember } from "@/lib/auth";
 import { formatShortJa, parse } from "@/lib/date";
+import { RecordActivityButton } from "@/components/app/activity-sheet";
+import { listDueCompanies } from "@/lib/data/companies";
 import { getHomeData, getMonthRanking, type Ranking } from "@/lib/data/home";
 import { formatTimeRange } from "@/lib/templates";
 import { cn } from "@/lib/utils";
@@ -27,7 +29,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const user = await requireMember();
   const sp = await searchParams;
   const basis = sp.basis === "reported" ? "reported" : "confirmed";
-  const [d, ranking] = await Promise.all([getHomeData(), getMonthRanking(basis)]);
+  const [d, ranking, due] = await Promise.all([getHomeData(), getMonthRanking(basis), listDueCompanies()]);
   const overdueOffers = d.offers.filter((o) => o.overdue);
   const todo =
     d.shortages.length + d.offers.length + d.unreported.length + d.pendingExpenses + d.reminderPending.length + (d.availability.missing > 0 ? 1 : 0);
@@ -157,10 +159,53 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         </CardContent>
       </Card>
 
+      {/* 3. 今日やること（営業）: 次回アクション日が今日以前の会社。期限切れは赤 */}
+      <Card className={cn("mx-4", due.some((c) => c.next_action_date! < d.today) && "border-status-alert/40")}>
+        <CardHeader>
+          <CardTitle>今日やること（営業）</CardTitle>
+          <Link href="/sales?next=due" className="text-sm text-primary">
+            営業へ
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {due.length === 0 ? (
+            <p className="text-muted-foreground">今日の予定はありません。会社に連絡したら「記録する」で次回アクション日を決めておくと、その日にここに出ます。</p>
+          ) : (
+            <ul className="divide-y">
+              {due.slice(0, 10).map((c) => {
+                const overdue = c.next_action_date! < d.today;
+                return (
+                  <li key={c.id} className="flex items-center gap-1">
+                    <Link href={`/sales/${c.id}`} className={cn("flex min-h-12 min-w-0 flex-1 flex-col justify-center py-2 hover:bg-accent", overdue && "text-status-alert")}>
+                      <span className="truncate font-medium">{c.name}</span>
+                      <span className={cn("truncate text-sm", !overdue && "text-muted-foreground")}>
+                        {overdue ? `期限切れ ${formatShortJa(c.next_action_date!)}` : "今日"} {c.next_action}
+                        {c.owner && `（担当 ${c.owner.name}）`}
+                      </span>
+                    </Link>
+                    <RecordActivityButton company={c} variant="outline" size="sm" label="記録" />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {due.length > 10 && (
+            <Link href="/sales?next=due" className="text-sm text-primary">
+              ほか {due.length - 10}社を見る
+            </Link>
+          )}
+        </CardContent>
+      </Card>
+
       {/* 5. 実績（今月の獲得件数トップ） */}
       <Card className="mx-4">
         <CardHeader>
-          <CardTitle>今月の獲得件数</CardTitle>
+          <CardTitle>
+            今月の獲得件数
+            <Link href="/analysis" className="ml-2 text-sm font-normal text-primary">
+              くわしく
+            </Link>
+          </CardTitle>
           <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
             {(["confirmed", "reported"] as const).map((b) => (
               <Link key={b} href={b === "confirmed" ? "/" : "/?basis=reported"} className={cn("rounded px-3 py-1.5", basis === b ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}>

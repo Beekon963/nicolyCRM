@@ -6,30 +6,41 @@ import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireMember } from "@/lib/auth";
-import { formatShortJa, todayJst } from "@/lib/date";
-import { getCompanyDetail, listCompanies, needsNextAction } from "@/lib/data/companies";
+import { RecordActivityButton } from "@/components/app/activity-sheet";
+import { formatShortJa, formatTimeJst, toJstDateString, todayJst } from "@/lib/date";
+import { COMPANY_FILTER_KEYS, getCompanyDetail, listActiveUsers, listCompanies } from "@/lib/data/companies";
 import { getMasters } from "@/lib/data/masters";
-import { COMPANY_KIND, COMPANY_STATUS, EVENT_STATUS, PRIORITY } from "@/lib/labels";
+import { ACTIVITY_KIND, ACTIVITY_RESULT, COMPANY_KIND, COMPANY_STATUS, EVENT_STATUS, PRIORITY } from "@/lib/labels";
+import { isNextActionMissing } from "@/lib/sales";
 import { pickParams } from "@/lib/params";
 import { CompanyList } from "../company-list";
 import { ContactsSection, ItemsSection, LinksSection } from "./company-sections";
 
 export default async function CompanyDetailPage({ params, searchParams }: PageProps<"/sales/[id]">) {
-  await requireMember();
+  const user = await requireMember();
   const { id } = await params;
-  const filters = pickParams(await searchParams, ["kind", "q", "status", "inactive"]);
+  // 詳細を開いている間、左の一覧はリスト表示（カンバンは一覧の画面だけ）
+  const filters = pickParams(await searchParams, COMPANY_FILTER_KEYS.filter((k) => k !== "view"));
   const detail = await getCompanyDetail(id);
   if (!detail) notFound();
-  const { company, contacts, links, itemIds, events } = detail;
+  const { company, contacts, links, itemIds, events, activities } = detail;
   const kind = company.kind;
   const query = new URLSearchParams({ ...filters, kind }).toString();
-  const [companies, masters] = await Promise.all([listCompanies({ ...filters, kind }), getMasters()]);
+  const [companies, masters, users] = await Promise.all([listCompanies({ ...filters, kind }, user.id), getMasters(), listActiveUsers()]);
   const today = todayJst();
-  const missing = needsNextAction(company.status) && (!company.next_action_date || !company.next_action);
+  const missing = isNextActionMissing(company);
+  const recordTarget = {
+    id: company.id,
+    name: company.name,
+    status: company.status,
+    next_action_date: company.next_action_date,
+    next_action: company.next_action,
+    contacts: contacts.filter((c) => c.is_active).map((c) => ({ id: c.id, name: c.name })),
+  };
 
   return (
     <ListDetail
-      list={<CompanyList companies={companies} kind={kind} query={query} today={today} selectedId={id} />}
+      list={<CompanyList companies={companies} kind={kind} users={users} query={query} today={today} selectedId={id} />}
       detail={
         <div className="pb-8">
           <PageHeader
@@ -53,13 +64,43 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
           />
           <Section title="次回アクション" className={missing ? "border-status-alert/40" : undefined}>
             {company.next_action_date ? (
-              <p className={company.next_action_date <= today ? "font-bold text-status-alert" : ""}>
+              <p className={company.next_action_date < today ? "font-bold text-status-alert" : company.next_action_date === today ? "font-bold" : ""}>
+                {company.next_action_date < today ? "期限切れ " : company.next_action_date === today ? "今日 " : ""}
                 {formatShortJa(company.next_action_date)} {company.next_action}
               </p>
             ) : (
-              <p className={missing ? "text-status-alert" : "text-muted-foreground"}>{missing ? "未設定です。編集から入力してください。" : "なし"}</p>
+              <p className={missing ? "font-bold text-status-alert" : "text-muted-foreground"}>{missing ? "未設定です。記録するときに次回アクション日を選んでください。" : "なし"}</p>
             )}
-            <p className="mt-2 text-sm text-muted-foreground">活動の記録（架電・商談など）は Phase 2 で追加します。</p>
+            <RecordActivityButton company={recordTarget} className="mt-3 w-full sm:w-auto" />
+          </Section>
+          <Section title={`活動履歴${activities.length ? `（${activities.length >= 50 ? "直近50件" : `${activities.length}件`}）` : ""}`}>
+            {activities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">まだ記録はありません。電話やメールのあとに「記録する」を押すと、ここに残ります。</p>
+            ) : (
+              <ol className="flex flex-col">
+                {activities.map((a) => {
+                  const at = new Date(a.occurred_at);
+                  return (
+                    <li key={a.id} className="border-l-2 border-border py-2 pl-3">
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-sm text-muted-foreground">
+                          {formatShortJa(toJstDateString(at))} {formatTimeJst(at)}
+                        </span>
+                        <span className="font-medium">{ACTIVITY_KIND[a.kind]}</span>
+                        {a.result && <Badge tone={ACTIVITY_RESULT[a.result].tone}>{ACTIVITY_RESULT[a.result].label}</Badge>}
+                        {a.status && <span className="text-sm">→ {COMPANY_STATUS[a.status].label}</span>}
+                      </p>
+                      {a.memo && <p className="whitespace-pre-wrap break-words">{a.memo}</p>}
+                      <p className="text-sm text-muted-foreground">
+                        {[a.user?.name, a.contact?.name && `先方: ${a.contact.name}`, a.next_action_date && `次回 ${formatShortJa(a.next_action_date)} ${a.next_action}`]
+                          .filter(Boolean)
+                          .join(" ／ ")}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
           </Section>
           <Section title="基本情報">
             <dl>

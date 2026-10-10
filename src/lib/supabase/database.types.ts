@@ -25,13 +25,13 @@ export type Database = {
           Tables: {
             "activities": {
                   Row: {
-                    "company_id": string,"contact_id": string | null,"created_at": string,"id": string,"kind": Database["public"]['Enums']["activity_kind"],"memo": string,"next_action": string,"next_action_date": string | null,"occurred_at": string,"result": Database["public"]['Enums']["activity_result"] | null,"user_id": string | null
+                    "company_id": string,"contact_id": string | null,"created_at": string,"id": string,"kind": Database["public"]['Enums']["activity_kind"],"memo": string,"next_action": string,"next_action_date": string | null,"occurred_at": string,"result": Database["public"]['Enums']["activity_result"] | null,"status": Database["public"]['Enums']["company_status"] | null,"user_id": string | null
                   }
                   Insert: {
-                    "company_id": string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"user_id"?: string | null
+                    "company_id": string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"status"?: Database["public"]['Enums']["company_status"] | null,"user_id"?: string | null
                   }
                   Update: {
-                    "company_id"?: string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"user_id"?: string | null
+                    "company_id"?: string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"status"?: Database["public"]['Enums']["company_status"] | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1080,6 +1080,9 @@ isOneToOne: false
 "rate_limit_hit":
 { Args: { "p_key": string,"p_limit": number }; Returns: boolean
                            },
+"record_activity":
+{ Args: { "p_company_id": string,"p_contact_id": string,"p_kind": Database["public"]['Enums']["activity_kind"],"p_memo": string,"p_next_action": string,"p_next_action_date": string,"p_result": Database["public"]['Enums']["activity_result"],"p_status": Database["public"]['Enums']["company_status"] }; Returns: Json
+                           },
 "report_history":
 { Args: { "p_assignment_id": string }; Returns: {
               "action": string,"after": Json,"before": Json,"by_staff": boolean,"changed_fields": (string)[],"created_at": string,"item_id": string,"table_name": string,"user_name": string
@@ -1098,6 +1101,9 @@ isOneToOne: false
 { Args: { "p_since": string }; Returns: {
               "avg_confirmed": number,"staff_id": string,"worked_count": number
             }[]
+                           },
+"undo_activity":
+{ Args: { "p_activity_id": string,"p_before": Json }; Returns: boolean
                            }
           }
           Enums: {

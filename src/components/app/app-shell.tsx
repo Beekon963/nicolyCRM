@@ -1,11 +1,13 @@
 "use client";
 
-import { LogOutIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { CalendarPlusIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import type { AppUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { RecordActivityPicker } from "./activity-sheet";
 import { MORE_TAB, NAV_ITEMS, isActive, visibleItems } from "./nav-items";
 
 export function AppShell({ user, children }: { user: AppUser; children: React.ReactNode }) {
@@ -72,16 +74,8 @@ export function AppShell({ user, children }: { user: AppUser; children: React.Re
         <main className="flex w-full min-w-0 flex-1 flex-col pb-24 md:pb-8">{children}</main>
       </div>
 
-      {/* スマホ: 右下の ＋（現場を作る）。入力画面では保存ボタンと重ならないよう一覧の画面だけに出す */}
-      {(pathname === "/" || pathname === "/events") && (
-        <Link
-          href="/events/new"
-          aria-label="現場を作る"
-          className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg md:hidden"
-        >
-          <PlusIcon className="size-7" />
-        </Link>
-      )}
+      {/* スマホ: 右下の ＋（現場を作る / 活動を記録）。入力画面では保存ボタンと重ならないよう一覧の画面だけに出す */}
+      {(pathname === "/" || pathname === "/events" || pathname === "/sales") && <CreateFab />}
 
       {/* スマホ: 下部タブ */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
@@ -107,3 +101,44 @@ export function AppShell({ user, children }: { user: AppUser; children: React.Re
 }
 
 export { NAV_ITEMS };
+
+/** 右下の ＋。押すと「現場を作る」「活動を記録」を出す（画面一覧 §1） */
+function CreateFab() {
+  const [menu, setMenu] = useState(false);
+  const [record, setRecord] = useState(false);
+  const item = "flex h-12 items-center gap-2 rounded-full bg-background px-5 text-base font-medium shadow-lg ring-1 ring-border";
+  return (
+    <div className="md:hidden">
+      {menu && <button type="button" aria-label="閉じる" className="fixed inset-0 z-40 bg-black/20" onClick={() => setMenu(false)} />}
+      {menu && (
+        <div className="fixed right-4 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-40 flex flex-col items-end gap-2">
+          <Link href="/events/new" className={item} onClick={() => setMenu(false)}>
+            <CalendarPlusIcon className="size-5 text-primary" />
+            現場を作る
+          </Link>
+          <button
+            type="button"
+            className={item}
+            onClick={() => {
+              setMenu(false);
+              setRecord(true);
+            }}
+          >
+            <MessageSquarePlusIcon className="size-5 text-primary" />
+            活動を記録
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        aria-label={menu ? "閉じる" : "作成"}
+        aria-expanded={menu}
+        onClick={() => setMenu(!menu)}
+        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg"
+      >
+        {menu ? <XIcon className="size-7" /> : <PlusIcon className="size-7" />}
+      </button>
+      <RecordActivityPicker open={record} onOpenChange={setRecord} />
+    </div>
+  );
+}
