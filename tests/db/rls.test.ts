@@ -165,7 +165,8 @@ describe("トリガー", () => {
       await c.query(`update public.assignments set status = 'declined' where id = $1`, [a.id]);
       // 変更履歴はオーナーしか読めないので postgres として確認
       await c.query("reset role");
-      const log = await c.query(`select * from public.audit_logs where table_name = 'assignments' and row_id = $1`, [a.id]);
+      // 画面テストで作った打診には「追加」の履歴もあるので、この変更（update）だけを見る
+      const log = await c.query(`select * from public.audit_logs where table_name = 'assignments' and row_id = $1 and action = 'update'`, [a.id]);
       expect(log.rowCount).toBe(1);
       expect(log.rows[0].user_id).toBe(SEED_USERS.manager.id);
       expect(log.rows[0].changed_fields).toContain("status");

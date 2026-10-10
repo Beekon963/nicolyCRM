@@ -159,7 +159,14 @@ export function StaffForm({
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="memo">メモ</Label>
-            <Textarea id="memo" rows={3} value={form.memo} onChange={(e) => set("memo", e.target.value)} />
+            <Textarea
+              id="memo"
+              rows={Math.min(12, Math.max(3, form.memo.split("\n").length + 1))}
+              placeholder={"例: 土日のみ可\nキャッチ力: 4\n誓約書送付: 済"}
+              value={form.memo}
+              onChange={(e) => set("memo", e.target.value)}
+            />
+            <p className="text-sm text-muted-foreground">「項目名: 内容」の形で1行ずつ書くと、スタッフの画面で表に分けて表示します。</p>
           </div>
         </div>
       </details>

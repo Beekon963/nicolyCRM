@@ -16,11 +16,11 @@ describe("列の自動対応づけ", () => {
     expect(Object.values(m).flat()).not.toContain(0); // 整理番号
   });
 
-  it("メモは「列名: 値」でまとめ、空の列は省く", () => {
+  it("メモは「列名: 値」を1行ずつまとめ、空の列は省く", () => {
     const row = ["1", "山田", "〇", "◎", "", "docomo, au", "ss", "999", "090-0000-0000", "dummy@example.com", "ダミー銀行 本店 普通 1234567", "◯", ""];
     const v = mapRow("staff", HEADERS, row, autoMap("staff", HEADERS));
     expect(v.name).toBe("山田");
-    expect(v.memo).toBe("キャッチ力: 〇 / クローザー力: ◎ / 知識: docomo, au / メールアドレス: dummy@example.com / 誓約書送付: ◯");
+    expect(v.memo).toBe("キャッチ力: 〇\nクローザー力: ◎\n知識: docomo, au\nメールアドレス: dummy@example.com\n誓約書送付: ◯");
   });
 
   it("メンバー名簿・スキルシートの列を対応づける（列名の「(11月表)」などは無視）", () => {
