@@ -8,14 +8,12 @@ import { expectNoHorizontalScroll } from "../helpers/layout";
 test.describe("稼働表", () => {
   let date = "";
   let eventId = "";
-  let venue = "";
   let staff: { id: string; name: string };
 
   test.beforeEach(async () => {
     date = await freeFutureDate();
     const ev = await makeEvent(`'${date}'::date`, { required: 1 });
     eventId = ev.id;
-    venue = ev.venue;
     staff = await one(
       `select s.id, s.name from staff s join staff_roles sr on sr.staff_id = s.id
         where s.status = 'active' and sr.role_id = $1
@@ -45,7 +43,7 @@ test.describe("稼働表", () => {
 
   test("マスから確定すると緑で入り、「元に戻す」で消える", async ({ page }) => {
     const dialog = await openCell(page);
-    const row = dialog.getByRole("listitem").filter({ hasText: venue });
+    const row = dialog.getByRole("listitem").filter({ has: page.locator(`a[href="/events/${eventId}"]`) });
     await row.getByRole("button", { name: "確定にする" }).click();
     await expect(dialog.getByRole("status")).toContainText("確定にしました");
     await expect(row.getByText("確定", { exact: true })).toBeVisible();
@@ -60,7 +58,7 @@ test.describe("稼働表", () => {
 
   test("マスから打診すると、その人のマイページURL入りの文面が出る（PC はコピーだけ）", async ({ page, isMobile }) => {
     const dialog = await openCell(page);
-    await dialog.getByRole("listitem").filter({ hasText: venue }).getByRole("button", { name: "打診する（LINE）" }).click();
+    await dialog.getByRole("listitem").filter({ has: page.locator(`a[href="/events/${eventId}"]`) }).getByRole("button", { name: "打診する（LINE）" }).click();
     const msg = page.getByRole("dialog", { name: "打診の文面を送る" });
     await expect(msg).toBeVisible();
     const token = (await one<{ t: string }>(`select mypage_token as t from staff where id = $1`, [staff.id])).t;
@@ -96,5 +94,61 @@ test.describe("稼働表", () => {
     await expect(page).toHaveURL(new RegExp(`/events/new\\?date=${next}&client=${ev.client_id}`));
     await expect(page.getByLabel("日付")).toHaveValue(next);
     await expect(page.getByLabel("取引先", { exact: true })).toHaveValue(ev.client_id);
+  });
+});
+
+test.describe("稼働表の拡大・縮小", () => {
+  test("＋ / − で表だけが大きさを変え、倍率を押すと 100% に戻る。画面全体は横にずれない", async ({ page }) => {
+    await page.goto("/events/board");
+    await page.evaluate(() => localStorage.removeItem("nicoly.board.zoom"));
+    await page.reload();
+    const grid = page.locator("[data-board-zoom]");
+    await expect(grid).toHaveAttribute("data-board-zoom", "1");
+    const before = (await page.locator("table").first().boundingBox())!.width;
+
+    await page.getByRole("button", { name: "縮小" }).click();
+    await page.getByRole("button", { name: "縮小" }).click();
+    await expect(page.getByRole("button", { name: /表の倍率 75%/ })).toBeVisible();
+    const after = (await page.locator("table").first().boundingBox())!.width;
+    expect(after).toBeLessThan(before * 0.8);
+    await expectNoHorizontalScroll(page);
+    // ページの見出しの文字の大きさは変わらない
+    await expect(page.getByRole("heading", { name: "稼働表" })).toHaveCSS("font-size", "20px");
+
+    // この端末に覚えておく
+    await page.reload();
+    await expect(page.getByRole("button", { name: /表の倍率 75%/ })).toBeVisible();
+
+    await page.getByRole("button", { name: /表の倍率/ }).click();
+    await expect(grid).toHaveAttribute("data-board-zoom", "1");
+    await page.getByRole("button", { name: "拡大" }).click();
+    await expect(page.getByRole("button", { name: /表の倍率 110%/ })).toBeVisible();
+    await page.getByRole("button", { name: /表の倍率/ }).click();
+  });
+
+  test("Ctrl を押しながらホイールで、表の中だけ拡大・縮小できる", async ({ page, isMobile }) => {
+    test.skip(isMobile, "ホイールは PC だけ（スマホは2本指）");
+    await page.goto("/events/board");
+    await page.evaluate(() => localStorage.removeItem("nicoly.board.zoom"));
+    await page.reload();
+    const box = (await page.getByRole("region", { name: /稼働表/ }).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, 100);
+    await page.keyboard.up("Control");
+    await expect(page.getByRole("button", { name: /表の倍率 (?!100%)\d+%/ })).toBeVisible();
+    await page.getByRole("button", { name: /表の倍率/ }).click();
+  });
+
+  test("全画面で表だけを大きく出し、閉じると元の画面に戻る", async ({ page }) => {
+    await page.goto("/events/board");
+    await page.getByRole("button", { name: "全画面" }).click();
+    const region = page.getByRole("region", { name: /稼働表/ });
+    const vp = page.viewportSize()!;
+    await expect.poll(async () => (await region.boundingBox())!.height).toBeGreaterThan(vp.height * 0.75);
+    await expect(page.getByRole("button", { name: "閉じる" })).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await page.getByRole("button", { name: "閉じる" }).click();
+    await expect(page.getByRole("button", { name: "全画面" })).toBeVisible();
   });
 });

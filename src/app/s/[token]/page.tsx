@@ -74,7 +74,7 @@ export default async function SharedBoardPage({ params, searchParams }: PageProp
           <span />
         )}
       </div>
-      <BoardGrid board={r.board} className="max-h-[calc(100dvh-7.5rem)] md:max-h-[calc(100dvh-7.5rem)]" />
+      <BoardGrid board={r.board} className="max-h-[calc(100dvh-10.5rem)] md:max-h-[calc(100dvh-10.5rem)]" />
       <BoardLegend />
     </div>
   );
