@@ -15,7 +15,7 @@ export type EventFilters = {
 };
 
 const OVERVIEW_SELECT =
-  "id, date, start_time, end_time, meeting_time, client_id, venue_id, group_id, cancelled_at, status, required_total, confirmed_total, shortage_total, offered_count, waitlisted_count, oldest_offer_at, unreported_count, unconfirmed_result_count, confirm_notice_pending, reminder_pending, by_role, venue:venues(id, name, area_id), client:companies(id, name)";
+  "id, date, start_time, end_time, meeting_time, client_id, venue_id, group_id, cancelled_at, report_required, status, required_total, confirmed_total, shortage_total, offered_count, waitlisted_count, oldest_offer_at, unreported_count, unconfirmed_result_count, confirm_notice_pending, reminder_pending, by_role, venue:venues(id, name, area_id), client:companies(id, name)";
 
 /** 現場一覧（初期表示は今日から2週間。要件 §4.2） */
 export async function listEvents(f: EventFilters) {

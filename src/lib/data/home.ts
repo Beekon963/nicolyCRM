@@ -1,5 +1,7 @@
 import "server-only";
-import { addDays, monthRange, nextMonth, monthOf, todayJst } from "@/lib/date";
+import { analyze, type Basis, type GroupBy, rangeOf } from "@/lib/analysis";
+import { addDays, nextMonth, monthOf, todayJst } from "@/lib/date";
+import { loadResultRows } from "@/lib/data/analysis";
 import { createClient } from "@/lib/supabase/server";
 import { getGeneralSettings } from "@/lib/settings";
 
@@ -38,7 +40,8 @@ export async function getHomeData() {
       .eq("status", "confirmed")
       .lt("event.date", today)
       .gte("event.date", addDays(today, -30))
-      .is("event.cancelled_at", null),
+      .is("event.cancelled_at", null)
+      .eq("event.report_required", true),
     supabase.from("expenses").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("staff").select("id", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("availability_submissions").select("staff_id, staff:staff!inner(status)").eq("month", `${next}-01`).not("submitted_at", "is", null).eq("staff.status", "active"),
@@ -68,31 +71,14 @@ export async function getHomeData() {
 
 export type Ranking = { id: string; name: string; total: number }[];
 
-/** 今月の獲得件数トップ（スタッフ別・会場別・取引先別。確定 / 速報） */
-export async function getMonthRanking(basis: "confirmed" | "reported") {
-  const supabase = await createClient();
-  const { start, end } = monthRange(monthOf(todayJst()));
-  const { data } = await supabase
-    .from("report_items")
-    .select("reported_count, confirmed_count, assignment:assignments!inner(status, staff:staff(id, name), event:events!inner(date, cancelled_at, venue:venues(id, name), client:companies(id, name)))")
-    .gte("assignment.event.date", start)
-    .lte("assignment.event.date", end)
-    .eq("assignment.status", "confirmed")
-    .is("assignment.event.cancelled_at", null);
-  const add = (m: Map<string, { name: string; total: number }>, id: string | undefined, name: string | undefined, n: number) => {
-    if (!id || !n) return;
-    const cur = m.get(id) ?? { name: name ?? "", total: 0 };
-    cur.total += n;
-    m.set(id, cur);
-  };
-  const staff = new Map(), venues = new Map(), clients = new Map();
-  for (const r of data ?? []) {
-    const n = (basis === "confirmed" ? r.confirmed_count : r.reported_count) ?? 0;
-    add(staff, r.assignment.staff?.id, r.assignment.staff?.name, n);
-    add(venues, r.assignment.event.venue?.id, r.assignment.event.venue?.name, n);
-    add(clients, r.assignment.event.client?.id, r.assignment.event.client?.name, n);
-  }
-  const top = (m: Map<string, { name: string; total: number }>): Ranking =>
-    [...m.entries()].map(([id, v]) => ({ id, ...v })).sort((a, b) => b.total - a.total).slice(0, 5);
-  return { staff: top(staff), venues: top(venues), clients: top(clients) };
+/** 今月の獲得件数トップ（スタッフ別・会場別・取引先別。確定 / 速報）。数え方は「実績の分析」と同じ */
+export async function getMonthRanking(basis: Basis) {
+  const { start, end } = rangeOf("month", todayJst());
+  const rows = await loadResultRows(start, end);
+  const top = (by: GroupBy): Ranking =>
+    analyze(rows, by, basis)
+      .filter((g) => g.total > 0)
+      .slice(0, 5)
+      .map(({ id, name, total }) => ({ id, name, total }));
+  return { staff: top("staff"), venues: top("venue"), clients: top("client") };
 }

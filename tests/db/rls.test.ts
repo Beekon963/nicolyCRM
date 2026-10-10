@@ -66,7 +66,7 @@ describe("ログインしていない利用者（マイページ以外）", () =
     }
   });
 
-  it("マイページ用以外の関数を実行できない", async () => {
+  it("マイページ用・見るだけリンク用以外の関数を実行できない", async () => {
     const rows = await asAdmin(async (c) =>
       (
         await c.query(`
@@ -75,7 +75,7 @@ describe("ログインしていない利用者（マイページ以外）", () =
            order by 1`)
       ).rows.map((r) => r.proname as string),
     );
-    expect(rows.filter((name) => !name.startsWith("mypage_"))).toEqual([]);
+    expect(rows.filter((name) => !name.startsWith("mypage_") && name !== "share_board")).toEqual([]);
   });
 });
 

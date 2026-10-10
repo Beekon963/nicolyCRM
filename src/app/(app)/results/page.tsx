@@ -25,6 +25,7 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
     )
     .eq("status", "confirmed")
     .is("event.cancelled_at", null)
+    .eq("event.report_required", true)
     .lte("event.date", today);
   q = eventId ? q.eq("event_id", eventId) : q.gte("event.date", addDays(today, -45));
   const [{ data }, { data: companyItems }] = await Promise.all([q, supabase.from("company_items").select("company_id, item_id")]);

@@ -38,9 +38,12 @@ export function AssignmentPanel({
   isPast,
   isTomorrowOrToday,
   overCapacityRoles,
+  recordOnly = false,
 }: {
   assignments: PanelAssignment[];
   isPast: boolean;
+  /** シートから取り込んだ過去の記録（実績報告なし） */
+  recordOnly?: boolean;
   isTomorrowOrToday: boolean;
   overCapacityRoles: string[];
 }) {
@@ -111,7 +114,7 @@ export function AssignmentPanel({
             前日リマインドを送る（{unsentReminder.length}人）
           </Button>
         )}
-        {isPast && unreported.length > 0 && (
+        {isPast && !recordOnly && unreported.length > 0 && (
           <Button size="sm" variant="outline" onClick={() => setDialog({ kind: "report", ids: unreported.map((a) => a.id) })}>
             <MessageCircleIcon />
             実績報告のお願い（{unreported.length}人）
@@ -119,6 +122,7 @@ export function AssignmentPanel({
         )}
       </div>
 
+      {recordOnly && <p className="text-sm text-muted-foreground">スプレッドシートから取り込んだ過去の記録です（実績報告はありません）。</p>}
       {groups.length === 0 && <p className="text-sm text-muted-foreground">まだ誰にも打診していません。「候補を探す」から打診しましょう。</p>}
       {groups.map((g) => (
         <div key={g.status}>
@@ -143,7 +147,7 @@ export function AssignmentPanel({
                         {isTomorrowOrToday && <Badge tone={a.reminderSent ? "done" : "alert"}>{a.reminderSent ? "リマインド済み" : "リマインドまだ"}</Badge>}
                       </>
                     )}
-                    {a.status === "confirmed" && isPast && <Badge tone={a.reported ? "done" : "alert"}>{a.reported ? "報告済み" : "未報告"}</Badge>}
+                    {a.status === "confirmed" && isPast && !recordOnly && <Badge tone={a.reported ? "done" : "alert"}>{a.reported ? "報告済み" : "未報告"}</Badge>}
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" aria-label={`${a.name}の状態を変える`} onClick={() => setMenu(a)}>

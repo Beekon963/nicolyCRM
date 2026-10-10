@@ -21,7 +21,7 @@ async function fixture(): Promise<Fixture> {
 }
 
 describe("マイページの公開範囲", () => {
-  it("anon が実行できるのはマイページ用の関数だけ", async () => {
+  it("anon が実行できるのはマイページ用と見るだけリンク用の関数だけ", async () => {
     const rows = await asAdmin(async (c) =>
       (
         await c.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -39,6 +39,7 @@ describe("マイページの公開範囲", () => {
       "mypage_reports",
       "mypage_respond",
       "mypage_schedule",
+      "share_board",
     ]);
   });
 

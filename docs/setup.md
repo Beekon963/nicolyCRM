@@ -17,6 +17,7 @@
 | ⑥ | Vercel でアプリを公開する | 10分 |
 | ⑦ | 最初のオーナーを登録する（GitHub のボタン） | 3分 |
 | ⑧ | ログインして名簿を取り込む | 10分 |
+| ⑨ | （任意）稼働表のスプレッドシートへの自動書き出し | 20分（パソコン） |
 
 ②・③ は後回しにもできます。そのときは、⑦で **Supabase に登録したのと同じメールアドレス** をオーナーにすれば、ログイン画面の「ログイン用のリンクを受け取る」でログインできます。Supabase 標準のメールは、Supabase の組織のメンバー宛てにだけ、1時間に数通まで送れます。
 
@@ -50,7 +51,10 @@
 | Secret key（`sb_secret_` で始まる。**秘密**） | **Project Settings → API Keys** |
 | データベースのパスワード | 2 で保存したもの（忘れたら **Project Settings → Database → Reset database password**） |
 
-7. アクセストークンを作る: https://supabase.com/dashboard/account/tokens → **Generate new token** → 名前 `github`
+7. アクセストークンを作る: https://supabase.com/dashboard/account/tokens → **Generate new token**
+   - Name: `github`、Expires in: いちばん長いもの（`Never` があればそれ）
+   - Resource access: **Project** → このプロジェクトだけを選ぶ（「Create legacy token」は使わない）
+   - Permissions: Project **Read** / Database **Read and write** / Application services **Read** / Infrastructure and delivery **Read** / Account and organization **No access**
    - 表示された `sbp_` で始まる値を控えます（一度しか表示されません。**秘密**）
 
 ## ② Google ログインの準備（おすすめ）
@@ -95,7 +99,8 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 | `SUPABASE_ACCESS_TOKEN` | アクセストークン（`sbp_` で始まる） |
 | `SUPABASE_SECRET_KEY` | Secret key（`sb_secret_` で始まる） |
 
-登録した値は、GitHub の画面でも見えなくなります。⑤・⑦ のボタンを押したときだけ使われます。
+- 値は Supabase のコピーボタンでコピーして貼ってください。チャットやメモからコピーすると、最後に改行が入って失敗することがあります
+- 登録した値は、GitHub の画面でも見えなくなります。⑤・⑦ のボタンを押したときだけ使われます
 
 ## ⑤ データベースを作る（GitHub のボタン）
 
@@ -125,6 +130,10 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key |
 | `SUPABASE_SECRET_KEY` | Secret key |
 
+   - 種類は、`NEXT_PUBLIC_` で始まる2つを **Config**、`SUPABASE_SECRET_KEY` を **Secret** にします（`NEXT_PUBLIC_` の2つは画面で使う公開用の値です。種類はあとから変えられないので、間違えたら消して入れ直します）
+   - Environments は Production・Preview・Development の全部
+   - 取り込みのときに入れ忘れた場合は、プロジェクトの **Settings → Environment Variables** で入れてから、**Deployments** のいちばん上の行の「…」→ **Redeploy** で公開し直します（入れただけでは反映されません。入っていないと「Internal Server Error」になります）
+
 4. **Deploy**。関数のリージョンはリポジトリの `vercel.json` で東京（`hnd1`）に固定済みです
    - 公開後の URL が `https://nicoly-crm.vercel.app` でなかった場合は、① の 4 の URL をその URL に書き換えてください
    - 独自ドメインを使う場合だけ、`NEXT_PUBLIC_SITE_URL` に `https://（独自ドメイン）` を入れて再デプロイしてください
@@ -143,6 +152,40 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 1. `https://nicoly-crm.vercel.app` を開き、「Google でログイン」（または「ログイン用のリンクを受け取る」）でログインする
 2. 名簿を取り込む: [manual_admin.md](manual_admin.md) の「7. データ取り込み」を参照
 3. 管理者の招待は「設定 → ユーザー」から行えます（③ が必要です）
+
+## ⑨ 稼働表のスプレッドシートへの自動書き出し（任意）
+
+稼働表（今月と来月）を、今と同じ形のスプレッドシートに10分ごとに自動で書き出します（金額・電話番号は書き出しません）。JSON ファイルを扱うので、**パソコンで**行ってください。
+
+- 10分ごとの自動実行には **Vercel の Pro プラン**が必要です（Hobby では動きません）。
+- 見るだけリンク（稼働表の画面の「見るだけリンク」）だけで足りる場合は、この設定はいりません。
+
+1. **Google Sheets API を有効にする**
+   - https://console.cloud.google.com/ で、② で作ったプロジェクト（`nicoly-crm`。なければ新しく作る）を選ぶ
+   - **APIとサービス → ライブラリ** →「Google Sheets API」→ **有効にする**
+2. **サービスアカウント（書き出し専用のアカウント）を作る**
+   - **IAMと管理 → サービスアカウント → サービスアカウントを作成**
+   - 名前: `sheet-export` → **作成して続行** → ロールは付けずに **完了**
+3. **鍵（JSON）を作る**
+   - 作った `sheet-export` を開く → **鍵** タブ → **キーを追加 → 新しい鍵を作成 → JSON → 作成**
+   - JSON ファイルがダウンロードされます（**秘密**。人に送らない・チャットに貼らない）
+   - 「鍵の作成が無効になっています」と出た場合は、その画面の写真を送ってください
+4. **Vercel に入れる**: https://vercel.com/beekon963s-projects/nicoly-crm/settings/environment-variables
+
+| Key | Value | 種類 |
+|---|---|---|
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | ダウンロードした JSON ファイルをメモ帳などで開き、**中身をすべて**コピーして貼る | Secret |
+| `CRON_SECRET` | 長いランダムな文字列（パスワード管理アプリで40文字以上を作る） | Secret |
+
+   - 入れたら **Deployments** のいちばん上の行の「…」→ **Redeploy**
+5. **書き出し先のスプレッドシートを作る**
+   - Google ドライブで新しいスプレッドシートを作る（名前の例: 【NICOLY】稼働表（CRMから自動））
+   - **共有** で、JSON ファイルの `client_email`（`sheet-export@…iam.gserviceaccount.com`）を **編集者** で追加する（CRM の画面にも表示されます）
+   - 現場リーダー・スタッフには **閲覧者** で共有する
+6. **CRM で書き出し先を決める**
+   - 「現場 → 稼働表 → シートへの書き出し」で、スプレッドシートの URL を貼って **書き出し先を保存** → **今すぐ書き出す**
+   - 緑で「202611・202612 を書き出しました」のように出れば完了です。以後は10分ごとに自動で書き出します
+   - 赤で出たときは、その文の直し方に従ってください（共有の付け忘れが多いです）
 
 ---
 

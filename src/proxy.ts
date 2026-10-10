@@ -5,14 +5,16 @@ import { NextResponse, type NextRequest } from "next/server";
  * すべての画面の前に動く処理。
  * - ログイン状態（Supabase のセッション）を更新する
  * - ログインしていない人が管理画面を開いたらログイン画面へ移す（本当の防御は RLS）
- * - マイページは URL の鍵が漏れないよう Referrer を送らない・キャッシュしない
+ * - マイページ・見るだけリンクは URL の鍵が漏れないよう Referrer を送らない・キャッシュしない
  */
-const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
+// /api/cron/ は Cron 用（中で CRON_SECRET を確かめる）
+const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/s/", "/api/cron/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/m/")) {
+  // マイページと稼働表の見るだけリンク（ログイン不要。鍵が漏れないよう Referrer を送らない・キャッシュしない）
+  if (pathname.startsWith("/m/") || pathname.startsWith("/s/")) {
     const res = NextResponse.next();
     res.headers.set("Referrer-Policy", "no-referrer");
     res.headers.set("Cache-Control", "private, no-store");

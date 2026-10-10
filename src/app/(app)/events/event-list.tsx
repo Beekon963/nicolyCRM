@@ -1,4 +1,4 @@
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FilterBar } from "@/components/app/filter-bar";
@@ -10,6 +10,7 @@ import type { EventFilters, EventListItem } from "@/lib/data/events";
 import { EVENT_STATUS } from "@/lib/labels";
 import { formatTimeRange } from "@/lib/templates";
 import { cn } from "@/lib/utils";
+import { EventsViewTabs } from "./view-tabs";
 
 type Opt = { id: string; name: string };
 
@@ -79,22 +80,7 @@ export function EventList({
       />
       {!group && (
         <>
-          <div className="mx-4 mb-2 flex gap-1 rounded-lg bg-muted p-1">
-            <Link
-              href={`/events${qs(filters, { view: undefined, month: undefined })}`}
-              className={cn("flex h-11 flex-1 items-center justify-center gap-1 rounded-md", !calendar ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
-            >
-              <ListIcon className="size-4" />
-              リスト
-            </Link>
-            <Link
-              href={`/events${qs(filters, { view: "calendar", from: undefined, to: undefined, month: from.slice(0, 7) })}`}
-              className={cn("flex h-11 flex-1 items-center justify-center gap-1 rounded-md", calendar ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
-            >
-              <CalendarIcon className="size-4" />
-              カレンダー
-            </Link>
-          </div>
+          <EventsViewTabs current={calendar ? "calendar" : "list"} month={calendar ? month : from.slice(0, 7)} />
           <Suspense>
             <FilterBar
               basePath="/events"

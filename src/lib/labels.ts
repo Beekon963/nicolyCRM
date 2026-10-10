@@ -79,6 +79,24 @@ export const COMPANY_STATUS: Record<Enums["company_status"], { label: string; to
 
 export const PRIORITY: Record<Enums["priority"], string> = { high: "高", mid: "中", low: "低" };
 
+export const ACTIVITY_KIND: Record<Enums["activity_kind"], string> = {
+  call: "架電",
+  line: "LINE",
+  email: "メール",
+  visit: "訪問",
+  meeting: "商談",
+  other: "その他",
+};
+
+export const ACTIVITY_RESULT: Record<Enums["activity_result"], { label: string; tone: Tone }> = {
+  reached: { label: "つながった", tone: "brand" },
+  absent: { label: "不在", tone: "muted" },
+  callback: { label: "折り返し待ち", tone: "waiting" },
+  sent_material: { label: "資料送付", tone: "brand" },
+  appointment: { label: "アポ獲得", tone: "done" },
+  declined: { label: "見送り", tone: "muted" },
+};
+
 export const EXPENSE_KIND: Record<Enums["expense_kind"], string> = { transport: "交通費", other: "その他の経費" };
 
 export const EXPENSE_STATUS: Record<Enums["expense_status"], { label: string; tone: Tone }> = {

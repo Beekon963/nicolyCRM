@@ -25,13 +25,13 @@ export type Database = {
           Tables: {
             "activities": {
                   Row: {
-                    "company_id": string,"contact_id": string | null,"created_at": string,"id": string,"kind": Database["public"]['Enums']["activity_kind"],"memo": string,"next_action": string,"next_action_date": string | null,"occurred_at": string,"result": Database["public"]['Enums']["activity_result"] | null,"user_id": string | null
+                    "company_id": string,"contact_id": string | null,"created_at": string,"id": string,"kind": Database["public"]['Enums']["activity_kind"],"memo": string,"next_action": string,"next_action_date": string | null,"occurred_at": string,"result": Database["public"]['Enums']["activity_result"] | null,"status": Database["public"]['Enums']["company_status"] | null,"user_id": string | null
                   }
                   Insert: {
-                    "company_id": string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"user_id"?: string | null
+                    "company_id": string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"status"?: Database["public"]['Enums']["company_status"] | null,"user_id"?: string | null
                   }
                   Update: {
-                    "company_id"?: string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"user_id"?: string | null
+                    "company_id"?: string,"contact_id"?: string | null,"created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["activity_kind"],"memo"?: string,"next_action"?: string,"next_action_date"?: string | null,"occurred_at"?: string,"result"?: Database["public"]['Enums']["activity_result"] | null,"status"?: Database["public"]['Enums']["company_status"] | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -458,13 +458,13 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"start_time": string | null,"updated_at": string,"venue_id": string
+                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"report_required": boolean,"start_time": string | null,"updated_at": string,"venue_id": string
                   }
                   Insert: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
                   }
                   Update: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
                   }
                   Relationships: [
                     {
@@ -786,6 +786,32 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"share_links": {
+                  Row: {
+                    "is_active": boolean,"kind": string,"rotated_at": string,"token": string,"updated_by": string | null
+                  }
+                  Insert: {
+                    "is_active"?: boolean,"kind": string,"rotated_at"?: string,"token"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "is_active"?: boolean,"kind"?: string,"rotated_at"?: string,"token"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"sheet_exports": {
+                  Row: {
+                    "id": number,"message": string,"ok": boolean,"ran_at": string,"source": string
+                  }
+                  Insert: {
+                    "id"?: never,"message"?: string,"ok": boolean,"ran_at"?: string,"source": string
+                  }
+                  Update: {
+                    "id"?: never,"message"?: string,"ok"?: boolean,"ran_at"?: string,"source"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"staff": {
                   Row: {
                     "created_at": string,"id": string,"kana": string,"line_name": string,"line_user_id": string | null,"memo": string,"mypage_token": string,"name": string,"nearest_station": string,"phone": string,"phone_digits": string | null,"rank_id": string | null,"search_text": string | null,"status": Database["public"]['Enums']["staff_status"],"token_rotated_at": string | null,"updated_at": string
@@ -954,7 +980,7 @@ isOneToOne: false
           Views: {
             "event_overview": {
                   Row: {
-                    "belongings": string | null,"by_role": Json | null,"cancel_reason": string | null,"cancelled_at": string | null,"client_id": string | null,"confirm_notice_pending": number | null,"confirmed_total": number | null,"created_at": string | null,"created_by": string | null,"date": string | null,"end_time": string | null,"group_id": string | null,"id": string | null,"meeting_place": string | null,"meeting_time": string | null,"notes": string | null,"offered_count": number | null,"oldest_offer_at": string | null,"reminder_pending": number | null,"required_total": number | null,"shortage_total": number | null,"start_time": string | null,"status": string | null,"unconfirmed_result_count": number | null,"unreported_count": number | null,"updated_at": string | null,"venue_id": string | null,"waitlisted_count": number | null
+                    "belongings": string | null,"by_role": Json | null,"cancel_reason": string | null,"cancelled_at": string | null,"client_id": string | null,"confirm_notice_pending": number | null,"confirmed_total": number | null,"created_at": string | null,"created_by": string | null,"date": string | null,"end_time": string | null,"group_id": string | null,"id": string | null,"meeting_place": string | null,"meeting_time": string | null,"notes": string | null,"offered_count": number | null,"oldest_offer_at": string | null,"reminder_pending": number | null,"report_required": boolean | null,"required_total": number | null,"shortage_total": number | null,"start_time": string | null,"status": string | null,"unconfirmed_result_count": number | null,"unreported_count": number | null,"updated_at": string | null,"venue_id": string | null,"waitlisted_count": number | null
                   }
                   Relationships: [
                     {
@@ -980,7 +1006,13 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "company_key":
+            "board_json":
+{ Args: { "m_end": string,"m_start": string }; Returns: Json
+                           },
+"board_snapshot":
+{ Args: { "p_month": string }; Returns: Json
+                           },
+"company_key":
 { Args: { "t": string }; Returns: string
                            },
 "digits_only":
@@ -1048,6 +1080,9 @@ isOneToOne: false
 "rate_limit_hit":
 { Args: { "p_key": string,"p_limit": number }; Returns: boolean
                            },
+"record_activity":
+{ Args: { "p_company_id": string,"p_contact_id": string,"p_kind": Database["public"]['Enums']["activity_kind"],"p_memo": string,"p_next_action": string,"p_next_action_date": string,"p_result": Database["public"]['Enums']["activity_result"],"p_status": Database["public"]['Enums']["company_status"] }; Returns: Json
+                           },
 "report_history":
 { Args: { "p_assignment_id": string }; Returns: {
               "action": string,"after": Json,"before": Json,"by_staff": boolean,"changed_fields": (string)[],"created_at": string,"item_id": string,"table_name": string,"user_name": string
@@ -1059,10 +1094,16 @@ isOneToOne: false
 "setting_int":
 { Args: { "p_default": number,"p_key": string }; Returns: number
                            },
+"share_board":
+{ Args: { "p_month": string,"p_token": string }; Returns: Json
+                           },
 "staff_avg_confirmed":
 { Args: { "p_since": string }; Returns: {
               "avg_confirmed": number,"staff_id": string,"worked_count": number
             }[]
+                           },
+"undo_activity":
+{ Args: { "p_activity_id": string,"p_before": Json }; Returns: boolean
                            }
           }
           Enums: {
