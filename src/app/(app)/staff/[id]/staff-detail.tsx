@@ -4,6 +4,7 @@ import { AssignmentRow } from "@/components/app/assignment-row";
 import { AvailabilityCalendar } from "@/components/app/availability-calendar";
 import { Field, Section } from "@/components/app/list-detail";
 import { PageHeader } from "@/components/app/page-header";
+import { StaffMemo } from "@/components/app/staff-memo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { AppUser } from "@/lib/auth";
@@ -81,8 +82,18 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
           <Field label="最寄り駅">{staff.nearest_station}</Field>
           <Field label="役割">{roleNames.join("・")}</Field>
           <Field label="対応エリア">{areaNames.join("・")}</Field>
-          <Field label="メモ">{staff.memo && <span className="whitespace-pre-wrap">{staff.memo}</span>}</Field>
         </dl>
+      </Section>
+
+      <Section
+        title="メモ"
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/staff/${staff.id}/edit`}>編集</Link>
+          </Button>
+        }
+      >
+        <StaffMemo memo={staff.memo} />
       </Section>
 
       <Section title="マイページURL">

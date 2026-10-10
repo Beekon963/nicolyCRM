@@ -79,3 +79,24 @@ test("協力会社を次回アクションなしで保存しようとすると�
   await expect(page.getByRole("heading", { name })).toBeVisible();
   await expect(page.getByRole("main").getByText(`${name} に電話`).filter({ visible: true }).first()).toBeVisible();
 });
+
+test("取り込んだ「列名: 値」のメモは、まとまりごとの表に分けて出し、編集では1項目1行になる", async ({ page }) => {
+  const name = `テスト メモ${uniq()}`;
+  await page.goto("/staff/new");
+  await page.getByLabel("氏名（必須）").fill(name);
+  await page.getByText(/^詳細（.*メモ）$/).click();
+  await page.getByLabel("メモ", { exact: true }).fill("備考: 土日のみ / キャッチ力: 4 / 知識: docomo / au / 誓約書送付: 済 / メールアドレス: test@example.com");
+  await page.getByRole("button", { name: "登録する" }).click();
+  await expect(page.getByRole("heading", { name })).toBeVisible();
+
+  await expect(page.getByText("土日のみ", { exact: true })).toBeVisible();
+  const skill = page.getByRole("region", { name: "スキル・経験" });
+  await expect(skill.getByRole("term")).toHaveText(["キャッチ力", "知識"]);
+  await expect(skill.getByRole("definition")).toHaveText(["4", "docomo / au"]);
+  await expect(page.getByRole("region", { name: "手続き" }).getByRole("definition")).toHaveText("済");
+  await expect(page.getByRole("region", { name: "連絡先" }).getByRole("link", { name: "test@example.com" })).toHaveAttribute("href", "mailto:test@example.com");
+  await expectNoHorizontalScroll(page);
+
+  await page.getByRole("link", { name: "編集" }).first().click();
+  await expect(page.getByLabel("メモ", { exact: true })).toHaveValue("備考: 土日のみ\nキャッチ力: 4\n知識: docomo / au\n誓約書送付: 済\nメールアドレス: test@example.com");
+});

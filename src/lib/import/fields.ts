@@ -41,7 +41,7 @@ export const TARGETS: Record<ImportTarget, { label: string; fields: FieldDef[]; 
           ...["誓約書送付", "受理", "誓約書受理", "口座登録", "旧ランク", "催事経験の開始", "経験キャリア", "経験形態"],
           ...["平均獲得件数", "直近実績", "副商材実績", "実績の区分", "人柄・強み", "直近入店店舗"],
         ],
-        help: "複数の列を「列名: 値」でまとめて入れます",
+        help: "複数の列を「列名: 値」の形で1行ずつまとめて入れます（スタッフの画面では表に分けて表示）",
       },
       { key: "base_daily_rate", label: "基本日当", ownerOnly: true, aliases: ["基本日当", "日当", "単価"], help: "空ならランクの基準日当" },
       { key: "withholding_method", label: "源泉徴収の方式", ownerOnly: true, aliases: ["源泉", "源泉徴収"], help: "なし / 報酬・料金 / 外交員報酬" },
@@ -113,7 +113,7 @@ export function autoMap(target: ImportTarget, headers: string[]): Record<string,
   return out;
 }
 
-/** 対応づけに従って1行を { 項目key: 値 } にする（メモは「列名: 値」でまとめる） */
+/** 対応づけに従って1行を { 項目key: 値 } にする（メモは「列名: 値」を1行ずつまとめる） */
 export function mapRow(target: ImportTarget, headers: string[], row: string[], mapping: Record<string, number[]>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const f of TARGETS[target].fields) {
@@ -124,7 +124,7 @@ export function mapRow(target: ImportTarget, headers: string[], row: string[], m
         .map((i) => ({ h: headers[i], v: (row[i] ?? "").trim() }))
         .filter((x) => x.v)
         .map((x) => `${x.h}: ${x.v}`)
-        .join(" / ");
+        .join("\n");
     } else out[f.key] = (row[cols[0]] ?? "").trim();
   }
   return out;

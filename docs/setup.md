@@ -160,6 +160,8 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 - 10分ごとの自動実行には **Vercel の Pro プラン**が必要です（Hobby では動きません）。
 - 見るだけリンク（稼働表の画面の「見るだけリンク」）だけで足りる場合は、この設定はいりません。
 
+0. **先に「本番のデータベースを更新」を済ませておく**（書き出しの記録を残す表が、Phase 1.5 の更新で入ります）
+   - GitHub の **Actions → 本番のデータベースを更新** のいちばん新しい実行が緑（✓）なら済んでいます
 1. **Google Sheets API を有効にする**
    - https://console.cloud.google.com/ で、② で作ったプロジェクト（`nicoly-crm`。なければ新しく作る）を選ぶ
    - **APIとサービス → ライブラリ** →「Google Sheets API」→ **有効にする**

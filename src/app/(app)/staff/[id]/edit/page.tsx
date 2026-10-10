@@ -4,6 +4,7 @@ import { requireMember } from "@/lib/auth";
 import { getMasters } from "@/lib/data/masters";
 import { createClient } from "@/lib/supabase/server";
 import { StaffForm } from "../../staff-form";
+import { memoForEdit } from "@/lib/staff-memo";
 
 export const metadata = { title: "スタッフを編集 | NICOLY CRM" };
 
@@ -31,7 +32,8 @@ export default async function EditStaffPage({ params }: PageProps<"/staff/[id]/e
           nearest_station: s.nearest_station,
           rank_id: s.rank_id ?? "",
           status: s.status,
-          memo: s.memo,
+          // 編集しやすいよう1項目1行にして出す（中身は変えない）
+          memo: memoForEdit(s.memo),
           role_ids: roleIds,
           area_ids: areaIds,
         }}
