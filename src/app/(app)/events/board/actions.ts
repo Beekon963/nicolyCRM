@@ -103,3 +103,38 @@ export async function setAvailabilityDay(
   revalidatePath("/availability", "layout");
   return ok("稼働可能日を入れました", { previous: cur?.status ?? null });
 }
+
+const cellsSchema = z
+  .array(z.object({ staffId: z.uuid(), date: z.iso.date(), status: z.enum(["ok", "maybe", "ng"]).nullable() }))
+  .min(1)
+  .max(1000, "一度に変えられるのは1000マスまでです");
+
+/**
+ * 稼働表で選んだマスの稼働可能日をまとめて代理入力する（キーで ○△× を入れたとき。null は未入力に戻す）。
+ * 元に戻すときは、前の値を入れてもう一度呼ぶ。
+ */
+export async function setAvailabilityCells(cells: { staffId: string; date: string; status: "ok" | "maybe" | "ng" | null }[]): Promise<ActionResult> {
+  const me = await assertMember();
+  const parsed = cellsSchema.safeParse(cells);
+  if (!parsed.success) return fail(parsed.error.issues[0].message.startsWith("一度に") ? parsed.error.issues[0].message : "入力内容を確認してください");
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const upserts = parsed.data
+    .filter((c) => c.status)
+    .map((c) => ({ staff_id: c.staffId, date: c.date, status: c.status!, source: "admin" as const, updated_by: me.id, updated_at: now }));
+  if (upserts.length) {
+    const { error } = await supabase.from("availability").upsert(upserts);
+    if (error) return fail(dbErrorMessage(error));
+  }
+  // 未入力に戻すマスはスタッフごとにまとめて消す
+  const clears = new Map<string, string[]>();
+  for (const c of parsed.data.filter((x) => !x.status)) clears.set(c.staffId, [...(clears.get(c.staffId) ?? []), c.date]);
+  for (const [staffId, dates] of clears) {
+    const { error } = await supabase.from("availability").delete().eq("staff_id", staffId).in("date", dates);
+    if (error) return fail(dbErrorMessage(error));
+  }
+  revalidatePath("/events/board");
+  revalidatePath("/availability", "layout");
+  const n = parsed.data.length;
+  return ok(upserts.length ? `稼働可能日を${n}マス入れました` : `稼働可能日を${n}マス消しました`);
+}

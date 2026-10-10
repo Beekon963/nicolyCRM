@@ -3,7 +3,7 @@
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { BoardGrid, BoardLegend } from "@/components/app/board-grid";
 import { MessageDialog, type Recipient } from "@/components/app/message-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -11,13 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toaster";
 import type { BoardStaffAssignment, BoardStaffRow } from "@/lib/board";
+import { type AvailabilityChange, applyAvailability, reverseChanges } from "@/lib/board/grid";
 import { formatShortJa } from "@/lib/date";
 import type { BoardEventInfo, BoardPageData } from "@/lib/data/board";
 import { AVAILABILITY } from "@/lib/labels";
 import { buildMessage } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { removeOffer } from "../actions";
-import { assignFromBoard, setAvailabilityDay, undoAssignFromBoard } from "./actions";
+import { assignFromBoard, setAvailabilityCells, setAvailabilityDay, undoAssignFromBoard } from "./actions";
 
 type Sel = { staffId: string; date: string } | { clientId: string; date: string } | null;
 
@@ -26,6 +27,23 @@ export function BoardScreen({ data }: { data: BoardPageData }) {
   const [sel, setSel] = useState<Sel>(null);
   const [sent, setSent] = useState<Recipient[] | null>(null);
   const { board } = data;
+  // キーで入れた稼働可能日は、保存が終わる前から表に出す
+  const [shown, showChanges] = useOptimistic(board, applyAvailability);
+  const [, startSave] = useTransition();
+
+  /** 稼働表でキー（1 2 3 / Delete）を押して、選んだマスの稼働可能日を入れる。「元に戻す」付き */
+  function saveAvailability(changes: AvailabilityChange[], undo = false) {
+    startSave(async () => {
+      showChanges(changes);
+      const r = await setAvailabilityCells(changes.map(({ staffId, date, status }) => ({ staffId, date, status })));
+      if (!r.ok) {
+        toast.error(r.message);
+        return;
+      }
+      if (undo) toast.success("元に戻しました");
+      else toast.success(r.message, { action: { label: "元に戻す", onClick: () => saveAvailability(reverseChanges(changes), true) } });
+    });
+  }
 
   function openClientCell(clientId: string, date: string) {
     const list = Object.values(data.events).filter((e) => e.clientId === clientId && e.date === date);
@@ -43,7 +61,8 @@ export function BoardScreen({ data }: { data: BoardPageData }) {
         <p className="px-4 py-8 text-center text-muted-foreground">この月の現場とスタッフはまだありません。「現場」から現場を作るか、「データ取り込み」で名簿を入れてください。</p>
       ) : (
         <BoardGrid
-          board={board}
+          board={shown}
+          onSetAvailability={saveAvailability}
           onStaffCell={(staffId, date) => setSel({ staffId, date })}
           onClientCell={openClientCell}
           staffHref={(id) => `/staff/${id}`}
