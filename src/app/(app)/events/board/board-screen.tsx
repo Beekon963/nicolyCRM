@@ -60,14 +60,22 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
       {board.clients.length === 0 && board.staff.length === 0 ? (
         <p className="px-4 py-8 text-center text-muted-foreground">この月の現場とスタッフはまだありません。「現場」から現場を作るか、「データ取り込み」で名簿を入れてください。</p>
       ) : (
-        <BoardGrid
-          board={shown}
-          money={money}
-          onSetAvailability={saveAvailability}
-          onStaffCell={(staffId, date) => setSel({ staffId, date })}
-          onClientCell={openClientCell}
-          staffHref={(id) => `/staff/${id}`}
-        />
+        <>
+          {board.staff.length === 0 && (
+            // 「名前が出ない」と見えるときの多くは、スタッフが1人も出ていないとき。次に何をすればいいかを出す
+            <p className="mx-4 mb-2 rounded-md bg-status-waiting-bg p-3 text-status-waiting" data-testid="board-no-staff">
+              この月に出せるスタッフがいません（稼働表に出るのは「稼働中」の人と、この月に予定がある人です）。「データ取り込み」でスタッフ名簿を取り込むか、「スタッフ」の画面で状態を「すべて」にして、休止・終了になっていないか確かめてください。
+            </p>
+          )}
+          <BoardGrid
+            board={shown}
+            money={money}
+            onSetAvailability={saveAvailability}
+            onStaffCell={(staffId, date) => setSel({ staffId, date })}
+            onClientCell={openClientCell}
+            staffHref={(id) => `/staff/${id}`}
+          />
+        </>
       )}
       <BoardLegend admin />
 
