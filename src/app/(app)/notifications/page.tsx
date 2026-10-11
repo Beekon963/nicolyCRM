@@ -100,7 +100,7 @@ export default async function NotificationsPage() {
           {!log?.length ? (
             <p className="rounded-lg border border-dashed p-4 text-center text-muted-foreground">まだありません。上の設定をオンにすると、確定したときなどにここへ記録が出ます。</p>
           ) : (
-            <ul className="flex flex-col divide-y rounded-lg border">
+            <ul className="flex flex-col divide-y rounded-xl border bg-card">
               {log.map((l) => {
                 const a = l.assignment;
                 return (

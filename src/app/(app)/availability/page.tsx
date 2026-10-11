@@ -77,7 +77,7 @@ export default async function AvailabilityStatusPage({ searchParams }: PageProps
       {missing.length === 0 ? (
         <EmptyState title="全員提出済みです" />
       ) : (
-        <ul className="mx-4 divide-y rounded-lg border">
+        <ul className="mx-4 divide-y rounded-xl border bg-card">
           {missing.map((r) => (
             <li key={r.id} className="flex min-h-14 items-center gap-2 px-3">
               <Link href={`/staff/${r.id}`} className="flex-1 font-medium hover:underline">
@@ -93,7 +93,7 @@ export default async function AvailabilityStatusPage({ searchParams }: PageProps
       )}
 
       <h2 className="mx-4 mt-6 mb-1 font-bold">提出済み（{done.length}人）</h2>
-      <ul className="mx-4 divide-y rounded-lg border">
+      <ul className="mx-4 divide-y rounded-xl border bg-card">
         {done.map((r) => (
           <li key={r.id} className="flex min-h-14 items-center gap-2 px-3">
             <Link href={`/staff/${r.id}`} className="flex-1 font-medium hover:underline">

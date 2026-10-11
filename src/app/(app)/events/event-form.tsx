@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { CountStepper } from "@/components/app/count-stepper";
+import { DateQuickPick } from "@/components/app/date-quick-pick";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -208,6 +209,18 @@ export function EventForm({
               </Button>
             )}
           </div>
+          {/* 日付のワンタップ候補（要件 §9-3） */}
+          {mode === "single" && (
+            <DateQuickPick
+              value={date}
+              onChange={(v) => (setDate(v), setDirty(true))}
+              options={[
+                { label: "今日", days: 0 },
+                { label: "明日", days: 1 },
+                { label: "来週の今日", days: 7 },
+              ]}
+            />
+          )}
         </div>
       )}
 
@@ -268,9 +281,12 @@ export function EventForm({
         </div>
       </details>
 
-      <Button type="submit" size="lg" disabled={pending || (mode === "bulk" && selectedDates.length === 0)}>
-        {pending ? "保存中…" : mode === "edit" ? "保存する" : mode === "bulk" ? `${selectedDates.length}件の現場を作る` : "現場を作る"}
-      </Button>
+      {/* スマホでは画面の下に固定（下のタブに隠れないように）。PC はふつうに並べる */}
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+        <Button type="submit" size="lg" className="w-full md:w-auto" disabled={pending || (mode === "bulk" && selectedDates.length === 0)}>
+          {pending ? "保存中…" : mode === "edit" ? "保存する" : mode === "bulk" ? `${selectedDates.length}件の現場を作る` : "現場を作る"}
+        </Button>
+      </div>
     </form>
   );
 }

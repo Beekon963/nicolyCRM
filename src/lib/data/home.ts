@@ -87,3 +87,29 @@ export async function getMonthRanking(basis: Basis) {
       .map(({ id, name, total }) => ({ id, name, total }));
   return { staff: top("staff"), venues: top("venue"), clients: top("client") };
 }
+
+/**
+ * 「その他」のメニューに出す件数（Phase 7）。待っているものがひと目で分かるように。
+ * - 実績確認: 過ぎた現場で、確定した人の実績がまだ確定していない数（直近45日）
+ * - 交通費・経費: 未承認の数
+ * - 稼働可能日: 翌月分をまだ出していない人の数（締切を過ぎたら late）
+ */
+export async function getMenuCounts() {
+  const supabase = await createClient();
+  const today = todayJst();
+  const settings = await getGeneralSettings();
+  const next = nextMonth(monthOf(today));
+  const deadline = `${monthOf(today)}-${String(settings.availabilityDeadlineDay).padStart(2, "0")}`;
+  const [results, expenses, activeStaff, submitted] = await Promise.all([
+    supabase.from("event_overview").select("unconfirmed_result_count").lte("date", today).gte("date", addDays(today, -45)).is("cancelled_at", null).gt("unconfirmed_result_count", 0),
+    supabase.from("expenses").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("staff").select("id", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("availability_submissions").select("staff_id, staff:staff!inner(status)").eq("month", `${next}-01`).not("submitted_at", "is", null).eq("staff.status", "active"),
+  ]);
+  return {
+    "/results": { count: (results.data ?? []).reduce((n, e) => n + (e.unconfirmed_result_count ?? 0), 0), late: false },
+    "/expenses": { count: expenses.count ?? 0, late: false },
+    "/availability": { count: Math.max(0, (activeStaff.count ?? 0) - (submitted.data?.length ?? 0)), late: today > deadline },
+  } as Record<string, { count: number; late: boolean }>;
+}
+

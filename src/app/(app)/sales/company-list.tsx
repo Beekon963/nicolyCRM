@@ -178,14 +178,19 @@ function Kanban({ companies, today, detailHref }: { companies: CompanyListRow[];
         {(Object.keys(COMPANY_STATUS) as CompanyStatus[]).map((s) => {
           const list = companies.filter((c) => c.status === s);
           return (
-            <section key={s} aria-label={COMPANY_STATUS[s].label} className="flex w-64 shrink-0 flex-col gap-2 rounded-lg bg-muted/60 p-2">
-              <h2 className="flex items-center justify-between px-1 font-bold">
+            // 会社のない列は細くして、ある列が画面に収まるようにする
+            <section
+              key={s}
+              aria-label={COMPANY_STATUS[s].label}
+              className={cn("flex shrink-0 flex-col gap-2 self-start rounded-2xl border bg-[#f9fafb] p-2", list.length ? "w-64" : "w-40")}
+            >
+              <h2 className="flex items-center justify-between gap-1 px-1 font-bold">
                 <Badge tone={COMPANY_STATUS[s].tone}>{COMPANY_STATUS[s].label}</Badge>
-                <span className="text-sm text-muted-foreground">{list.length}社</span>
+                <span className="shrink-0 text-sm whitespace-nowrap text-muted-foreground tabular-nums">{list.length}社</span>
               </h2>
-              {list.length === 0 && <p className="px-1 py-2 text-sm text-muted-foreground">なし</p>}
+              {list.length === 0 && <p className="px-1 pb-1 text-sm text-muted-foreground">なし</p>}
               {list.map((c) => (
-                <Link key={c.id} href={detailHref(c.id)} className="flex min-h-14 flex-col gap-0.5 rounded-md border bg-background p-2 hover:bg-accent">
+                <Link key={c.id} href={detailHref(c.id)} className="flex min-h-14 flex-col gap-0.5 rounded-xl border bg-card p-2.5 shadow-card transition-colors hover:bg-accent">
                   <span className="flex items-center gap-1">
                     <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
                     {c.priority === "high" && <Badge tone="brand">高</Badge>}

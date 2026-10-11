@@ -660,7 +660,17 @@ export function BoardGrid({
             <tbody>
               {board.clients.length > 0 && (
                 <>
-                  <SectionRow label="現場（取引先ごと）" days={board.days} extra={money ? 1 : 0} />
+                  <SectionRow
+                    label={
+                      // スマホでは名前の列が細いので短く
+                      <>
+                        <span className="md:hidden">現場</span>
+                        <span className="max-md:hidden">現場（取引先ごと）</span>
+                      </>
+                    }
+                    days={board.days}
+                    extra={money ? 1 : 0}
+                  />
                   <tr data-r={r++}>
                     <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1 text-left font-normal text-muted-foreground">
                       欠員（その日）
@@ -768,7 +778,7 @@ function headTint(d: BoardDay) {
   return colTint(d) ?? "bg-background";
 }
 
-function SectionRow({ label, days, extra = 0 }: { label: string; days: BoardDay[]; extra?: number }) {
+function SectionRow({ label, days, extra = 0 }: { label: React.ReactNode; days: BoardDay[]; extra?: number }) {
   return (
     <tr>
       <th className="sticky left-0 z-10 border-r border-b bg-[#f9fafb] shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1.5 text-left text-sm font-semibold text-[#344054]">{label}</th>

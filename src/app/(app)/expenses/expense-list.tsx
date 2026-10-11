@@ -62,7 +62,7 @@ export function ExpenseList({ rows }: { rows: ExpenseRow[] }) {
           </Button>
         </div>
       )}
-      <ul className="divide-y rounded-lg border">
+      <ul className="divide-y rounded-xl border bg-card">
         {rows.map((r) => (
           <li key={r.id} className="flex items-start gap-3 p-3">
             {r.status === "pending" ? (
@@ -80,8 +80,9 @@ export function ExpenseList({ rows }: { rows: ExpenseRow[] }) {
                 <Link href={`/staff/${r.staff?.id}`} className="font-medium hover:underline">
                   {r.staff?.name}
                 </Link>
-                <span className="text-lg font-bold">{yen(r.amount)}</span>
-                <Badge tone={EXPENSE_STATUS[r.status].tone}>{EXPENSE_STATUS[r.status].label}</Badge>
+                <span className="text-lg font-bold tabular-nums">{yen(r.amount)}</span>
+                {/* 未承認は右の「承認・却下」で分かるので、札は承認済み・却下だけ */}
+                {r.status !== "pending" && <Badge tone={EXPENSE_STATUS[r.status].tone}>{EXPENSE_STATUS[r.status].label}</Badge>}
               </p>
               <p className="text-sm">
                 {EXPENSE_KIND[r.kind]}
@@ -99,10 +100,10 @@ export function ExpenseList({ rows }: { rows: ExpenseRow[] }) {
             </div>
             {r.status === "pending" ? (
               <div className="flex flex-col gap-1">
-                <Button size="sm" disabled={pending} onClick={() => review([r.id], "approved")}>
+                <Button size="sm" variant="outline" disabled={pending} onClick={() => review([r.id], "approved")}>
                   承認
                 </Button>
-                <Button size="sm" variant="ghost" disabled={pending} onClick={() => setRejecting(r)}>
+                <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={pending} onClick={() => setRejecting(r)}>
                   却下
                 </Button>
               </div>

@@ -50,14 +50,15 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
     <div className="pb-8">
       <PageHeader
         back={back}
-        title={
-          <span className="flex items-center gap-2">
-            {staff.name}
+        // 名前は1行目に大きく、かな・ランク・状態は2行目に（名前が途中で折り返さないように）
+        title={<span className="whitespace-nowrap">{staff.name}</span>}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            {staff.kana && <span>{staff.kana}</span>}
             {rank && <Badge tone="brand">{rank.name}</Badge>}
             <Badge tone={STAFF_STATUS[staff.status].tone}>{STAFF_STATUS[staff.status].label}</Badge>
           </span>
         }
-        description={staff.kana}
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href={`/staff/${staff.id}/edit`}>

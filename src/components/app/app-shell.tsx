@@ -3,8 +3,8 @@
 import { CalendarPlusIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import type { AppUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { RecordActivityPicker } from "./activity-sheet";
@@ -66,13 +66,9 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
           </Link>
           <form action="/search" className="relative flex-1">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              name="q"
-              type="search"
-              placeholder="名前・会場などで検索"
-              aria-label="検索"
-              className="h-11 w-full rounded-full border border-input bg-muted/50 pr-3 pl-10 text-base outline-none focus-visible:border-ring focus-visible:bg-background"
-            />
+            <Suspense fallback={<SearchInput />}>
+              <SearchInputWithQuery />
+            </Suspense>
           </form>
           <AiAssistant role={user.role} ready={aiReady} />
         </header>
@@ -168,5 +164,27 @@ function CreateFab() {
       </button>
       <RecordActivityPicker open={record} onOpenChange={setRecord} />
     </div>
+  );
+}
+
+/** 上の検索窓。検索結果の画面では、探した言葉を残しておく（続けて直しやすいように） */
+function SearchInputWithQuery() {
+  const pathname = usePathname();
+  const q = useSearchParams().get("q") ?? "";
+  const value = pathname === "/search" ? q : "";
+  return <SearchInput key={value} defaultValue={value} />;
+}
+
+function SearchInput({ defaultValue }: { defaultValue?: string }) {
+  return (
+    <input
+      name="q"
+      type="search"
+      defaultValue={defaultValue}
+      // スマホでは後ろが切れるので「検索」を先に
+      placeholder="検索（名前・会場・電話など）"
+      aria-label="検索"
+      className="h-11 w-full rounded-full border border-input bg-muted/50 pr-3 pl-10 text-base outline-none focus-visible:border-ring focus-visible:bg-background"
+    />
   );
 }

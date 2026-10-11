@@ -126,10 +126,12 @@ export function AssignmentPanel({
       {groups.length === 0 && <p className="text-sm text-muted-foreground">まだ誰にも打診していません。「候補を探す」から打診しましょう。</p>}
       {groups.map((g) => (
         <div key={g.status}>
-          <p className="mb-1 text-sm font-medium text-muted-foreground">
-            {ASSIGNMENT_STATUS[g.status].label}（{g.list.length}）
+          {/* 状態は見出しに1回だけ出す（各行には繰り返さない） */}
+          <p className="mb-1.5 flex items-center gap-2 text-sm">
+            <Badge tone={ASSIGNMENT_STATUS[g.status].tone}>{ASSIGNMENT_STATUS[g.status].label}</Badge>
+            <span className="text-muted-foreground tabular-nums">{g.list.length}人</span>
           </p>
-          <ul className="divide-y rounded-md border">
+          <ul className="divide-y rounded-xl border">
             {g.list.map((a) => (
               <li key={a.id} className="flex items-center gap-2 px-3 py-2">
                 <div className="min-w-0 flex-1">
@@ -137,8 +139,7 @@ export function AssignmentPanel({
                     {a.name}
                   </Link>
                   <span className="ml-2 text-sm text-muted-foreground">{a.roleName}</span>
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    <Badge tone={ASSIGNMENT_STATUS[a.status].tone}>{ASSIGNMENT_STATUS[a.status].label}</Badge>
+                  <div className="flex flex-wrap items-center gap-1 pt-0.5 empty:hidden">
                     {a.status === "offered" && Date.now() - new Date(a.offeredAt).getTime() > 24 * 3600_000 && <Badge tone="alert">24時間以上未回答</Badge>}
                     {a.responseSource && a.status !== "offered" && <span className="text-xs text-muted-foreground">回答: {INPUT_SOURCE[a.responseSource]}</span>}
                     {a.status === "confirmed" && !isPast && (

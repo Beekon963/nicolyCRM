@@ -63,9 +63,10 @@ export default async function AnalysisPage({ searchParams }: PageProps<"/analysi
       <PageHeader title="実績の分析" description={`${formatShortJa(start)}〜${formatShortJa(end)}・獲得件数 ${sum}件（${basis === "confirmed" ? "確定" : "速報"}）`} />
       <div className="flex flex-col gap-2 px-4">
         {seg("期間", (Object.keys(RANGE_LABEL) as RangeKey[]).map((k) => [k, RANGE_LABEL[k]]), range, "range", "month")}
-        <div className="flex flex-wrap gap-2">
+        {/* 確定/速報と並び順は1行に（スマホで結果を少しでも上に出すため） */}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 sm:flex sm:flex-wrap">
           {seg("集計のもと", [["confirmed", "確定"], ["reported", "速報"]] as [Basis, string][], basis, "basis", "confirmed")}
-          {seg("並び", [["total", "獲得件数の順"], ["avg", "1稼働あたりの順"]] as ["total" | "avg", string][], sort, "sort", "total")}
+          {seg("並び", [["total", "件数の順"], ["avg", "1稼働あたり"]] as ["total" | "avg", string][], sort, "sort", "total")}
         </div>
         <div className="flex gap-1 rounded-xl bg-muted p-1">
           {(Object.keys(BY_LABEL) as GroupBy[]).map((k) => (

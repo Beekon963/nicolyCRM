@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2Icon, FileUpIcon } from "lucide-react";
+import { CheckCircle2Icon, CheckIcon, FileUpIcon } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ import { previewImport, runImport, type ImportReport } from "./actions";
 import { MonthSheetImport } from "./month-sheet-import";
 
 type Step = "target" | "file" | "map" | "preview" | "done";
+const STEPS: Step[] = ["target", "file", "map", "preview", "done"];
+const STEP_LABEL: Record<Step, string> = { target: "種類", file: "ファイル", map: "列の対応", preview: "確認", done: "結果" };
 
 export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; name: string }[]; defaultSheetUrl?: string }) {
   const [step, setStep] = useState<Step>("target");
@@ -57,12 +59,27 @@ export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; 
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-8">
-      <ol className="flex gap-1 text-sm">
-        {(["target", "file", "map", "preview", "done"] as Step[]).map((s, i) => (
-          <li key={s} className={cn("flex-1 rounded px-2 py-1 text-center", s === step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            {i + 1}. {{ target: "種類", file: "ファイル", map: "列の対応", preview: "確認", done: "結果" }[s]}
-          </li>
-        ))}
+      {/* 今どこか: 済んだ段は ✓、今の段は青、まだの段は灰色。段の間の線も済んだところまで青 */}
+      <ol className="flex text-sm">
+        {STEPS.map((s, i) => {
+          const at = STEPS.indexOf(step);
+          const done = i < at;
+          const now = i === at;
+          return (
+            <li key={s} aria-current={now ? "step" : undefined} className="relative flex flex-1 flex-col items-center gap-1">
+              {i > 0 && <span aria-hidden className={cn("absolute top-3.5 right-1/2 h-0.5 w-full", i <= at ? "bg-primary" : "bg-border")} />}
+              <span
+                className={cn(
+                  "relative grid size-7 place-items-center rounded-full text-sm font-bold",
+                  done ? "bg-primary text-primary-foreground" : now ? "bg-brand-50 text-primary ring-2 ring-primary" : "bg-muted text-muted-foreground",
+                )}
+              >
+                {done ? <CheckIcon className="size-4" strokeWidth={3} /> : i + 1}
+              </span>
+              <span className={cn("text-center text-xs whitespace-nowrap", now ? "font-semibold text-foreground" : "text-muted-foreground")}>{STEP_LABEL[s]}</span>
+            </li>
+          );
+        })}
       </ol>
 
       {step === "target" && (
@@ -75,7 +92,7 @@ export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; 
                 setTarget(t);
                 setStep("file");
               }}
-              className="flex min-h-16 flex-col items-start justify-center rounded-lg border p-4 text-left hover:bg-accent"
+              className="flex min-h-16 flex-col items-start justify-center rounded-2xl border bg-card p-4 text-left shadow-card transition-colors hover:bg-accent"
             >
               <span className="font-bold">{TARGETS[t].label}</span>
               <span className="text-sm text-muted-foreground">{TARGETS[t].dupHelp}</span>
@@ -84,7 +101,7 @@ export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; 
           <button
             type="button"
             onClick={() => setMonthSheet(true)}
-            className="flex min-h-16 flex-col items-start justify-center rounded-lg border p-4 text-left hover:bg-accent sm:col-span-2"
+            className="flex min-h-16 flex-col items-start justify-center rounded-2xl border bg-card p-4 text-left shadow-card transition-colors hover:bg-accent sm:col-span-2"
           >
             <span className="font-bold">月の稼働表（今のスプレッドシート）</span>
             <span className="text-sm text-muted-foreground">月のシート（202611 など）から、現場・アサイン・稼働可能日・単価をまとめて取り込みます</span>
@@ -117,7 +134,7 @@ export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; 
           {headers.some((h) => IGNORED_HEADERS.includes(h)) && (
             <p className="text-sm text-muted-foreground">「{headers.filter((h) => IGNORED_HEADERS.includes(h)).join("」「")}」の列は取り込みません。</p>
           )}
-          <ul className="divide-y rounded-lg border">
+          <ul className="divide-y rounded-xl border bg-card">
             {fields.map((f) => (
               <li key={f.key} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center">
                 <div className="sm:w-56">

@@ -29,39 +29,46 @@ export function UsersClient({ users, meId }: { users: User[]; meId: string }) {
   return (
     <div className="flex flex-col gap-4 px-4">
       <InviteDialog />
-      <ul className="divide-y rounded-lg border">
+      <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-card">
         {users.map((u) => (
-          <li key={u.id} className="flex flex-wrap items-center gap-3 p-3">
+          // 1行目: 名前とメール、2行目: 権限と有効（スマホでも名前がつぶれないように2段に分ける）
+          <li key={u.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-3">
             <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 font-medium">
+              <p className="flex flex-wrap items-center gap-2 font-semibold">
                 {u.name}
                 {u.id === meId && <Badge tone="brand">自分</Badge>}
                 {!u.is_active && <Badge tone="muted">無効</Badge>}
               </p>
               <p className="truncate text-sm text-muted-foreground">{u.email}</p>
             </div>
-            <NativeSelect
-              aria-label={`${u.name}の権限`}
-              className="w-32"
-              value={u.role}
-              disabled={u.id === meId || pending}
-              onChange={(e) => run(setUserRole(u.id, e.target.value as User["role"]))}
-            >
-              <option value="manager">{USER_ROLE.manager}</option>
-              <option value="owner">{USER_ROLE.owner}</option>
-            </NativeSelect>
-            <label className="flex items-center gap-2 text-sm">
-              有効
-              <Switch
-                checked={u.is_active}
-                disabled={u.id === meId || pending}
-                onCheckedChange={(v) => {
-                  if (!v && !window.confirm(`${u.name}さんを無効にします。すぐにログインできなくなります。よろしいですか？`)) return;
-                  run(setUserActive(u.id, v));
-                }}
-                aria-label={`${u.name}を有効にする`}
-              />
-            </label>
+            {u.id === meId ? (
+              <p className="text-sm text-muted-foreground">{USER_ROLE[u.role]}（自分の権限は変えられません）</p>
+            ) : (
+              <div className="flex items-center gap-3">
+                <NativeSelect
+                  aria-label={`${u.name}の権限`}
+                  className="flex-1 sm:w-32 sm:flex-none"
+                  value={u.role}
+                  disabled={pending}
+                  onChange={(e) => run(setUserRole(u.id, e.target.value as User["role"]))}
+                >
+                  <option value="manager">{USER_ROLE.manager}</option>
+                  <option value="owner">{USER_ROLE.owner}</option>
+                </NativeSelect>
+                <label className="flex min-h-11 shrink-0 items-center gap-2 text-sm">
+                  有効
+                  <Switch
+                    checked={u.is_active}
+                    disabled={pending}
+                    onCheckedChange={(v) => {
+                      if (!v && !window.confirm(`${u.name}さんを無効にします。すぐにログインできなくなります。よろしいですか？`)) return;
+                      run(setUserActive(u.id, v));
+                    }}
+                    aria-label={`${u.name}を有効にする`}
+                  />
+                </label>
+              </div>
+            )}
           </li>
         ))}
       </ul>

@@ -21,7 +21,7 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader title="設定" description="オーナーだけが変更できます" />
-      <ul className="mx-4 divide-y rounded-lg border">
+      <ul className="mx-4 divide-y rounded-xl border bg-card">
         {ITEMS.map((i) => (
           <li key={i.href}>
             <Link href={i.href} className="flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent">

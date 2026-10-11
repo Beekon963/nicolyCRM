@@ -47,7 +47,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
       {rows.length === 0 ? (
         <EmptyState title="変更履歴はありません" />
       ) : (
-        <ul className="mx-4 divide-y rounded-lg border">
+        <ul className="mx-4 divide-y overflow-hidden rounded-2xl border bg-card shadow-card">
           {rows.map((r) => {
             const before = (r.before ?? {}) as Record<string, unknown>;
             const after = (r.after ?? {}) as Record<string, unknown>;
@@ -66,7 +66,9 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
                   <ul className="pl-2">
                     {fields.map((f) => (
                       <li key={f}>
-                        {FIELD_LABEL[f] ?? f}: {formatValue(f, before[f])} → <b>{formatValue(f, after[f])}</b>
+                        {/* 前の値は灰色の取り消し線、新しい値は太字 */}
+                        {FIELD_LABEL[f] ?? "項目"}: <span className="text-muted-foreground line-through decoration-[#98a2b3]">{formatValue(f, before[f])}</span> →{" "}
+                        <b className="font-semibold">{formatValue(f, after[f])}</b>
                       </li>
                     ))}
                   </ul>

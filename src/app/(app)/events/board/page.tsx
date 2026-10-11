@@ -56,8 +56,8 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
       <PageHeader
         title="稼働表"
         actions={
-          // スマホでは2つのボタンを1行に半分ずつ並べる（表を少しでも上に出すため）
-          <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto [&_button]:w-full [&_button]:gap-1.5 [&_button]:px-2 md:[&_button]:w-auto md:[&_button]:px-3">
+          // 見出しと同じ行に小さく並べる（表を少しでも上に出すため）
+          <div className="flex gap-2 max-md:[&_button]:gap-1.5 max-md:[&_button]:px-2.5">
             <ShareLink link={share ? { url: `${siteUrl()}/s/${share.token}`, active: share.is_active } : null} isOwner={isOwner} />
             <SheetExport
               isOwner={isOwner}
@@ -69,7 +69,6 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
             />
           </div>
         }
-        actionsBelow
       />
       <EventsViewTabs current="board" month={month} />
       <div className="flex items-center justify-between px-4 pb-2">

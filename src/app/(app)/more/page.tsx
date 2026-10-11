@@ -3,12 +3,15 @@ import Link from "next/link";
 import { NAV_GROUPS, visibleItems } from "@/components/app/nav-items";
 import { PageHeader } from "@/components/app/page-header";
 import { requireMember } from "@/lib/auth";
+import { getMenuCounts } from "@/lib/data/home";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "その他 | NICOLY CRM" };
 
 export default async function MorePage() {
   const user = await requireMember();
   const items = visibleItems(user.role).filter((i) => i.more);
+  const counts = await getMenuCounts();
   return (
     <>
       <PageHeader title="その他" description={`${user.name}（${user.role === "owner" ? "オーナー" : "管理者"}）`} />
@@ -28,6 +31,17 @@ export default async function MorePage() {
                         <i.icon className="size-5 text-primary" />
                       </span>
                       <span className="flex-1 font-medium">{i.label}</span>
+                      {/* 待っている件数（締切を過ぎたものは赤、それ以外は黄） */}
+                      {counts[i.href]?.count > 0 && (
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-sm font-bold tabular-nums",
+                            counts[i.href].late ? "bg-status-alert-solid text-white" : "bg-status-waiting-solid text-status-waiting-on-solid",
+                          )}
+                        >
+                          {counts[i.href].count}
+                        </span>
+                      )}
                       <ChevronRightIcon className="size-5 text-[#98a2b3]" />
                     </Link>
                   </li>

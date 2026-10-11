@@ -14,10 +14,10 @@ export default async function MypageHistory({ params }: PageProps<"/m/[token]/hi
       {r.data.items.length === 0 ? (
         <p className="rounded-xl border border-dashed p-6 text-center text-muted-foreground">まだ稼働はありません。</p>
       ) : (
-        <ul className="divide-y rounded-xl border">
+        <ul className="divide-y rounded-xl border bg-card">
           {r.data.items.map((h, i) => (
             <li key={i} className="flex items-center gap-3 p-3">
-              <span className="w-16 shrink-0 font-bold">{formatShortJa(h.date)}</span>
+              <span className="w-24 shrink-0 font-bold whitespace-nowrap tabular-nums">{formatShortJa(h.date)}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{h.venue}</span>
                 <span className="text-sm text-muted-foreground">{h.role}</span>
@@ -25,7 +25,7 @@ export default async function MypageHistory({ params }: PageProps<"/m/[token]/hi
               {h.status === "no_show" ? (
                 <Badge tone="muted">不稼働</Badge>
               ) : (
-                <span className="text-right text-sm">
+                <span className="shrink-0 text-right text-sm whitespace-nowrap">
                   <span className="block">確定 {h.confirmed ?? "−"}件</span>
                   <span className="block text-muted-foreground">速報 {h.reported ?? "−"}件</span>
                 </span>
