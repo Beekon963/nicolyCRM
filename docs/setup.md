@@ -231,11 +231,13 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 
 LINE 公式アカウントから、確定・前日・新しい現場のお知らせを自動で送ります（CRM の「その他 → LINE の通知」）。
 
-1. **LINE 公式アカウントを作る**: https://entry.line.biz/ →「LINE公式アカウントを開設」→ LINE のアカウントでログイン → アカウント名（例: `NICOLY`）・業種などを入れて作成
-2. **Messaging API を使えるようにする**: https://manager.line.biz/ で作ったアカウントを開く → 右上の **設定 → Messaging API →「Messaging API を利用する」** → プロバイダーを作る（名前: `NICOLY`）→ OK
-   - 同じ画面の **Webhook URL** に `https://nicoly-crm.vercel.app/api/line/webhook` を入れて保存
+1. **お知らせ専用の LINE 公式アカウントを新しく作る**: https://entry.line.biz/ →「LINE公式アカウントを開設」→ LINE のアカウントでログイン → アカウント名（例: `NICOLY お知らせ`）・業種などを入れて作成
+   - **すでにほかの仕組みで Webhook を使っている公式アカウントには入れないでください**（Webhook URL は1つのアカウントに1つだけなので、書き換えると今の仕組みが止まります）。お知らせ専用のアカウントなら、今のアカウントには一切触りません
+2. **Messaging API を使えるようにする**: https://manager.line.biz/ で作ったアカウントを開く → 右上の **設定 → Messaging API →「Messaging API を利用する」** → プロバイダーを選ぶ・作る → OK
+   - プロバイダーは、今のアカウントと分けて新しく作るのがおすすめです（名前: `NICOLY CRM`）
+   - 同じ画面の **Webhook URL** に `https://nicoly-crm.vercel.app/api/line/webhook` を入れて保存（1 で作った**お知らせ専用のアカウント**の画面で行う）
 3. **応答の設定**: 設定 → **応答設定** で「**Webhook**」をオン、「**応答メッセージ**」をオフ（オンのままだと、コードを送ったときに自動の返事が混ざります）。「チャット」はオンにしておくと、スタッフからのメッセージに手で返事できます
-4. **鍵を2つコピーする**: https://developers.line.biz/console/ → プロバイダー `NICOLY` → 公式アカウントのチャネルを開く
+4. **鍵を2つコピーする**: https://developers.line.biz/console/ → 2 のプロバイダー → お知らせ専用のアカウントのチャネルを開く
    - 「**チャネル基本設定**」タブの **チャネルシークレット**
    - 「**Messaging API設定**」タブのいちばん下の **チャネルアクセストークン（長期）** →「発行」
    - どちらも**秘密**です。人に送らない・チャットに貼らない
