@@ -29,15 +29,15 @@ export async function resolveModel(client: Anthropic): Promise<string> {
   return cachedModel;
 }
 
-/** API のエラー → 画面のことば */
+/** API のエラー → 画面のことば（細かい種類から順に見る） */
 export function aiErrorMessage(e: unknown): string {
-  if (e instanceof Anthropic.APIError) {
-    if (e.status === 401 || e.status === 403) return "AI のキーが使えません。オーナーが Vercel の ANTHROPIC_API_KEY を確かめてください。";
-    if (e.status === 429) return "AI の利用が上限に達したか、混み合っています。少し待ってからもう一度送ってください。";
-    if (e.status === 413 || e.status === 400) return "画像が大きすぎるか、会話が長くなりすぎました。「新しい会話」で始め直してください。";
-    if (e.status === 404) return "AI のモデルが見つかりません。オーナーが Vercel の ANTHROPIC_MODEL を確かめてください。";
-    if (e.status && e.status >= 500) return "AI が混み合っています。少し待ってからもう一度送ってください。";
-  }
-  if (e instanceof Error && e.name === "AbortError") return "止めました。";
+  if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError)
+    return "AI のキーが使えません。オーナーが Vercel の ANTHROPIC_API_KEY を確かめてください。";
+  if (e instanceof Anthropic.NotFoundError) return "AI のモデルが見つかりません。オーナーが Vercel の ANTHROPIC_MODEL を確かめてください（ふだんは空でよい）。";
+  if (e instanceof Anthropic.RateLimitError) return "AI の利用が上限に達したか、混み合っています。少し待ってからもう一度送ってください。";
+  if (e instanceof Anthropic.BadRequestError) return "画像が大きすぎるか、会話が長くなりすぎました。「新しい会話」で始め直してください。";
+  if (e instanceof Anthropic.APIUserAbortError) return "止めました。";
+  if (e instanceof Anthropic.APIConnectionError || e instanceof Anthropic.InternalServerError) return "AI が混み合っています。少し待ってからもう一度送ってください。";
+  if (e instanceof Anthropic.APIError && e.status === 413) return "画像が大きすぎます。枚数を減らしてください。";
   return "AI に聞けませんでした。少し待ってからもう一度送ってください。";
 }

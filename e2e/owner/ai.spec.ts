@@ -27,6 +27,12 @@ test("AI に聞くと、CRM を調べて答える（スマホ幅で横スクロ�
   await expect(ai.getByText("名前を探しています")).toBeVisible();
   await expectNoHorizontalScroll(page);
 
+  // 同じ会話で続けて聞ける（前の答えの考えの記録をそのまま返している。違うと偽の AI が「設定がちがいます」と答える）
+  await ai.getByLabel("AI に送る文").fill("道具");
+  await ai.getByRole("button", { name: "送る" }).click();
+  await expect(ai.getByText(/道具: /)).toBeVisible();
+  await expect(ai.getByText(/設定がちがいます/)).toHaveCount(0);
+
   // 「新しい会話」で消える
   await ai.getByRole("button", { name: "新しい会話" }).click();
   await expect(ai.getByText(/見つかった人/)).toHaveCount(0);
@@ -47,6 +53,7 @@ test("画像を付けて送ると確認カードが出て、「登録する」�
     await expect(card.getByText("稼働可能日を入れる（1人）")).toBeVisible();
     await expect(card.getByText(staff.name, { exact: true })).toBeVisible();
     await expect(ai.getByText("確認カードを出しました")).toBeVisible();
+    await expect(ai.getByText(/設定がちがいます/)).toHaveCount(0);
     // 押すまでは登録しない
     expect((await sql(`select 1 from availability where staff_id = $1 and date = $2`, [staff.id, date.d])).length).toBe(0);
 
