@@ -70,7 +70,7 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
     <>
       <PageHeader
         title="実績確認"
-        description="速報（スタッフの報告）を確認して、確定件数を決めます。請求・支払いは確定件数で計算します。"
+        description="速報を確かめて、確定件数を決めます"
         back={eventId ? `/events/${eventId}` : undefined}
         actions={
           <Button asChild variant="outline" size="sm">
@@ -90,7 +90,7 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
             <Link
               key={t.v}
               href={`/results?show=${t.v}`}
-              className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.v === show ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
+              className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.v === show ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
             >
               {t.label}
             </Link>
@@ -102,13 +102,16 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
       ) : (
         <div className="flex flex-col gap-4 px-4">
           {list.map((g) => (
-            <section key={g.event.id} className="rounded-lg border">
-              <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+            <section key={g.event.id} className="overflow-hidden rounded-2xl border bg-card shadow-card">
+              {/* スマホでは「速報どおり確定」を会場名の下に全幅で出す（会場名が詰まらないように） */}
+              <div className="flex flex-col gap-2 border-b bg-[#fcfcfd] px-3 py-2.5 sm:flex-row sm:items-center">
                 <Link href={`/events/${g.event.id}`} className="min-w-0 flex-1 hover:underline">
                   <span className="font-bold">{formatShortJa(g.event.date)}</span> {g.event.venue?.name}
                   <span className="block text-sm text-muted-foreground">{g.event.client?.name}</span>
                 </Link>
-                <ConfirmEventButton eventId={g.event.id} count={g.bulk} />
+                <div className="[&_button]:w-full sm:[&_button]:w-auto">
+                  <ConfirmEventButton eventId={g.event.id} count={g.bulk} />
+                </div>
               </div>
               <ul className="divide-y">
                 {g.rows.map((r) => (

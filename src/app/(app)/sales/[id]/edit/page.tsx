@@ -17,7 +17,7 @@ export default async function EditCompanyPage({ params }: PageProps<"/sales/[id]
   if (!c) notFound();
   return (
     <>
-      <PageHeader title={`${c.name} を編集`} back={`/sales/${id}`} />
+      <PageHeader title="会社を編集" description={c.name} back={`/sales/${id}`} />
       <CompanyForm
         users={users ?? []}
         initial={{

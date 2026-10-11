@@ -1,7 +1,9 @@
 import { ExternalLinkIcon, PencilIcon, PhoneIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AddressText } from "@/components/app/address-text";
 import { Field, ListDetail, Section } from "@/components/app/list-detail";
+import { CompanyName } from "@/components/app/company-name";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,7 +60,7 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
         <div className="pb-8">
           <PageHeader
             back={`/sales?${query}`}
-            title={company.name}
+            title={<CompanyName name={company.name} />}
             description={
               <span className="flex flex-wrap items-center gap-2">
                 {COMPANY_KIND[kind]}
@@ -125,10 +127,10 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
                   </a>
                 )}
               </Field>
-              <Field label="住所">{company.address}</Field>
+              <Field label="住所">{company.address && <AddressText address={company.address} />}</Field>
               <Field label="Web">
                 {company.website && (
-                  <a href={company.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
+                  <a href={company.website} target="_blank" rel="noreferrer" className="text-primary [&>svg]:ml-1 [&>svg]:inline [&>svg]:align-[-3px]">
                     {company.website}
                     <ExternalLinkIcon className="size-4" />
                   </a>

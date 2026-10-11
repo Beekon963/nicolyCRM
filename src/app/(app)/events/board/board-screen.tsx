@@ -175,7 +175,7 @@ function StaffDay({ row, date, data, onOffered }: { row: BoardStaffRow; date: st
         <div
           role="status"
           key={notice.text}
-          className="flex min-h-12 items-center justify-between gap-2 rounded-lg border-b-4 border-status-done/30 bg-status-done-bg px-3 font-bold text-status-done motion-safe:animate-pop"
+          className="flex min-h-12 items-center justify-between gap-2 rounded-xl border border-status-done-border bg-status-done-bg px-3 font-semibold text-status-done motion-safe:animate-pop"
         >
           <span>{notice.text}</span>
           {notice.undo && (

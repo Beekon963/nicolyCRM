@@ -1,5 +1,6 @@
 import { ExternalLinkIcon, UserSearchIcon } from "lucide-react";
 import Link from "next/link";
+import { AddressText } from "@/components/app/address-text";
 import { Field, Section } from "@/components/app/list-detail";
 import { PageHeader } from "@/components/app/page-header";
 import { VenueColorDot } from "@/components/app/venue-color";
@@ -154,8 +155,8 @@ export async function EventDetailView({ detail, masters, back, isOwner = false }
         <dl>
           <Field label="住所">
             {venue.address && (
-              <a href={mapUrl(venue)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
-                {venue.address}
+              <a href={mapUrl(venue)} target="_blank" rel="noreferrer" className="text-primary [&>svg]:ml-1 [&>svg]:inline [&>svg]:align-[-3px]">
+                <AddressText address={venue.address} />
                 <ExternalLinkIcon className="size-4" />
               </a>
             )}

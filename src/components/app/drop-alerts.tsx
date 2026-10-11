@@ -58,38 +58,40 @@ export function DropAlerts() {
   const open = alerts.length > 0;
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="gap-0 overflow-hidden border-4 border-status-alert-solid p-0 [&>button:last-child]:text-white [&>button:last-child]:hover:bg-white/20">
-        <div className="flex items-center gap-3 bg-status-alert-solid px-4 pt-4 pb-3 pr-14 text-white">
-          <SirenIcon className="size-8 shrink-0 motion-safe:animate-shake" strokeWidth={2.5} />
+      <DialogContent className="gap-0 overflow-hidden p-0">
+        {/* 赤い線と、薄い赤の地のアイコンで「急ぎ」を伝える（全面を赤く塗らない） */}
+        <div className="h-1.5 bg-status-alert-solid" aria-hidden />
+        <div className="flex items-start gap-3 px-5 pt-5 pb-3 pr-14">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-status-alert-tint text-status-alert-solid ring-8 ring-status-alert-bg">
+            <SirenIcon className="size-6 motion-safe:animate-shake" strokeWidth={2.25} />
+          </span>
           <div className="min-w-0">
             <DialogTitle className="text-lg font-bold">欠員が出ました（{alerts.length}件）</DialogTitle>
-            <DialogDescription className="text-sm text-white/90">確定していた人が来られなくなりました。代わりの人を探してください。</DialogDescription>
+            <DialogDescription className="text-sm text-muted-foreground">確定していた人が来られなくなりました。代わりの人を探してください。</DialogDescription>
           </div>
         </div>
-        <ul className="flex flex-col gap-2 p-3" data-testid="drop-alerts">
+        <ul className="flex flex-col gap-2 px-5 pb-4" data-testid="drop-alerts">
           {alerts.map((a) => (
-            <li key={a.id} className="flex flex-col gap-2 rounded-lg border-2 border-b-4 p-3">
-              <div className="flex items-start gap-2">
-                <span aria-hidden className="mt-1 inline-block size-3.5 shrink-0 rounded-full" style={{ background: venueColor(a.venueColor).bg }} />
+            <li key={a.id} className="flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-card">
+              <div className="flex items-start gap-2.5">
+                <span aria-hidden className="mt-1.5 inline-block size-3 shrink-0 rounded-full ring-1 ring-black/10" style={{ background: venueColor(a.venueColor).bar }} />
                 <div className="min-w-0 flex-1">
                   <p className="font-bold">
                     {formatShortJa(a.date)} {a.venueName}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {[a.clientName, a.roleName].filter(Boolean).join("・")}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{[a.clientName, a.roleName].filter(Boolean).join("・")}</p>
                   <p className="mt-1">
                     {a.staffName}さんが <b className="text-status-alert">{LABEL[a.status]}</b>
                   </p>
                 </div>
                 {a.shortage > 0 ? (
-                  <span className="shrink-0 rounded-md bg-status-alert-solid px-2 py-1 text-sm font-bold text-white">欠{a.shortage}</span>
+                  <span className="shrink-0 rounded-full bg-status-alert-solid px-2.5 py-0.5 text-sm font-bold text-white">欠{a.shortage}</span>
                 ) : (
-                  <span className="shrink-0 rounded-md bg-status-done-solid px-2 py-1 text-sm font-bold text-white">埋まりました</span>
+                  <span className="shrink-0 rounded-full border border-status-done-border bg-status-done-bg px-2.5 py-0.5 text-sm font-semibold text-status-done">埋まりました</span>
                 )}
               </div>
               {a.shortage > 0 && (
-                <Button asChild className="border-b-4 border-status-alert-edge bg-status-alert-solid font-bold text-white hover:bg-status-alert-solid/90">
+                <Button asChild variant="destructive">
                   <Link href={`/events/${a.eventId}/candidates`} onClick={close}>
                     代わりの人を探す
                   </Link>
@@ -98,7 +100,7 @@ export function DropAlerts() {
             </li>
           ))}
         </ul>
-        <div className="border-t p-3">
+        <div className="border-t bg-[#fcfcfd] px-5 py-3">
           <Button variant="outline" className="w-full" onClick={close}>
             確認した
           </Button>

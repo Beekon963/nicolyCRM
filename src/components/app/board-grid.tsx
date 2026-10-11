@@ -32,6 +32,8 @@ import {
 import { clampZoom, keepFocus, stepZoom, zoomLabel } from "@/lib/board/zoom";
 import { fillOf } from "@/lib/fill";
 import { cn } from "@/lib/utils";
+import { CompanyName } from "./company-name";
+import { StatusPill } from "./status-pill";
 import { VENUE_COLOR_KEYS, VENUE_COLORS, venueStyle } from "@/lib/venue-colors";
 
 const ZOOM_KEY = "nicoly.board.zoom";
@@ -331,7 +333,8 @@ export function BoardGrid({
     const first = box?.querySelector<HTMLElement>("[data-name-col]");
     if (box && today && first) {
       const left = today.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft;
-      box.scrollLeft = Math.max(0, left - first.getBoundingClientRect().width - 8);
+      // 今日の列を名前の列のすぐ右にぴったり合わせる（前の日が細く見えないように）
+      box.scrollLeft = Math.max(0, left - first.getBoundingClientRect().width);
     }
   }, [board.month, ref]);
 
@@ -573,6 +576,7 @@ export function BoardGrid({
           onClick={() => setLayout({ ...layout, density: nextDensity(layout.density) })}
         >
           <Rows3Icon />
+          <span className="max-md:hidden">行の高さ</span>
           {density.label}
         </Button>
         {sel && (
@@ -593,10 +597,14 @@ export function BoardGrid({
           </Button>
         )}
       </div>
-      <p className="hidden px-4 pb-1 text-sm text-muted-foreground md:block">
-        矢印で移動・Shift＋矢印 / ドラッグで範囲・Ctrl＋C でコピー・Enter で開く
-        {onSetAvailability && "・1 2 3 で ○△×・Delete で消す"}・見出しの右端をドラッグで列の幅
-      </p>
+      {/* キーボードの操作は、押したときだけ出す（いつも出ていると表が下がるため） */}
+      <details className="hidden px-4 pb-1 text-sm text-muted-foreground md:block">
+        <summary className="w-fit cursor-pointer select-none hover:text-foreground">キーボード・マウスでの操作</summary>
+        <p className="pt-1">
+          矢印で移動・Shift＋矢印 / ドラッグで範囲・Ctrl＋C でコピー・Enter で開く
+          {onSetAvailability && "・1 2 3 で ○△×・Delete で消す"}・見出しの右端をドラッグで列の幅
+        </p>
+      </details>
       <style>{selectionCss(scope, sel)}</style>
       <div
         ref={ref}
@@ -623,7 +631,7 @@ export function BoardGrid({
           >
             <thead>
               <tr data-r={r++}>
-                <th data-c={0} data-name-col className={cn("sticky top-0 left-0 z-30 border-r border-b bg-background px-2 py-1 text-left", NAME_W)}>
+                <th data-c={0} data-name-col className={cn("sticky top-0 left-0 z-30 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1 text-left", NAME_W)}>
                   日付
                   <ResizeHandle label="名前の列の幅を変える" onStart={(e) => startResize("nameW", e)} onReset={() => resetWidth("nameW")} />
                 </th>
@@ -655,9 +663,19 @@ export function BoardGrid({
             <tbody>
               {board.clients.length > 0 && (
                 <>
-                  <SectionRow label="現場（取引先ごと）" days={board.days} extra={money ? 1 : 0} />
+                  <SectionRow
+                    label={
+                      // スマホでは名前の列が細いので短く
+                      <>
+                        <span className="md:hidden">現場</span>
+                        <span className="max-md:hidden">現場（取引先ごと）</span>
+                      </>
+                    }
+                    days={board.days}
+                    extra={money ? 1 : 0}
+                  />
                   <tr data-r={r++}>
-                    <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background px-2 py-1 text-left font-normal text-muted-foreground">
+                    <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1 text-left font-normal text-muted-foreground">
                       欠員（その日）
                     </th>
                     {board.days.map((d, i) => (
@@ -665,9 +683,9 @@ export function BoardGrid({
                         key={d.date}
                         data-c={i + 1}
                         // 欠員のある日はマスごと赤
-                        className={cn("border-r border-b px-1 py-1 text-center", DAY_W, d.shortage > 0 ? "bg-status-alert-solid font-bold text-white" : colTint(d))}
+                        className={cn("border-r border-b px-1 py-1 text-center", DAY_W, d.shortage > 0 ? "bg-status-alert-tint" : colTint(d))}
                       >
-                        {d.shortage > 0 ? `欠${d.shortage}` : d.required > 0 ? <Pill tone="done" title="欠員なし">✓</Pill> : ""}
+                        {d.shortage > 0 ? <Pill tone="alert">欠{d.shortage}</Pill> : d.required > 0 ? <Pill tone="done" title="欠員なし">✓</Pill> : ""}
                       </td>
                     ))}
                     <td data-c={lastDay + 1} className="border-b px-1 text-center font-bold">
@@ -677,8 +695,11 @@ export function BoardGrid({
                   </tr>
                   {board.clients.map((c) => (
                     <tr key={c.id} data-r={r++}>
-                      <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background px-2 py-1 text-left font-medium">
-                        <span className="line-clamp-[var(--lines,2)] break-all">{c.name}</span>
+                      {/* 現場の多い日があって行が高くなっても、取引先名は行の上にそろえる（真ん中に浮かないように） */}
+                      <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1.5 text-left align-top font-medium">
+                        <span className="line-clamp-[var(--lines,2)]">
+                          <CompanyName name={c.name} />
+                        </span>
                       </th>
                       {board.days.map((d, i) => {
                         const chips = c.cells[d.date] ?? [];
@@ -693,7 +714,7 @@ export function BoardGrid({
                         );
                       })}
                       <td data-c={lastDay + 1} className="border-b" />
-                      {money && <td className="border-b border-l px-1 text-right text-sm tabular-nums">{yen(money.client[c.id])}</td>}
+                      {money && <td className="border-b border-l px-1 py-1.5 text-right align-top text-sm tabular-nums">{yen(money.client[c.id])}</td>}
                     </tr>
                   ))}
                 </>
@@ -701,7 +722,7 @@ export function BoardGrid({
               <SectionRow label={`スタッフ（${board.staff.length}人）`} days={board.days} extra={money ? 1 : 0} />
               {board.staff.map((s) => (
                 <tr key={s.id} data-r={r++}>
-                  <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background px-2 py-1 text-left font-medium">
+                  <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1 text-left font-medium">
                     <span className="flex items-center gap-1">
                       {s.rankName && <span className="shrink-0 rounded border border-primary/30 px-1 text-xs text-primary">{s.rankName}</span>}
                       {staffHref ? (
@@ -741,9 +762,9 @@ export function BoardGrid({
  */
 const DAY_W =
   "w-[var(--day-w,7rem)] min-w-[var(--day-w,7rem)] max-w-[var(--day-w,7rem)] md:w-[var(--day-w,9rem)] md:min-w-[var(--day-w,9rem)] md:max-w-[var(--day-w,9rem)]";
-/** 名前の列の幅 */
+/** 名前の列の幅（スマホでは細くして、日付の列を少しでも多く見せる。取引先名は2行まで） */
 const NAME_W =
-  "w-[var(--name-w,7rem)] min-w-[var(--name-w,7rem)] max-w-[var(--name-w,7rem)] md:w-[var(--name-w,11rem)] md:min-w-[var(--name-w,11rem)] md:max-w-[var(--name-w,11rem)]";
+  "w-[var(--name-w,6rem)] min-w-[var(--name-w,6rem)] max-w-[var(--name-w,6rem)] md:w-[var(--name-w,11rem)] md:min-w-[var(--name-w,11rem)] md:max-w-[var(--name-w,11rem)]";
 
 function dayColor(d: BoardDay) {
   if (d.isToday) return undefined;
@@ -752,9 +773,9 @@ function dayColor(d: BoardDay) {
   return undefined;
 }
 
-/** 列の色: 今日は青、土曜は薄い青、日曜・祝日は薄い赤（シフト表のアプリと同じ見分け方） */
+/** 列の色: 今日はうすい青、土日・祝日はうすい灰色（日付の文字は土曜が青、日曜・祝日が赤） */
 function colTint(d: BoardDay) {
-  if (d.isToday) return "bg-primary/[0.07]";
+  if (d.isToday) return "bg-today";
   if (d.weekday === "日" || d.holiday) return "bg-day-sun";
   if (d.weekday === "土") return "bg-day-sat";
   return undefined;
@@ -763,33 +784,20 @@ function headTint(d: BoardDay) {
   return colTint(d) ?? "bg-background";
 }
 
-function SectionRow({ label, days, extra = 0 }: { label: string; days: BoardDay[]; extra?: number }) {
+function SectionRow({ label, days, extra = 0 }: { label: React.ReactNode; days: BoardDay[]; extra?: number }) {
   return (
     <tr>
-      <th className="sticky left-0 z-10 border-r border-b bg-slate-100 px-2 py-1.5 text-left font-bold text-slate-700">{label}</th>
-      <td colSpan={days.length + 1 + extra} className="border-b bg-slate-100" />
+      <th className="sticky left-0 z-10 border-r border-b bg-[#f9fafb] shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1.5 text-left text-sm font-semibold text-[#344054]">{label}</th>
+      <td colSpan={days.length + 1 + extra} className="border-b bg-[#f9fafb]" />
     </tr>
   );
 }
 
-/** 塗りつぶしの小さな札（欠員・そろった・打診中の人数）。色だけでなく文字でも分かるように必ず文字を入れる */
-function Pill({ tone, children, title }: { tone: "alert" | "alert-on-red" | "done" | "waiting"; children: React.ReactNode; title?: string }) {
-  return (
-    <span
-      title={title}
-      className={cn(
-        "inline-flex h-5 shrink-0 items-center rounded px-1.5 text-xs font-bold leading-none tabular-nums",
-        tone === "alert" && "bg-status-alert-solid text-white",
-        // 赤いタイルの上では白地に赤い文字
-        tone === "alert-on-red" && "bg-white text-status-alert",
-        tone === "done" && "bg-status-done-solid text-white ring-1 ring-white/70",
-        tone === "waiting" && "bg-status-waiting-solid text-status-waiting-on-solid",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
+/**
+ * 小さな札（欠員・そろった・打診中の人数）。マスの地は薄く、札だけ色をはっきりさせて目に入るようにする。
+ * 色だけでなく文字でも分かるように必ず文字を入れる
+ */
+const Pill = StatusPill;
 
 function Cell({ onClick, label, children }: { onClick?: () => void; label: string; children: React.ReactNode }) {
   const cls = "flex min-h-[var(--row-h,2.75rem)] w-full min-w-0 flex-col items-stretch gap-0.5 overflow-hidden p-0.5 text-left";
@@ -807,16 +815,16 @@ function RateLine({ text }: { text: string | undefined }) {
   return <span className="text-xs font-normal tabular-nums opacity-80 group-data-[density=small]/board:hidden">¥{text}</span>;
 }
 
-/** ゲームのタイルのような見た目（下に濃い色の縁を付けて、少し浮いて見せる） */
-const TILE = "rounded-md border-b-[3px] px-1 py-0.5 leading-tight shadow-sm";
-/** 会場の色のタイル（色は style={venueStyle()} で渡す） */
-const VENUE_TILE = "border-(--v-edge) bg-(--v-bg) text-(--v-fg)";
-/** マスごと赤（欠員・キャンセル・当日不稼働） */
-const RED_TILE = "border-status-alert-edge bg-status-alert-solid text-white";
+/** タイル（薄い地に左の線。角を丸く） */
+const TILE = "rounded-md px-1.5 py-1 leading-tight";
+/** 会場の色のタイル（色は style={venueStyle()} で渡す）。左の線が会場の色 */
+const VENUE_TILE = "bg-(--v-tint) text-(--v-fg) shadow-[inset_3px_0_0_var(--v-bar)]";
+/** マスごと赤（欠員・キャンセル・当日不稼働）。薄い赤の地に赤い線と濃い赤の文字 */
+const RED_TILE = "bg-status-alert-tint text-[#912018] shadow-[inset_3px_0_0_var(--status-alert-solid)]";
 
 /** 赤いタイルの上でも会場が分かるように、会場の色の丸を出す */
 function VenueDot() {
-  return <span aria-hidden className="inline-block size-2.5 shrink-0 rounded-full bg-(--v-bg) ring-2 ring-white" />;
+  return <span aria-hidden className="inline-block size-2.5 shrink-0 rounded-full bg-(--v-bar) ring-2 ring-white" />;
 }
 
 /**
@@ -844,7 +852,7 @@ function EventChip({ e, rate }: { e: BoardEventChip; rate?: string }) {
       title={`${e.venueName} 確定${e.confirmed}/必要${e.required}${e.offered ? ` 打診中${e.offered}` : ""}`}
     >
       <span className="flex flex-wrap items-center gap-1">
-        {short ? <Pill tone="alert-on-red">欠{e.shortage}</Pill> : <Pill tone="done">✓</Pill>}
+        {short ? <Pill tone="alert">欠{e.shortage}</Pill> : <Pill tone="done">✓</Pill>}
         <span className="text-xs font-bold tabular-nums">
           {e.confirmed}/{e.required}
         </span>
@@ -852,7 +860,7 @@ function EventChip({ e, rate }: { e: BoardEventChip; rate?: string }) {
       </span>
       <span className="flex min-w-0 items-center gap-1">
         {short && <VenueDot />}
-        <span className="line-clamp-[var(--lines,2)] font-bold break-all group-data-[density=small]/board:truncate">{e.venueName}</span>
+        <span className="line-clamp-[var(--lines,2)] font-bold group-data-[density=small]/board:truncate">{e.venueName}</span>
       </span>
       <RateLine text={rate} />
     </span>
@@ -884,7 +892,7 @@ function StaffCellView({ cell, daily }: { cell: BoardStaffCell | undefined; dail
             "flex min-w-0 items-start gap-1",
             a.status === "confirmed" && cn(TILE, VENUE_TILE, "font-bold"),
             dropped && cn(TILE, RED_TILE, "flex-col items-stretch gap-0"),
-            a.status === "offered" && "rounded-md border-2 border-dashed border-(--v-bg) bg-status-waiting-bg px-1 py-0.5 leading-snug text-status-waiting",
+            a.status === "offered" && "rounded-md border border-dashed border-(--v-bar) bg-status-waiting-bg px-1 py-0.5 leading-snug text-status-waiting",
             a.status === "waitlisted" && "rounded-md border border-dashed border-muted-foreground/60 bg-muted px-1 py-0.5 leading-snug text-muted-foreground",
           )}
         >
@@ -899,7 +907,7 @@ function StaffCellView({ cell, daily }: { cell: BoardStaffCell | undefined; dail
           <span className="flex min-w-0 items-center gap-1">
             {(dropped || a.status === "waitlisted") && <VenueDot />}
             <span className="min-w-0">
-              <span className="line-clamp-[var(--lines,2)] break-all">{a.venueName}</span>
+              <span className="line-clamp-[var(--lines,2)]">{a.venueName}</span>
               {a.status === "confirmed" && daily?.[a.id] ? <RateLine text={daily[a.id].toLocaleString("ja-JP")} /> : null}
             </span>
           </span>
@@ -914,7 +922,7 @@ function StaffCellView({ cell, daily }: { cell: BoardStaffCell | undefined; dail
         "m-auto text-center text-lg leading-none font-bold",
         cell.availability === "ok" && "text-status-done",
         cell.availability === "maybe" && "text-status-waiting",
-        cell.availability === "ng" && "text-slate-400",
+        cell.availability === "ng" && "text-[#98a2b3]",
       )}
       title={cell.availability === "ok" ? "稼働できる" : cell.availability === "maybe" ? "調整すれば可" : "稼働できない"}
     >
@@ -932,67 +940,95 @@ export function BoardGauge({ board }: { board: Board }) {
   const fill = fillOf(todayIdx >= 0 ? board.days.slice(todayIdx) : board.days);
   if (fill.required === 0) return null;
   return (
-    <div className="mx-4 mb-2 rounded-xl border-2 border-b-4 bg-card px-3 py-2" data-testid="board-gauge">
-      <FillMeter label={todayIdx >= 0 ? "今日から月末まで" : "この月"} fill={fill} />
+    <div className="mx-4 mb-2 rounded-xl border bg-card px-3 py-2.5 shadow-card" data-testid="board-gauge">
+      <FillMeter compact label={todayIdx >= 0 ? "今日から月末" : "この月"} fill={fill} />
     </div>
   );
 }
 
-/** 表の下の凡例（マスと同じ見た目の見本を並べる） */
+/** 表の下の凡例（マスと同じ見た目の見本と、その意味を組にして並べる） */
 export function BoardLegend({ admin }: { admin?: boolean }) {
-  const chip = "inline-flex items-center gap-1 text-sm";
+  const item = "inline-flex items-center gap-1.5";
+  const sample = "inline-flex items-center gap-1 text-sm";
   return (
-    <div className="flex flex-col gap-2 px-4 py-3 text-sm text-muted-foreground">
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="font-bold text-foreground">スタッフ</span>
-        <span style={venueStyle("blue")} className={cn(TILE, VENUE_TILE, chip, "font-bold")}>
-          会場名
-        </span>
-        確定（会場の色）
-        <span style={venueStyle("blue")} className={cn(chip, "rounded-md border-2 border-dashed border-(--v-bg) bg-status-waiting-bg px-1 py-0.5 text-status-waiting")}>
-          <Pill tone="waiting">打</Pill>会場名
-        </span>
-        打診中
-        <span className={cn(chip, "rounded-md border border-dashed border-muted-foreground/60 bg-muted px-1 py-0.5")}>
-          <b>補</b>会場名
-        </span>
-        補欠
-        <span className={cn(TILE, RED_TILE, chip, "font-bold")}>
-          <XIcon className="size-3.5" strokeWidth={3} />
-          キャンセル
-        </span>
-        キャンセル・当日不稼働
-        <span>
-          <b className="text-status-done">○</b> 稼働できる・<b className="text-status-waiting">△</b> 調整すれば可・<b className="text-slate-400">×</b> できない
-        </span>
-      </p>
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="font-bold text-foreground">現場</span>
-        <span className={cn(TILE, RED_TILE, chip, "font-bold")}>
-          <Pill tone="alert-on-red">欠2</Pill>
-          1/3
-        </span>
-        欠員あり（確定/必要）
-        <span style={venueStyle("purple")} className={cn(TILE, VENUE_TILE, chip, "font-bold")}>
-          <Pill tone="done">✓</Pill>
-          3/3
-        </span>
-        そろった
-        <Pill tone="waiting">打1</Pill>打診中の人数
-        <span className="rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">11</span>今日
-        <span className="rounded bg-day-sat px-1.5 text-primary">土</span>
-        <span className="rounded bg-day-sun px-1.5 text-status-alert">日・祝</span>
-      </p>
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-        <span className="font-bold text-foreground">会場の色</span>
-        {VENUE_COLOR_KEYS.map((k) => (
-          <span key={k} className="inline-flex items-center gap-1">
-            <span aria-hidden className="inline-block size-3.5 rounded-full ring-1 ring-black/10" style={{ background: VENUE_COLORS[k].bg }} />
-            {VENUE_COLORS[k].label}
+    <div className="mx-4 my-3 flex flex-col gap-3 rounded-2xl border bg-[#fcfcfd] p-4 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-1.5">
+        <p className="font-semibold text-foreground">スタッフのマス</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className={item}>
+            <span style={venueStyle("blue")} className={cn(TILE, VENUE_TILE, sample, "font-semibold")}>
+              会場名
+            </span>
+            確定（会場の色）
           </span>
-        ))}
-        {admin && <span>（会場の画面で変えられます）</span>}
-      </p>
+          <span className={item}>
+            <span style={venueStyle("blue")} className={cn(sample, "rounded-md border border-dashed border-(--v-bar) bg-status-waiting-bg px-1 py-0.5 text-status-waiting")}>
+              <Pill tone="waiting">打</Pill>会場名
+            </span>
+            打診中
+          </span>
+          <span className={item}>
+            <span className={cn(sample, "rounded-md border border-dashed border-input bg-muted px-1 py-0.5")}>
+              <b>補</b>会場名
+            </span>
+            補欠
+          </span>
+          <span className={item}>
+            <span className={cn(TILE, RED_TILE, sample, "font-semibold")}>
+              <XIcon className="size-3.5" strokeWidth={3} />
+              キャンセル
+            </span>
+            キャンセル・当日不稼働
+          </span>
+          <span className={item}>
+            <b className="text-status-done">○</b>稼働できる
+            <b className="ml-2 text-status-waiting">△</b>調整すれば可
+            <b className="ml-2 text-[#98a2b3]">×</b>できない
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <p className="font-semibold text-foreground">現場のマス</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className={item}>
+            <span className={cn(TILE, RED_TILE, sample, "font-semibold")}>
+              <Pill tone="alert">欠2</Pill>
+              1/3
+            </span>
+            欠員あり（確定/必要）
+          </span>
+          <span className={item}>
+            <span style={venueStyle("purple")} className={cn(TILE, VENUE_TILE, sample, "font-semibold")}>
+              <Pill tone="done">✓</Pill>
+              3/3
+            </span>
+            そろった
+          </span>
+          <span className={item}>
+            <Pill tone="waiting">打1</Pill>打診中の人数
+          </span>
+          <span className={item}>
+            <span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">11</span>今日
+          </span>
+          <span className={item}>
+            <span className="rounded bg-day-sat px-1.5 text-primary ring-1 ring-black/5">土</span>
+            <span className="rounded bg-day-sun px-1.5 text-status-alert ring-1 ring-black/5">日・祝</span>
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <p className="font-semibold text-foreground">
+          会場の色{admin && <span className="ml-2 font-normal text-muted-foreground">（会場の画面で変えられます）</span>}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {VENUE_COLOR_KEYS.map((k) => (
+            <span key={k} className="inline-flex items-center gap-1">
+              <span aria-hidden className="inline-block size-3 rounded-full ring-1 ring-black/10" style={{ background: VENUE_COLORS[k].bar }} />
+              {VENUE_COLORS[k].label}
+            </span>
+          ))}
+        </div>
+      </div>
       {admin && <p>マスを押すと、打診・確定や稼働可能日の入力ができます。</p>}
     </div>
   );

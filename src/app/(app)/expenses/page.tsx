@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
+import { Badge } from "@/components/ui/badge";
 import { requireMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,8 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/expense
   const sp = await searchParams;
   const status = TABS.find((t) => t.value === sp.status)?.value ?? "pending";
   const supabase = await createClient();
+  // 未承認の件数はタブに出す（ほかのタブを見ているときも、残りが分かるように）
+  const { count: pendingCount } = await supabase.from("expenses").select("id", { count: "exact", head: true }).eq("status", "pending");
   const { data } = await supabase
     .from("expenses")
     .select("id, kind, amount, memo, status, source, reject_reason, created_at, staff:staff(id, name), assignment:assignments(event:events(id, date, venue:venues(name)))")
@@ -44,9 +47,15 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/expense
           <Link
             key={t.value}
             href={`/expenses?status=${t.value}`}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.value === status ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
+            aria-current={t.value === status ? "page" : undefined}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.value === status ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
           >
             {t.label}
+            {t.value === "pending" && (pendingCount ?? 0) > 0 && (
+              <Badge tone="waiting" className="ml-1.5 tabular-nums">
+                {pendingCount}
+              </Badge>
+            )}
           </Link>
         ))}
       </div>

@@ -33,7 +33,7 @@ export function StaffList({
         actions={
           <>
             <Button asChild variant="outline" size="sm">
-              <Link href="/availability">提出状況</Link>
+              <Link href="/availability">稼働可能日の提出</Link>
             </Button>
             <Button asChild size="sm">
               <Link href="/staff/new">＋ 登録</Link>
@@ -113,14 +113,18 @@ export function StaffList({
               <li key={s.id}>
                 <Link
                   href={href(s.id)}
-                  className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", s.id === selectedId && "bg-primary/10")}
+                  className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", s.id === selectedId && "bg-brand-50")}
                 >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-sm font-bold">
-                    {masters.rankById.get(s.rank_id ?? "")?.name ?? "−"}
+                  {/* 丸には名前の1文字目、ランクは名前の横の札（稼働表と同じ見せ方） */}
+                  <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-50 font-bold text-primary">
+                    {s.name.trim().charAt(0) || "?"}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate font-medium">{s.name}</span>
+                      {s.rank_id && masters.rankById.get(s.rank_id) && (
+                        <span className="shrink-0 rounded border border-primary/30 px-1 text-xs font-semibold text-primary">{masters.rankById.get(s.rank_id)!.name}</span>
+                      )}
                       {s.status !== "active" && <Badge tone={STAFF_STATUS[s.status].tone}>{STAFF_STATUS[s.status].label}</Badge>}
                     </span>
                     <span className="block truncate text-sm text-muted-foreground">

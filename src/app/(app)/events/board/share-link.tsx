@@ -29,9 +29,11 @@ export function ShareLink({ link, isOwner }: { link: ShareLinkState; isOwner: bo
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      {/* スマホでは短く「共有」（読み上げ・押す先の名前は「見るだけリンク」のまま） */}
+      <Button variant="outline" size="sm" aria-label="見るだけリンク" onClick={() => setOpen(true)}>
         <Share2Icon />
-        見るだけリンク
+        <span className="md:hidden">共有</span>
+        <span className="max-md:hidden">見るだけリンク</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

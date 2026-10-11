@@ -72,7 +72,7 @@ function Group({ title, items }: { title: string; items: { href: string; title: 
       <h2 className="mb-1 text-sm font-bold text-muted-foreground">
         {title}（{items.length}）
       </h2>
-      <ul className="divide-y rounded-lg border">
+      <ul className="divide-y rounded-xl border bg-card">
         {items.map((i, idx) => (
           <li key={`${i.href}-${idx}`}>
             <Link href={i.href} className="flex min-h-14 items-center gap-2 px-3 py-2 hover:bg-accent">

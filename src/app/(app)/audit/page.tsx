@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FIELD_LABEL, formatValue, TABLE_LABEL } from "@/lib/audit-labels";
 import { requireOwner } from "@/lib/auth";
+import { formatShortJa, formatTimeJst, todayJst, toJstDateString } from "@/lib/date";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "変更履歴 | NICOLY CRM" };
@@ -34,6 +35,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
   ]);
   const userName = new Map((users ?? []).map((u) => [u.id, u.name]));
   const staffName = new Map((staff ?? []).map((s) => [s.id, s.name]));
+  const today = todayJst();
 
   return (
     <>
@@ -47,42 +49,52 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
       {rows.length === 0 ? (
         <EmptyState title="変更履歴はありません" />
       ) : (
-        <ul className="mx-4 divide-y rounded-lg border">
-          {rows.map((r) => {
-            const before = (r.before ?? {}) as Record<string, unknown>;
-            const after = (r.after ?? {}) as Record<string, unknown>;
-            const fields = r.action === "update" ? (r.changed_fields ?? []) : [];
-            return (
-              <li key={r.id} className="flex flex-col gap-1 p-3 text-sm">
-                <p className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground">{new Date(r.created_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</span>
-                  <Badge tone="brand">{TABLE_LABEL[r.table_name] ?? r.table_name}</Badge>
-                  <Badge tone={r.action === "delete" ? "alert" : "muted"}>{ACTION[r.action as keyof typeof ACTION]}</Badge>
-                  <span className="font-medium">
-                    {r.user_id ? (userName.get(r.user_id) ?? "（ユーザー）") : r.staff_id ? `${staffName.get(r.staff_id) ?? "スタッフ"}（マイページ）` : "システム"}
-                  </span>
-                </p>
-                {r.action === "update" ? (
-                  <ul className="pl-2">
-                    {fields.map((f) => (
-                      <li key={f}>
-                        {FIELD_LABEL[f] ?? f}: {formatValue(f, before[f])} → <b>{formatValue(f, after[f])}</b>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="truncate text-muted-foreground">
-                    {Object.entries(r.action === "insert" ? after : before)
-                      .filter(([k, v]) => FIELD_LABEL[k] && v != null && v !== "")
-                      .slice(0, 6)
-                      .map(([k, v]) => `${FIELD_LABEL[k]}: ${formatValue(k, v)}`)
-                      .join(" / ")}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        // 日ごとにまとめる（見出しに「今日」「10/11(日)」、行には時刻だけ）
+        <div className="mx-4 flex flex-col gap-4">
+          {groupByDay(rows).map(([day, list]) => (
+            <section key={day}>
+              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted-foreground">{day === today ? "今日" : formatShortJa(day)}</h2>
+              <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-card">
+                {list.map((r) => {
+                  const before = (r.before ?? {}) as Record<string, unknown>;
+                  const after = (r.after ?? {}) as Record<string, unknown>;
+                  const fields = r.action === "update" ? (r.changed_fields ?? []) : [];
+                  return (
+                    <li key={r.id} className="flex flex-col gap-1 p-3 text-sm">
+                      <p className="flex flex-wrap items-center gap-2">
+                        <span className="w-11 text-muted-foreground tabular-nums">{formatTimeJst(new Date(r.created_at))}</span>
+                        <Badge tone="brand">{TABLE_LABEL[r.table_name] ?? r.table_name}</Badge>
+                        <Badge tone={r.action === "delete" ? "alert" : "muted"}>{ACTION[r.action as keyof typeof ACTION]}</Badge>
+                        <span className="font-medium">
+                          {r.user_id ? (userName.get(r.user_id) ?? "（ユーザー）") : r.staff_id ? `${staffName.get(r.staff_id) ?? "スタッフ"}（マイページ）` : "システム"}
+                        </span>
+                      </p>
+                      {r.action === "update" ? (
+                        <ul>
+                          {fields.map((f) => (
+                            <li key={f}>
+                              {/* 前の値は灰色の取り消し線、新しい値は太字 */}
+                              {FIELD_LABEL[f] ?? "項目"}: <span className="text-muted-foreground line-through decoration-[#98a2b3]">{formatValue(f, before[f])}</span> →{" "}
+                              <b className="font-semibold">{formatValue(f, after[f])}</b>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="truncate text-muted-foreground">
+                          {Object.entries(r.action === "insert" ? after : before)
+                            .filter(([k, v]) => FIELD_LABEL[k] && v != null && v !== "")
+                            .slice(0, 6)
+                            .map(([k, v]) => `${FIELD_LABEL[k]}: ${formatValue(k, v)}`)
+                            .join(" / ")}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
       {rows.length === PAGE && (
         <div className="mx-4 mt-3">
@@ -93,4 +105,14 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
       )}
     </>
   );
+}
+
+/** 日本時間の日付ごとにまとめる（新しい順のまま） */
+function groupByDay<T extends { created_at: string }>(rows: T[]): [string, T[]][] {
+  const map = new Map<string, T[]>();
+  for (const r of rows) {
+    const d = toJstDateString(new Date(r.created_at));
+    map.set(d, [...(map.get(d) ?? []), r]);
+  }
+  return [...map.entries()];
 }

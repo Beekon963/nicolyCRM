@@ -221,7 +221,7 @@ export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { role
 
       <MatchSection
         title="取引先"
-        help="シートの取引先名を CRM の取引先に合わせます。ないものは新しく作ります（取引中として登録）。"
+        help="シートの取引先名を、このアプリの取引先に合わせます。ないものは新しく作ります（取引中として登録）。"
         rows={parsed.clients.map((c) => c.name)}
         value={(k) => choices.clients[k] ?? NEW}
         onChange={(k, v) => set("clients", k, v)}

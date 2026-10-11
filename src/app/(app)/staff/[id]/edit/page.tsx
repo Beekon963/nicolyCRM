@@ -21,7 +21,7 @@ export default async function EditStaffPage({ params }: PageProps<"/staff/[id]/e
   const areaIds = s.staff_areas.map((a) => a.area_id);
   return (
     <>
-      <PageHeader title={`${s.name} を編集`} back={`/staff/${id}`} />
+      <PageHeader title="スタッフを編集" description={s.name} back={`/staff/${id}`} />
       <StaffForm
         initial={{
           id: s.id,

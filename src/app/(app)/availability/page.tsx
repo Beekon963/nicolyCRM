@@ -54,15 +54,34 @@ export default async function AvailabilityStatusPage({ searchParams }: PageProps
           <Link
             key={mo}
             href={`/availability?month=${mo}`}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", mo === month ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", mo === month ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
           >
             {Number(mo.slice(5))}月分
           </Link>
         ))}
       </div>
-      <div className="mx-4 mb-4 flex flex-wrap items-center gap-3">
-        <Badge tone="done">提出済み {done.length}人</Badge>
-        <Badge tone={late ? "alert" : "waiting"}>未提出 {missing.length}人</Badge>
+      {/* 提出のゲージ（全員出たら緑） */}
+      <div className="mx-4 mb-4 flex flex-col gap-2 rounded-2xl border bg-card p-4 shadow-card">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-sm font-semibold text-[#344054]">提出済み</span>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            <b className="text-2xl leading-none font-bold text-foreground">{done.length}</b> / {rows.length}人
+          </span>
+        </div>
+        <div role="meter" aria-label="稼働可能日の提出" aria-valuemin={0} aria-valuemax={Math.max(rows.length, 1)} aria-valuenow={done.length} className="h-2.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn("h-full rounded-full", missing.length === 0 ? "bg-status-done-solid" : "bg-gradient-to-r from-[#3b82f6] to-primary")}
+            style={{ width: `${rows.length ? Math.round((done.length / rows.length) * 100) : 0}%` }}
+          />
+        </div>
+        {missing.length > 0 ? (
+          <span className="text-sm text-[#344054]">
+            未提出 <b className={cn("font-bold tabular-nums", late ? "text-status-alert" : "text-status-waiting")}>{missing.length}人</b>
+            {late && "（締切を過ぎています）"}
+          </span>
+        ) : (
+          <span className="text-sm font-semibold text-status-done">✓ 全員提出しました</span>
+        )}
       </div>
       <RequestButtons
         groupText={renderTemplate(tpl("availability_request"), values)}
@@ -73,17 +92,18 @@ export default async function AvailabilityStatusPage({ searchParams }: PageProps
         }))}
       />
 
-      <h2 className="mx-4 mt-4 mb-1 font-bold">未提出（{missing.length}人）</h2>
+      <h2 className="mx-4 mt-4 mb-1 flex items-center gap-2 font-bold">
+        未提出（{missing.length}人）{late && missing.length > 0 && <Badge tone="alert">締切すぎ</Badge>}
+      </h2>
       {missing.length === 0 ? (
         <EmptyState title="全員提出済みです" />
       ) : (
-        <ul className="mx-4 divide-y rounded-lg border">
+        <ul className="mx-4 divide-y rounded-xl border bg-card">
           {missing.map((r) => (
             <li key={r.id} className="flex min-h-14 items-center gap-2 px-3">
               <Link href={`/staff/${r.id}`} className="flex-1 font-medium hover:underline">
                 {r.name}
               </Link>
-              <Badge tone={late ? "alert" : "waiting"}>未提出</Badge>
               <Link href={`/availability/${r.id}?month=${month}`} className="flex h-11 items-center px-2 text-sm text-primary">
                 代理入力
               </Link>
@@ -93,7 +113,7 @@ export default async function AvailabilityStatusPage({ searchParams }: PageProps
       )}
 
       <h2 className="mx-4 mt-6 mb-1 font-bold">提出済み（{done.length}人）</h2>
-      <ul className="mx-4 divide-y rounded-lg border">
+      <ul className="mx-4 divide-y rounded-xl border bg-card">
         {done.map((r) => (
           <li key={r.id} className="flex min-h-14 items-center gap-2 px-3">
             <Link href={`/staff/${r.id}`} className="flex-1 font-medium hover:underline">

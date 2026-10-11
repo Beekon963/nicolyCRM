@@ -38,7 +38,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       onClick={onClick}
       className={cn(
         "h-11 rounded-full border px-4 text-base",
-        on ? "border-primary bg-primary/10 font-bold text-primary" : "border-input text-foreground",
+        on ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input text-foreground",
       )}
     >
       {children}

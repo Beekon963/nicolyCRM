@@ -22,13 +22,14 @@ export function PageHeader({
   return (
     <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-4 pb-2", className)}>
       {back && (
-        <Link href={back} aria-label="戻る" className="-ml-2 grid size-11 place-items-center rounded-md hover:bg-accent">
+        // 見出しが2〜3行になっても、矢印は見出しの1行目の横にそろえる
+        <Link href={back} aria-label="戻る" className="-my-1.5 -ml-2 grid size-11 shrink-0 place-items-center self-start rounded-xl text-[#344054] hover:bg-accent">
           <ChevronLeftIcon className="size-6" />
         </Link>
       )}
       <div className="min-w-0 flex-1">
-        <h1 className="text-xl font-bold break-words">{title}</h1>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        <h1 className="text-[22px] leading-8 font-bold break-words">{title}</h1>
+        {description && <div className="mt-0.5 text-sm text-muted-foreground">{description}</div>}
       </div>
       {actions && <div className={cn("flex flex-wrap items-center gap-2", actionsBelow && "max-md:w-full")}>{actions}</div>}
     </div>
@@ -38,8 +39,8 @@ export function PageHeader({
 /** 空の画面に「次にやること」を出す（要件 §9-6） */
 export function EmptyState({ title, children, action }: { title: string; children?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="mx-4 my-6 flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center">
-      <p className="font-bold">{title}</p>
+    <div className="mx-4 my-6 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-input bg-[#fcfcfd] px-6 py-8 text-center">
+      <p className="text-[17px] font-bold">{title}</p>
       {children && <div className="text-sm text-muted-foreground">{children}</div>}
       {action && <div className="mt-2">{action}</div>}
     </div>

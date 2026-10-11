@@ -88,10 +88,11 @@ export function AvailabilityEditor({
         <Label htmlFor="memo">メモ（任意）</Label>
         <Textarea id="memo" rows={2} placeholder="例: 土日は午後からなら可" value={memo} onChange={(e) => (setMemo(e.target.value), setDirty(true))} />
       </div>
-      <div className="sticky bottom-20 z-20">
+      {/* 下に固定する提出ボタン。白い帯の上に置き、下の入力欄と重なって見えないようにする */}
+      <div className="sticky bottom-16 z-20 -mx-4 mt-2 border-t bg-background/95 px-4 py-3 backdrop-blur">
         <Button
           size="lg"
-          className="h-14 w-full text-lg shadow"
+          className="h-14 w-full text-lg"
           disabled={pending}
           onClick={() =>
             start(async () => {

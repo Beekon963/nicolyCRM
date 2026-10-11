@@ -90,19 +90,22 @@ export function CandidatePicker({
     <div className="flex flex-col gap-3 pb-28">
       <div className="flex flex-col gap-2 px-4">
         <p className="text-sm font-medium">打診する役割</p>
-        <div className="flex flex-wrap gap-2">
+        {/* 役割の切り替え（1行に並べる。足りない役割は数字を赤く） */}
+        <div className="flex gap-1 rounded-xl bg-muted p-1">
           {roles.map((r) => (
             <button
               key={r.id}
               type="button"
+              aria-pressed={r.id === roleId}
               onClick={() => setRoleId(r.id)}
               className={cn(
-                "h-11 rounded-full border px-4",
-                r.id === roleId ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-lg px-1 py-1 text-sm font-semibold leading-tight transition-colors",
+                r.id === roleId ? "bg-background text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground",
               )}
             >
-              {r.name}
-              <span className={cn("ml-1 text-sm", r.id !== roleId && r.confirmed < r.required && "text-status-alert")}>
+              {/* 役割名と人数を2行に（3つ並べても名前が切れないように） */}
+              <span className="max-w-full break-keep">{r.name}</span>
+              <span className={cn("tabular-nums", r.confirmed < r.required ? "text-status-alert" : "text-status-done")}>
                 {r.confirmed}/{r.required}
               </span>
             </button>
@@ -121,7 +124,7 @@ export function CandidatePicker({
           const av = AVAILABILITY[c.availability ?? "none"];
           return (
             <li key={c.staff_id}>
-              <label className={cn("flex min-h-16 items-start gap-3 px-4 py-2", already ? "opacity-60" : "cursor-pointer hover:bg-accent", on && "bg-primary/10")}>
+              <label className={cn("flex min-h-16 items-start gap-3 px-4 py-2", already ? "opacity-60" : "cursor-pointer hover:bg-accent", on && "bg-brand-50")}>
                 <Checkbox
                   className="mt-1"
                   checked={on}
@@ -129,18 +132,6 @@ export function CandidatePicker({
                   aria-label={`${c.name}を選ぶ`}
                   onCheckedChange={(v) => setSelected((s) => (v ? [...s, c.staff_id] : s.filter((x) => x !== c.staff_id)))}
                 />
-                <span
-                  className={cn(
-                    "grid size-9 shrink-0 place-items-center rounded-full border text-lg font-bold",
-                    c.availability === "ok" && "border-status-done/40 bg-status-done-bg text-status-done",
-                    c.availability === "maybe" && "border-status-waiting/40 bg-status-waiting-bg text-status-waiting",
-                    c.availability === "ng" && "border-status-alert/40 bg-status-alert-bg text-status-alert",
-                    !c.availability && "text-muted-foreground",
-                  )}
-                  title={c.availability ? av.label : c.availability_submitted ? "入力なし" : "未提出"}
-                >
-                  {c.availability ? av.mark : "−"}
-                </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-1">
                     <Link href={`/staff/${c.staff_id}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
@@ -148,15 +139,28 @@ export function CandidatePicker({
                     </Link>
                     {c.rank_name && <Badge tone="brand">{c.rank_name}</Badge>}
                     {already && <Badge tone={ASSIGNMENT_STATUS[c.current_status!].tone}>{ASSIGNMENT_STATUS[c.current_status!].label}</Badge>}
-                    {!c.availability && !c.availability_submitted && <Badge tone="waiting">未提出</Badge>}
+                    {/* その日に稼働できるか（印と言葉をいっしょに） */}
+                    {c.availability ? (
+                      <Badge tone={av.tone}>
+                        <span aria-hidden className="font-bold">
+                          {av.mark}
+                        </span>
+                        {av.label}
+                      </Badge>
+                    ) : c.availability_submitted ? (
+                      <Badge tone="muted">− 入力なし</Badge>
+                    ) : (
+                      <Badge tone="waiting">未提出</Badge>
+                    )}
                   </span>
                   <span className="flex flex-wrap gap-1 pt-0.5">
                     {c.double_booking && <Badge tone="alert">同日に別現場（{c.double_booking_venue}）</Badge>}
                     {c.ng_venue && <Badge tone="alert">会場NG</Badge>}
                     {c.ng_client && <Badge tone="alert">取引先NG</Badge>}
                     {c.caution_count > 0 && (
-                      <Badge tone="alert">
-                        <AlertTriangleIcon className="size-3" />
+                      // 過去の記録（直前キャンセルなど）の回数。今すぐの対応ではないので赤にしない
+                      <Badge tone="muted">
+                        <AlertTriangleIcon className="size-3.5 text-status-waiting" />
                         注意 {c.caution_count}回
                       </Badge>
                     )}
@@ -168,7 +172,7 @@ export function CandidatePicker({
                         エリア一致
                       </span>
                     )}
-                    {[c.nearest_station, c.avg_confirmed != null ? `平均 ${c.avg_confirmed}件` : "実績なし", c.ng_reason].filter(Boolean).join(" / ")}
+                    {[c.nearest_station, c.avg_confirmed != null ? `1日平均 ${c.avg_confirmed}件` : "実績なし", c.ng_reason].filter(Boolean).join(" / ")}
                   </span>
                 </span>
               </label>

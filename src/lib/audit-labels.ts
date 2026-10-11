@@ -1,5 +1,5 @@
 /** 変更履歴の表示用（テーブル名・列名 → 画面の言葉） */
-import { ASSIGNMENT_STATUS, COMPANY_STATUS, DIFF_REASON, EXPENSE_STATUS, USER_ROLE, WITHHOLDING_METHOD } from "@/lib/labels";
+import { ACCOUNT_TYPE, ASSIGNMENT_STATUS, CANCEL_REASONS, COMPANY_STATUS, DIFF_REASON, EXPENSE_STATUS, INPUT_SOURCE, PRIORITY, USER_ROLE, WITHHOLDING_METHOD } from "@/lib/labels";
 
 export const TABLE_LABEL: Record<string, string> = {
   app_users: "ユーザー",
@@ -79,11 +79,37 @@ const VALUE_LABEL: Record<string, Record<string, string>> = {
   role: USER_ROLE,
   diff_reason: DIFF_REASON,
   withholding_method: WITHHOLDING_METHOD,
+  cancel_reason_code: Object.fromEntries(CANCEL_REASONS.map((r) => [r.code, r.label])),
+  response_source: INPUT_SOURCE,
+  rounding: { floor: "切り捨て", round: "四捨五入", ceil: "切り上げ" },
+  priority: PRIORITY,
+  account_type: ACCOUNT_TYPE,
+};
+
+/** 円で見せる列（変更履歴はオーナーだけが見る） */
+const YEN_FIELDS = new Set(["amount", "base_daily_rate", "daily_rate_override"]);
+
+/** 設定（税・源泉など）の中の項目名。英語の名前を画面に出さないため */
+const SETTING_KEY_LABEL: Record<string, string> = {
+  rate_percent: "税率（%）",
+  rounding: "端数",
+  include_expenses: "交通費・経費も源泉の対象",
+  tax_inclusive: "税込で源泉を計算",
+  revenue: "売上",
+  gross_profit: "粗利",
 };
 
 export function formatValue(field: string, v: unknown): string {
-  if (v == null || v === "") return "（空）";
+  if (v == null || v === "") return "なし";
   if (typeof v === "boolean") return v ? "はい" : "いいえ";
   if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-  return VALUE_LABEL[field]?.[String(v)] ?? (typeof v === "object" ? JSON.stringify(v) : String(v));
+  // 設定のまとまり（{ rate_percent: 10, rounding: "floor" } など）は「項目: 値」を並べる。知らない項目は出さない
+  if (typeof v === "object") {
+    const parts = Object.entries(v as Record<string, unknown>)
+      .filter(([k]) => SETTING_KEY_LABEL[k])
+      .map(([k, x]) => `${SETTING_KEY_LABEL[k]}: ${formatValue(k, x)}`);
+    return parts.length ? parts.join("、") : "（設定）";
+  }
+  if (typeof v === "number" && YEN_FIELDS.has(field)) return `${v.toLocaleString("ja-JP")}円`;
+  return VALUE_LABEL[field]?.[String(v)] ?? String(v);
 }

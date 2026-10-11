@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
 import { formatShortJa } from "@/lib/date";
-import { EXPENSE_KIND, EXPENSE_STATUS, INPUT_SOURCE } from "@/lib/labels";
+import { EXPENSE_KIND, EXPENSE_STATUS } from "@/lib/labels";
 import { reviewExpenses } from "./actions";
 
 export type ExpenseRow = {
@@ -57,12 +57,12 @@ export function ExpenseList({ rows }: { rows: ExpenseRow[] }) {
             />
             すべて選ぶ
           </label>
-          <Button size="sm" disabled={!selected.length || pending} onClick={() => review(selected, "approved")}>
-            選んだ{selected.length}件を承認
+          <Button size="sm" variant={selected.length ? "default" : "secondary"} disabled={!selected.length || pending} onClick={() => review(selected, "approved")}>
+            {selected.length ? `選んだ${selected.length}件を承認` : "選んで承認"}
           </Button>
         </div>
       )}
-      <ul className="divide-y rounded-lg border">
+      <ul className="divide-y rounded-xl border bg-card">
         {rows.map((r) => (
           <li key={r.id} className="flex items-start gap-3 p-3">
             {r.status === "pending" ? (
@@ -80,29 +80,31 @@ export function ExpenseList({ rows }: { rows: ExpenseRow[] }) {
                 <Link href={`/staff/${r.staff?.id}`} className="font-medium hover:underline">
                   {r.staff?.name}
                 </Link>
-                <span className="text-lg font-bold">{yen(r.amount)}</span>
-                <Badge tone={EXPENSE_STATUS[r.status].tone}>{EXPENSE_STATUS[r.status].label}</Badge>
+                <span className="text-lg font-bold tabular-nums">{yen(r.amount)}</span>
+                {/* 未承認は右の「承認・却下」で分かるので、札は承認済み・却下だけ */}
+                {r.status !== "pending" && <Badge tone={EXPENSE_STATUS[r.status].tone}>{EXPENSE_STATUS[r.status].label}</Badge>}
               </p>
               <p className="text-sm">
                 {EXPENSE_KIND[r.kind]}
                 {r.memo && `: ${r.memo}`}
               </p>
-              <p className="text-sm text-muted-foreground">
+              {/* 本人の申請がふつうなので、管理者が代わりに入れたときだけ札を出す */}
+              <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
                 {r.event && (
                   <Link href={`/events/${r.event.id}`} className="hover:underline">
                     {formatShortJa(r.event.date)} {r.event.venue}
                   </Link>
                 )}
-                （入力: {INPUT_SOURCE[r.source]}）
+                {r.source === "admin" && <Badge tone="muted">代理入力</Badge>}
               </p>
               {r.status === "rejected" && r.reject_reason && <p className="text-sm text-muted-foreground">却下理由: {r.reject_reason}</p>}
             </div>
             {r.status === "pending" ? (
               <div className="flex flex-col gap-1">
-                <Button size="sm" disabled={pending} onClick={() => review([r.id], "approved")}>
+                <Button size="sm" variant="outline" disabled={pending} onClick={() => review([r.id], "approved")}>
                   承認
                 </Button>
-                <Button size="sm" variant="ghost" disabled={pending} onClick={() => setRejecting(r)}>
+                <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={pending} onClick={() => setRejecting(r)}>
                   却下
                 </Button>
               </div>

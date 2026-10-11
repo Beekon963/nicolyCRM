@@ -26,7 +26,7 @@ export function GeneralForm({ initial }: { initial: GeneralSettings }) {
 
   return (
     <form
-      className="flex flex-col gap-4 px-4"
+      className="flex max-w-2xl flex-col gap-4 px-4"
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {

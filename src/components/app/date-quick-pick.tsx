@@ -29,7 +29,7 @@ export function DateQuickPick({
             onClick={() => onChange(d)}
             className={cn(
               "h-11 rounded-full border px-4 text-base",
-              value === d ? "border-primary bg-primary/10 font-medium text-primary" : "border-input text-muted-foreground",
+              value === d ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input text-muted-foreground",
             )}
           >
             {o.label}

@@ -68,11 +68,11 @@ test.describe("稼働表", () => {
     const staffCell = page.getByRole("button", { name: `${staff.name} ${day}日`, exact: true });
     const dropped = staffCell.locator('[data-tile="cancelled"]');
     await expect(dropped).toContainText("キャンセル");
-    await expect(dropped).toHaveCSS("background-color", "rgb(220, 38, 38)");
+    await expect(dropped).toHaveCSS("background-color", "rgb(254, 228, 226)");
     const client = await one<{ name: string }>(`select c.name from events e join companies c on c.id = e.client_id where e.id = $1`, [eventId]);
     const clientCell = page.getByRole("button", { name: `${client.name} ${day}日`, exact: true });
     const shortage = clientCell.locator('[data-tile="shortage"]', { hasText: venue });
-    await expect(shortage).toHaveCSS("background-color", "rgb(220, 38, 38)");
+    await expect(shortage).toHaveCSS("background-color", "rgb(254, 228, 226)");
     await expect(shortage).toContainText("欠1");
     await expect(page.getByTestId("board-gauge")).toBeVisible();
 
@@ -85,7 +85,7 @@ test.describe("稼働表", () => {
     await page.reload();
     const filled = clientCell.locator('[data-tile="filled"]', { hasText: venue });
     await expect(filled).toBeVisible();
-    await expect(filled).not.toHaveCSS("background-color", "rgb(220, 38, 38)");
+    await expect(filled).not.toHaveCSS("background-color", "rgb(254, 228, 226)");
   });
 
   test("マスから打診すると、その人のマイページURL入りの文面が出る（PC はコピーだけ）", async ({ page, isMobile }) => {
@@ -145,7 +145,7 @@ test.describe("稼働表の拡大・縮小", () => {
     expect(after).toBeLessThan(before * 0.8);
     await expectNoHorizontalScroll(page);
     // ページの見出しの文字の大きさは変わらない
-    await expect(page.getByRole("heading", { name: "稼働表" })).toHaveCSS("font-size", "20px");
+    await expect(page.getByRole("heading", { name: "稼働表" })).toHaveCSS("font-size", "22px");
 
     // この端末に覚えておく
     await page.reload();

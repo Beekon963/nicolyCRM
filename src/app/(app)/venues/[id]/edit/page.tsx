@@ -17,7 +17,7 @@ export default async function EditVenuePage({ params }: PageProps<"/venues/[id]/
   const masters = await getMasters();
   return (
     <>
-      <PageHeader title={`${v.name} を編集`} back={`/venues/${id}`} />
+      <PageHeader title="会場を編集" description={v.name} back={`/venues/${id}`} />
       <VenueForm
         initial={{
           id: v.id,

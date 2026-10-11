@@ -44,12 +44,13 @@ export function VenueList({
       {venues.length === 0 ? (
         <EmptyState title="該当する会場がありません" action={<Button asChild><Link href="/venues/new">会場を登録する</Link></Button>} />
       ) : (
-        <ul className="divide-y border-y">
+        // PC の広い画面で詳細を開いていないときは2列にする（右側が空かないように）
+        <ul className={cn("divide-y border-y", !selectedId && "lg:grid lg:grid-cols-2 lg:gap-x-4 lg:divide-y-0 lg:border-y-0 lg:px-4")}>
           {venues.map((v) => (
-            <li key={v.id}>
+            <li key={v.id} className={cn(!selectedId && "lg:border-b")}>
               <Link
                 href={`/venues/${v.id}${query ? `?${query}` : ""}`}
-                className={cn("flex min-h-16 flex-col justify-center px-4 py-2 hover:bg-accent", v.id === selectedId && "bg-primary/10")}
+                className={cn("flex h-full min-h-16 flex-col justify-center px-4 py-2 hover:bg-accent", !selectedId && "lg:rounded-xl lg:px-3", v.id === selectedId && "bg-brand-50")}
               >
                 <span className="flex items-center gap-2 font-medium">
                   <VenueColorDot color={v.color} />

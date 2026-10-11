@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { CompanyName } from "@/components/app/company-name";
 import { PageHeader } from "@/components/app/page-header";
 import { VenueColorDot } from "@/components/app/venue-color";
 import { requireMember } from "@/lib/auth";
@@ -45,16 +46,24 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
       <PageHeader
         title="候補を探す"
         description={
-          <span className="flex items-center gap-1.5">
-            <VenueColorDot color={ev.venue?.color} />
-            {`${formatShortJa(ev.date)} ${ev.venue?.name ?? ""}（${ev.client?.name ?? ""}）`}
+          <span className="flex flex-col">
+            <span className="flex items-center gap-1.5 font-medium text-[#344054]">
+              <VenueColorDot color={ev.venue?.color} />
+              {`${formatShortJa(ev.date)} ${ev.venue?.name ?? ""}`}
+            </span>
+            {ev.client?.name && (
+              <span>
+                <CompanyName name={ev.client.name} />
+              </span>
+            )}
           </span>
         }
         back={`/events/${id}`}
       />
-      <p className="px-4 pb-2 text-sm text-muted-foreground">
-        並び順: ○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。
-      </p>
+      <details className="px-4 pb-2 text-sm text-muted-foreground">
+        <summary className="w-fit cursor-pointer select-none hover:text-foreground">並び順について</summary>
+        <p className="pt-1">○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。</p>
+      </details>
       <CandidatePicker
         eventId={id}
         roles={roles}

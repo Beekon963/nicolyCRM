@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { CountStepper } from "@/components/app/count-stepper";
+import { DateQuickPick } from "@/components/app/date-quick-pick";
+import { StickySubmitBar } from "@/components/app/sticky-submit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,7 +146,7 @@ export function EventForm({
                 type="button"
                 className={cn(
                   "h-11 rounded-full border px-4",
-                  range.from === p.from && range.to === p.to ? "border-primary bg-primary/10 font-medium text-primary" : "border-input",
+                  range.from === p.from && range.to === p.to ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input",
                 )}
                 onClick={() => {
                   setRange({ from: p.from, to: p.to, weekdays: p.weekdays });
@@ -208,6 +210,18 @@ export function EventForm({
               </Button>
             )}
           </div>
+          {/* 日付のワンタップ候補（要件 §9-3） */}
+          {mode === "single" && (
+            <DateQuickPick
+              value={date}
+              onChange={(v) => (setDate(v), setDirty(true))}
+              options={[
+                { label: "今日", days: 0 },
+                { label: "明日", days: 1 },
+                { label: "来週の今日", days: 7 },
+              ]}
+            />
+          )}
         </div>
       )}
 
@@ -268,9 +282,11 @@ export function EventForm({
         </div>
       </details>
 
-      <Button type="submit" size="lg" disabled={pending || (mode === "bulk" && selectedDates.length === 0)}>
-        {pending ? "保存中…" : mode === "edit" ? "保存する" : mode === "bulk" ? `${selectedDates.length}件の現場を作る` : "現場を作る"}
-      </Button>
+      <StickySubmitBar>
+        <Button type="submit" size="lg" disabled={pending || (mode === "bulk" && selectedDates.length === 0)}>
+          {pending ? "保存中…" : mode === "edit" ? "保存する" : mode === "bulk" ? `${selectedDates.length}件の現場を作る` : "現場を作る"}
+        </Button>
+      </StickySubmitBar>
     </form>
   );
 }

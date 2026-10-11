@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheckIcon, CalendarDaysIcon, ClipboardListIcon, HandIcon, HistoryIcon } from "lucide-react";
+import { CalendarCheckIcon, CalendarDaysIcon, ClipboardListIcon, HistoryIcon, MailIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ export function MypageTabs({ token, offers, reports }: { token: string; offers: 
   const pathname = usePathname();
   const base = `/m/${token}`;
   const tabs = [
-    { href: base, label: "お願い", icon: HandIcon, badge: offers },
+    { href: base, label: "お願い", icon: MailIcon, badge: offers },
     { href: `${base}/schedule`, label: "予定", icon: CalendarDaysIcon },
     { href: `${base}/report`, label: "報告", icon: ClipboardListIcon, badge: reports },
     { href: `${base}/availability`, label: "稼働可能日", icon: CalendarCheckIcon },
@@ -23,12 +23,16 @@ export function MypageTabs({ token, offers, reports }: { token: string; offers: 
           <Link
             key={t.href}
             href={t.href}
+            aria-current={active ? "page" : undefined}
             className={cn("relative flex h-16 flex-col items-center justify-center gap-0.5 text-xs", active ? "font-bold text-primary" : "text-muted-foreground")}
           >
-            <t.icon className="size-6" />
+            {/* 選んでいるタブはアイコンを丸い札で囲む（管理画面の下のタブと同じ） */}
+            <span className={cn("grid h-8 w-14 place-items-center rounded-full transition-colors", active && "bg-brand-50")}>
+              <t.icon className="size-6" />
+            </span>
             {t.label}
             {t.badge ? (
-              <span className="absolute top-1.5 left-1/2 ml-2 grid min-w-5 place-items-center rounded-full bg-status-alert px-1 text-[11px] font-bold text-white">
+              <span className="absolute top-1 left-1/2 ml-3 grid min-w-5 place-items-center rounded-full bg-status-alert-solid px-1 text-[11px] font-bold text-white ring-2 ring-background">
                 {t.badge}
               </span>
             ) : null}

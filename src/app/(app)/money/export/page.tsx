@@ -29,7 +29,7 @@ function Download({ kind, month, children, disabled }: { kind: string; month: st
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mx-4 flex flex-col gap-2 rounded-lg border p-4">
+    <section className="mx-4 flex flex-col gap-2 rounded-2xl border bg-card p-4 shadow-card">
       <h2 className="font-bold">{title}</h2>
       {children}
     </section>

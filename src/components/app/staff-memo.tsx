@@ -22,11 +22,12 @@ export function StaffMemo({ memo }: { memo: string | null | undefined }) {
         </div>
       )}
       {groups.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={cn("grid gap-4", groups.length > 1 && "md:grid-cols-2")}>
           {groups.map((g) => (
             <section key={g.title} aria-label={g.title} className="min-w-0">
               <h3 className="mb-1 border-b pb-1 text-sm font-bold text-muted-foreground">{g.title}</h3>
-              <dl className="grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-1">
+              {/* 項目名の幅は「基本情報」と同じ（値の頭がそろうように） */}
+              <dl className="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1 sm:grid-cols-[7rem_1fr]">
                 {g.items.map((it, i) => {
                   const tone = memoValueTone(it.value);
                   const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(it.value);

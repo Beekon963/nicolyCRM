@@ -18,3 +18,18 @@ export function grossProfit(p: {
 }): number {
   return p.invoiceSubtotal - p.billedTransport - excludeTax(p.reward, p.taxRatePercent) - p.unbilledExpenses;
 }
+
+/**
+ * 月次目標との比較（画面の「目標との比較」用）。
+ * - pct: 目標に対して何%か（1%未満切り捨て。マイナスのときは null = 「赤字」と出す）
+ * - remaining: 目標まであと何円か（達成したら 0）
+ * - reached: 目標に届いたか
+ */
+export function targetProgress(total: number, target: number): { pct: number | null; remaining: number; reached: boolean } {
+  if (target <= 0) return { pct: null, remaining: 0, reached: total >= target };
+  return {
+    pct: total < 0 ? null : Math.floor((total * 100) / target),
+    remaining: Math.max(0, target - total),
+    reached: total >= target,
+  };
+}

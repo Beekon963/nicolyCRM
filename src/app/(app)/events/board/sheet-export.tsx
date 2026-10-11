@@ -34,9 +34,10 @@ export function SheetExport({ state, isOwner }: { state: SheetExportState; isOwn
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" aria-label="シートへの書き出し" onClick={() => setOpen(true)}>
         <SheetIcon />
-        シートへの書き出し
+        <span className="md:hidden">書き出し</span>
+        <span className="max-md:hidden">シートへの書き出し</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

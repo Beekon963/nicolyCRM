@@ -4,9 +4,10 @@ import { Suspense } from "react";
 import { FilterBar } from "@/components/app/filter-bar";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
 import { VenueColorDot } from "@/components/app/venue-color";
+import { StatusPill } from "@/components/app/status-pill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { addDays, eachDay, formatShortJa, monthRange, nextMonth, parse, weekdayJa } from "@/lib/date";
+import { addDays, eachDay, formatShortJa, monthRange, nextMonth, parse, todayJst, weekdayJa } from "@/lib/date";
 import type { EventFilters, EventListItem } from "@/lib/data/events";
 import { EVENT_STATUS } from "@/lib/labels";
 import { formatTimeRange } from "@/lib/templates";
@@ -22,15 +23,19 @@ function qs(base: EventFilters, patch: Partial<EventFilters>) {
   return s ? `?${s}` : "";
 }
 
-/** 人数の表示: 確定/必要。欠員は赤、埋まったら緑（要件 §9-5） */
+/**
+ * 人数の表示: 確定/必要 と、稼働表と同じ札（欠員は赤い「欠2」、そろったら緑の ✓、打診中は黄の「打1」）。要件 §9-5
+ */
 export function StaffCount({ e }: { e: Pick<EventListItem, "confirmed_total" | "required_total" | "shortage_total" | "offered_count" | "cancelled_at"> }) {
   if (e.cancelled_at) return <Badge tone="muted">中止</Badge>;
+  const short = e.shortage_total! > 0;
   return (
-    <span className="flex flex-col items-end gap-0.5">
-      <Badge tone={e.shortage_total! > 0 ? "alert" : "done"}>
-        {e.confirmed_total}/{e.required_total}人{e.shortage_total! > 0 && ` 欠員${e.shortage_total}`}
-      </Badge>
-      {e.offered_count! > 0 && <span className="text-xs text-status-waiting">打診中 {e.offered_count}</span>}
+    <span className="flex shrink-0 items-center gap-1.5" title={`確定${e.confirmed_total}人 / 必要${e.required_total}人${short ? ` 欠員${e.shortage_total}` : ""}${e.offered_count ? ` 打診中${e.offered_count}` : ""}`}>
+      <span className="text-sm font-semibold text-[#344054] tabular-nums">
+        {e.confirmed_total}/{e.required_total}人
+      </span>
+      {short ? <StatusPill tone="alert">欠{e.shortage_total}</StatusPill> : <StatusPill tone="done">✓</StatusPill>}
+      {e.offered_count! > 0 && <StatusPill tone="waiting">打{e.offered_count}</StatusPill>}
     </span>
   );
 }
@@ -91,7 +96,7 @@ export function EventList({
                 { name: "shortage", label: "欠員", allLabel: "欠員: すべて", options: [{ value: "1", label: "欠員ありだけ" }] },
                 {
                   name: "status",
-                  label: "ステータス",
+                  label: "状態",
                   options: Object.entries(EVENT_STATUS).map(([k, v]) => ({ value: k, label: v.label })),
                 },
               ]}
@@ -145,7 +150,7 @@ export function EventList({
                     <li key={e.id}>
                       <Link
                         href={`/events/${e.id}${qs(filters, {})}`}
-                        className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", e.id === selectedId && "bg-primary/10", e.cancelled_at && "opacity-60")}
+                        className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", e.id === selectedId && "bg-brand-50", e.cancelled_at && "opacity-60")}
                       >
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5 font-medium">
@@ -187,10 +192,28 @@ function MonthCalendar({
   filters: EventFilters;
 }) {
   const { start, end } = monthRange(month);
+  const today = todayJst();
   const lead = "日月火水木金土".indexOf(weekdayJa(start));
   const cells: (string | null)[] = [...Array.from({ length: lead }, () => null), ...eachDay(start, end)];
   return (
     <div className="px-4">
+      {/* 見方（表の上に。印と意味を組にして並べる） */}
+      <ul className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[#344054]" aria-label="カレンダーの見方">
+        <li className="flex items-center gap-1.5">
+          <StatusPill tone="alert">欠</StatusPill>欠員あり
+        </li>
+        <li className="flex items-center gap-1.5">
+          <StatusPill tone="done">✓</StatusPill>人員がそろった
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="size-4 rounded border bg-muted" />
+          過ぎた日
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="size-4 rounded ring-2 ring-primary" />
+          今日
+        </li>
+      </ul>
       <div className="grid grid-cols-7 gap-1 text-center text-sm">
         {"日月火水木金土".split("").map((w, i) => (
           <div key={w} className={cn(i === 0 && "text-status-alert", i === 6 && "text-primary")}>
@@ -200,7 +223,10 @@ function MonthCalendar({
         {cells.map((d, i) => {
           if (!d) return <div key={`b${i}`} />;
           const list = (byDate.get(d) ?? []).filter((e) => !e.cancelled_at);
-          const short = list.some((e) => e.shortage_total! > 0);
+          // 過ぎた日は対応できないので、赤・緑にせず灰色で控えめに出す
+          const past = d < today;
+          const shortage = past ? 0 : list.reduce((n, e) => n + (e.shortage_total ?? 0), 0);
+          const short = shortage > 0;
           // その日の会場の色（4つまで）
           const colors = [...new Set(list.map((e) => e.venue?.color ?? ""))].slice(0, 4);
           const wd = i % 7;
@@ -210,29 +236,36 @@ function MonthCalendar({
               href={`/events${qs({ ...filters, view: undefined, month: undefined }, { from: d, to: d })}`}
               title={holidays[d]}
               className={cn(
-                "flex min-h-16 flex-col items-center gap-1 rounded-lg border p-1 hover:bg-accent",
-                // 欠員のある日はマスごと赤、そろった日は緑（ゲームのタイルのように下に縁）
+                "flex min-h-16 flex-col items-center gap-1 rounded-xl border p-1 transition-colors hover:bg-accent",
+                // 欠員のある日はマスごと薄い赤、そろった日は薄い緑
+                // 文字は濃いグレーのまま。状態は札（欠・✓）で出す
                 list.length > 0 &&
-                  (short
-                    ? "border-b-4 border-status-alert-edge bg-status-alert-solid text-white hover:bg-status-alert-solid/90"
-                    : "border-b-4 border-status-done/40 bg-status-done-bg"),
+                  (past
+                    ? "bg-muted text-muted-foreground"
+                    : short
+                      ? "border-status-alert-border bg-status-alert-tint hover:bg-status-alert-tint/80"
+                      : "border-status-done-border bg-status-done-bg hover:bg-status-done-bg/80"),
+                // 今日は青い枠
+                d === today && "ring-2 ring-primary ring-offset-1",
               )}
             >
               <span
                 className={cn(
                   "text-xs",
-                  !short && (wd === 0 || holidays[d]) && "text-status-alert",
-                  !short && wd === 6 && !holidays[d] && "text-primary",
-                  short && "font-bold",
+                  !list.length && (wd === 0 || holidays[d]) && "text-status-alert",
+                  !list.length && wd === 6 && !holidays[d] && "text-primary",
+                  d === today && "font-bold text-primary",
+                  list.length > 0 && "font-semibold",
                 )}
               >
                 {Number(d.slice(8))}
               </span>
-              {list.length > 0 && <span className={cn("text-sm font-bold", !short && "text-status-done")}>{list.length}件</span>}
+              {list.length > 0 && <span className="text-sm font-semibold tabular-nums">{list.length}件</span>}
+              {list.length > 0 && !past && (short ? <StatusPill tone="alert">欠{shortage}</StatusPill> : <StatusPill tone="done">✓</StatusPill>)}
               {colors.length > 0 && (
                 <span className="flex gap-0.5" aria-hidden>
                   {colors.map((c) => (
-                    <VenueColorDot key={c} color={c} className="size-2.5 ring-white" />
+                    <VenueColorDot key={c} color={c} className="size-2 ring-white" />
                   ))}
                 </span>
               )}
@@ -240,7 +273,7 @@ function MonthCalendar({
           );
         })}
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">赤 = 欠員あり、緑 = 人員確定。丸は会場の色。日付を押すとその日の現場が出ます。</p>
+      <p className="mt-3 mb-20 text-sm text-muted-foreground md:mb-0">小さな丸は会場の色です。日付を押すと、その日の現場が出ます。</p>
     </div>
   );
 }

@@ -19,7 +19,7 @@ async function openAi(page: import("@playwright/test").Page) {
 test("AI に聞くと、CRM を調べて答える（スマホ幅で横スクロールしない）", async ({ page }) => {
   const staff = await one<{ name: string }>(`select name from staff where status = 'active' order by random() limit 1`);
   const ai = await openAi(page);
-  await expect(ai.getByText("CRM のデータの質問")).toBeVisible();
+  await expect(ai.getByText("このアプリのデータの質問")).toBeVisible();
   await expectNoHorizontalScroll(page);
   await ai.getByLabel("AI に送る文").fill(`探して:${staff.name}`);
   await ai.getByRole("button", { name: "送る" }).click();

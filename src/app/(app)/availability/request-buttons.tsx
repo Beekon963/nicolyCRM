@@ -11,17 +11,18 @@ export function RequestButtons({ groupText, reminders }: { groupText: string; re
   const [groupOpen, setGroupOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
   return (
-    <div className="mx-4 flex flex-wrap gap-2">
-      <Button onClick={() => setGroupOpen(true)}>
-        <UsersIcon />
-        全体向けの提出依頼
-      </Button>
+    // 未提出の人がいるあいだは「個別リマインド」がいちばん大事なので先・青。全体向けは白
+    <div className="mx-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       {reminders.length > 0 && (
-        <Button variant="outline" onClick={() => setRemindOpen(true)}>
+        <Button onClick={() => setRemindOpen(true)}>
           <MessageCircleIcon />
           未提出の人に個別リマインド（{reminders.length}人）
         </Button>
       )}
+      <Button variant={reminders.length > 0 ? "outline" : "default"} onClick={() => setGroupOpen(true)}>
+        <UsersIcon />
+        全体向けの提出依頼
+      </Button>
       <Dialog open={groupOpen} onOpenChange={setGroupOpen}>
         <DialogContent>
           <DialogHeader>

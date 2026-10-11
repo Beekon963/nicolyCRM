@@ -28,12 +28,13 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section className={cn("mx-4 mb-4 rounded-lg border", className)}>
-      <div className="flex min-h-12 items-center justify-between gap-2 border-b px-4 py-2">
-        <h2 className="font-bold">{title}</h2>
+    // 見出しの下に線を引かず、余白で区切る（線が二重に見えないように）
+    <section className={cn("mx-4 mb-4 rounded-2xl border bg-card shadow-card", className)}>
+      <div className="flex min-h-12 items-center justify-between gap-2 px-4 pt-3 pb-1">
+        <h2 className="text-[17px] font-bold">{title}</h2>
         {actions && <div className="flex items-center gap-1">{actions}</div>}
       </div>
-      <div className="p-4">{children}</div>
+      <div className="px-4 pt-1 pb-4">{children}</div>
     </section>
   );
 }
@@ -41,7 +42,8 @@ export function Section({
 /** 「項目名: 値」の並び */
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[7rem_1fr] gap-2 py-1.5">
+    // 項目名の幅はスマホで細め（値が「クローザー・/ディレクター」のように折り返さないように）。メモの表と同じ幅
+    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-1.5 sm:grid-cols-[7rem_1fr]">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 break-words">{children || <span className="text-muted-foreground">−</span>}</dd>
     </div>
