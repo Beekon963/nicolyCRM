@@ -725,9 +725,12 @@ export function BoardGrid({
   );
 }
 
-/** 日付の列の幅（会場名が長くても広がらないように固定。見出しの右端のドラッグで変えられる） */
+/**
+ * 日付の列の幅（会場名が長くても広がらないように固定。見出しの右端のドラッグで変えられる）
+ * マスは横長に使う: 「欠1 1/2 打1」が1行に、会場名（9文字くらいまで）が PC で1行に収まり、PC の画面で1週間分が見える幅
+ */
 const DAY_W =
-  "w-[var(--day-w,5.5rem)] min-w-[var(--day-w,5.5rem)] max-w-[var(--day-w,5.5rem)] md:w-[var(--day-w,7rem)] md:min-w-[var(--day-w,7rem)] md:max-w-[var(--day-w,7rem)]";
+  "w-[var(--day-w,7rem)] min-w-[var(--day-w,7rem)] max-w-[var(--day-w,7rem)] md:w-[var(--day-w,9rem)] md:min-w-[var(--day-w,9rem)] md:max-w-[var(--day-w,9rem)]";
 /** 名前の列の幅 */
 const NAME_W =
   "w-[var(--name-w,7rem)] min-w-[var(--name-w,7rem)] max-w-[var(--name-w,7rem)] md:w-[var(--name-w,11rem)] md:min-w-[var(--name-w,11rem)] md:max-w-[var(--name-w,11rem)]";
