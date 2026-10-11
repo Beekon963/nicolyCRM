@@ -7,10 +7,12 @@ export type AiBlock =
   | { type: "text"; text: string }
   | { type: "image"; source: { type: "base64"; media_type: "image/jpeg"; data: string } }
   | { type: "tool_use"; id: string; name: string; input: unknown }
-  | { type: "tool_result"; tool_use_id: string; content?: string; is_error?: boolean };
+  | { type: "tool_result"; tool_use_id: string; content?: string; is_error?: boolean }
+  /** AI の考えの記録（署名つき）など。中身を変えずにそのまま返す */
+  | { type: "thinking" | "redacted_thinking" | "fallback"; [key: string]: unknown };
 export type AiMessage = { role: "user" | "assistant"; content: string | AiBlock[] };
 
-export const KEEP_MESSAGES = 40;
+export const KEEP_MESSAGES = 60;
 export const KEEP_IMAGE_TURNS = 2;
 
 const isToolResultTurn = (m: AiMessage) => m.role === "user" && typeof m.content !== "string" && m.content.some((b) => b.type === "tool_result");
@@ -19,6 +21,8 @@ const isToolResultTurn = (m: AiMessage) => m.role === "user" && typeof m.content
  * 送る会話を短くする。
  * - 古いやりとりを落とす（道具のやりとりの途中では切らない＝利用者の発言から始める）
  * - 画像は新しい2回分だけ残し、それより前は「省略しました」にする（送る量と料金を減らす）
+ * どちらも会話の前の部分を変えるので、それより後の AI の考えの記録は使えなくなる（サーバーが drop_block で外して続ける）。
+ * 会話が短いうちは何も変えない。
  */
 export function trimHistory(ms: AiMessage[]): AiMessage[] {
   let start = Math.max(0, ms.length - KEEP_MESSAGES);

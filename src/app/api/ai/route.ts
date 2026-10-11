@@ -1,4 +1,4 @@
-import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
+import type { BetaMessageParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { type AiEvent, conversationSchema, runAgent } from "@/lib/ai/agent";
 import { aiClient, aiConfigured, aiErrorMessage, resolveModel } from "@/lib/ai/config";
 import { buildSystem } from "@/lib/ai/prompt";
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       try {
         const client = aiClient();
         const [model, system] = await Promise.all([resolveModel(client), buildSystem(ctx)]);
-        await runAgent({ client, model, system, tools, definitions: toolDefinitions(tools), ctx, messages: parsed.data as MessageParam[], send, signal: abort.signal });
+        await runAgent({ client, model, system, tools, definitions: toolDefinitions(tools), ctx, messages: parsed.data as BetaMessageParam[], send, signal: abort.signal });
       } catch (e) {
         send({ type: "error", message: aiErrorMessage(e) });
       } finally {

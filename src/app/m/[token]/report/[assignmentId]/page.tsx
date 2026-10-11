@@ -11,8 +11,8 @@ import { ReportForm } from "./report-form";
 type Report = {
   event: MypageEvent;
   role: string;
-  staff_name: string;
-  client_name: string;
+  staff_name?: string;
+  client_name?: string;
   deadline: string;
   editable: boolean;
   confirmed: boolean;
@@ -20,8 +20,8 @@ type Report = {
   comment: string;
   items: { item_id: string; name: string; reported: number | null; confirmed: number | null }[];
   expenses: { transport?: { amount: number; memo: string; status: "pending" | "approved" | "rejected" }; other?: { amount: number; memo: string; status: "pending" | "approved" | "rejected" } };
-  /** この現場の取引先で使う日報のフォーマット */
-  formats: { id: string; name: string; header: string; event_block: string; person_block: string; footer: string }[];
+  /** この現場の取引先で使う日報のフォーマット（DB が古いときは返らないことがある） */
+  formats?: { id: string; name: string; header: string; event_block: string; person_block: string; footer: string }[];
 };
 
 export default async function MypageReport({ params }: PageProps<"/m/[token]/report/[assignmentId]">) {
@@ -44,7 +44,7 @@ export default async function MypageReport({ params }: PageProps<"/m/[token]/rep
         <p className="rounded-lg bg-status-done-bg p-3 text-status-done">送信済みです。{formatShortJa(d.deadline)}まで修正できます。</p>
       ) : null}
       <ReportForm token={token} assignmentId={assignmentId} items={d.items} comment={d.comment} expenses={d.expenses} editable={d.editable} />
-      {d.submitted_at && d.formats.length > 0 && <LineReports d={d} />}
+      {d.submitted_at && (d.formats ?? []).length > 0 && <LineReports d={d} />}
     </div>
   );
 }
@@ -55,19 +55,19 @@ function LineReports({ d }: { d: Report }) {
   const reportDay = {
     date: `${m}/${day}`,
     weekday: weekdayJa(d.event.date),
-    clientName: d.client_name,
+    clientName: d.client_name ?? "",
     events: [
       {
         venueName: d.event.venue.name,
         time: formatTimeRange(d.event.start_time, d.event.end_time),
-        people: [{ name: d.staff_name, role: d.role, items: d.items.map((i) => ({ name: i.name, count: i.confirmed ?? i.reported })), comment: d.comment }],
+        people: [{ name: d.staff_name ?? "", role: d.role, items: d.items.map((i) => ({ name: i.name, count: i.confirmed ?? i.reported })), comment: d.comment }],
       },
     ],
   };
   return (
     <section className="flex flex-col gap-3 rounded-lg border p-3">
       <h2 className="font-bold">LINE用にコピー（日報）</h2>
-      {d.formats.map((f) => {
+      {(d.formats ?? []).map((f) => {
         const text = renderReport({ header: f.header, eventBlock: f.event_block, personBlock: f.person_block, footer: f.footer }, reportDay);
         return (
           <div key={f.id} className="flex flex-col gap-2">

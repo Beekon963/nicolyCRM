@@ -5,6 +5,9 @@
  * - 「探して:名前」→ search を使う → 結果の名前を「見つかった人: …」と答える
  * - 画像付きで「名前:〇〇」→ search → propose_availability（150日後を○）→「確認カードを出しました」
  * - 「道具」→ 渡された道具の名前を答える（管理者に金額の道具が渡っていないかの確認用）
+ *
+ * 本物と同じく、答えの先頭に AI の考えの記録（署名つき）を付ける。次の問い合わせでその記録が
+ * そのまま返ってこないとき・設定（drop_block・fallbacks など）が違うときは、そう答える（画面テストが失敗する）。
  */
 import http from "node:http";
 
@@ -19,14 +22,20 @@ function textOf(content) {
   return content.filter((b) => b.type === "text").map((b) => b.text).join("\n");
 }
 
+let signatures = 0;
+
 function sse(res, blocks, stopReason) {
+  blocks = [{ type: "thinking" }, ...blocks];
   res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
   const send = (type, data) => res.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
   send("message_start", {
     message: { id: `msg_${Date.now()}`, type: "message", role: "assistant", model: "e2e-mock", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } },
   });
   blocks.forEach((b, index) => {
-    if (b.type === "text") {
+    if (b.type === "thinking") {
+      send("content_block_start", { index, content_block: { type: "thinking", thinking: "", signature: "" } });
+      send("content_block_delta", { index, delta: { type: "signature_delta", signature: `sig-mock-${++signatures}` } });
+    } else if (b.type === "text") {
       send("content_block_start", { index, content_block: { type: "text", text: "" } });
       // 少しずつ送る（画面で途中経過が出ることを確かめる）
       for (const part of b.text.match(/.{1,8}/gsu) ?? []) send("content_block_delta", { index, delta: { type: "text_delta", text: part } });
@@ -44,7 +53,21 @@ function sse(res, blocks, stopReason) {
 const text = (res, t) => sse(res, [{ type: "text", text: t }], "end_turn");
 const tool = (res, name, input) => sse(res, [{ type: "tool_use", id: `toolu_${Date.now()}`, name, input }], "tool_use");
 
-function reply(body, res) {
+/** アプリの設定が本物の AI に送るとおりになっているか（違えば理由） */
+function settingsProblem(body, betaHeader) {
+  if (body.thinking?.type !== "adaptive" || body.thinking?.block_binding?.prefix_mismatch_behavior !== "drop_block") return "thinking";
+  if (body.fallbacks !== "default") return "fallbacks";
+  for (const b of ["thinking-binding-controls-2026-08-01", "server-side-fallback-2026-07-01"]) if (!String(betaHeader ?? "").includes(b)) return `beta ${b}`;
+  // 前の答えの考えの記録が、そのまま返ってきているか
+  for (const m of body.messages)
+    // （アプリが「ここで止めました」を足した答えは、AI からのものではないので除く）
+    if (m.role === "assistant" && Array.isArray(m.content) && !(m.content.length === 1 && m.content[0].type === "text") && !(m.content[0]?.type === "thinking" && /^sig-mock-\d+$/.test(m.content[0]?.signature ?? ""))) return "THINKING_LOST";
+  return null;
+}
+
+function reply(body, res, betaHeader) {
+  const problem = settingsProblem(body, betaHeader);
+  if (problem) return text(res, `設定がちがいます: ${problem}`);
   const ms = body.messages;
   const last = ms.at(-1);
   const results = Array.isArray(last.content) ? last.content.filter((b) => b.type === "tool_result") : [];
@@ -84,7 +107,7 @@ http
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       try {
-        reply(JSON.parse(raw), res);
+        reply(JSON.parse(raw), res, req.headers["anthropic-beta"]);
       } catch (e) {
         res.writeHead(500, { "content-type": "application/json" });
         res.end(JSON.stringify({ type: "error", error: { type: "api_error", message: String(e) } }));

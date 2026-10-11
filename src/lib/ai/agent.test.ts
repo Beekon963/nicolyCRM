@@ -1,7 +1,7 @@
-import type { Message } from "@anthropic-ai/sdk/resources/messages";
+import type { BetaMessage as Message } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { type AiEvent, conversationSchema, MAX_STEPS, runAgent, type StreamingClient } from "./agent";
+import { type AgentRequest, type AiEvent, conversationSchema, MAX_STEPS, runAgent, type StreamingClient } from "./agent";
 import type { AiContext, AiTool } from "./common";
 import { toolDefinitions, toolsFor } from "./tools";
 
@@ -12,11 +12,11 @@ const msg = (content: Message["content"], stop: Message["stop_reason"]): Message
 
 /** 決めた順に答える偽の Claude。受け取った会話も残す */
 function fakeClient(replies: Message[]) {
-  const calls: { messages: unknown[]; tools: { name: string }[] }[] = [];
+  const calls: (AgentRequest & { messages: unknown[] })[] = [];
   const client: StreamingClient = {
-    messages: {
+    beta: { messages: {
       stream(params) {
-        calls.push({ messages: structuredClone(params.messages), tools: params.tools });
+        calls.push(structuredClone(params));
         const reply = replies[Math.min(calls.length - 1, replies.length - 1)];
         return {
           on(_e: "text", fn: (t: string) => void) {
@@ -26,7 +26,7 @@ function fakeClient(replies: Message[]) {
           finalMessage: async () => reply,
         };
       },
-    },
+    } },
   };
   return { client, calls };
 }
@@ -104,6 +104,46 @@ describe("AI アシスタントのやりとり", () => {
   });
 });
 
+describe("AI に送る設定", () => {
+  const thinking = { type: "thinking", thinking: "", signature: "sig-1" } as Message["content"][number];
+
+  it("考えの記録は外さず、書き換わったときは外して続ける（drop_block）。断られたら別のモデルで答え直す", async () => {
+    const { calls, events } = await run([msg([thinking, { type: "text", text: "はい", citations: null }], "end_turn")]);
+    const req = calls[0];
+    expect(req.thinking).toEqual({ type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } });
+    expect(req.fallbacks).toBe("default");
+    expect(req.betas).toEqual(expect.arrayContaining(["thinking-binding-controls-2026-08-01", "server-side-fallback-2026-07-01"]));
+    expect(req.output_config.effort).toBe("medium");
+    expect(req.cache_control).toEqual({ type: "ephemeral" });
+    // 返ってきた考えの記録（署名つき）を、そのまま会話に足す
+    const done = events.at(-1) as Extract<AiEvent, { type: "done" }>;
+    expect(done.messages[0].content).toEqual([thinking, { type: "text", text: "はい", citations: null }]);
+  });
+
+  it("道具の途中で考えの記録が返っても、次の問い合わせにそのまま入れる", async () => {
+    const { calls } = await run([
+      msg([thinking, { type: "tool_use", id: "t1", name: "echo", input: { q: "x" }, caller: { type: "direct" } }], "tool_use"),
+      msg([{ type: "text", text: "終わり", citations: null }], "end_turn"),
+    ]);
+    const prev = calls[1].messages.at(-2) as { role: string; content: { type: string }[] };
+    expect(prev.role).toBe("assistant");
+    expect(prev.content[0]).toEqual(thinking);
+  });
+
+  it("断られた・長すぎて切れたときは、道具を使わずに止めて、そう伝える", async () => {
+    const use = { type: "tool_use", id: "t1", name: "echo", input: { q: "x" }, caller: { type: "direct" } } as Message["content"][number];
+    for (const [stop, words] of [
+      ["refusal", "お答えできません"],
+      ["max_tokens", "ここで止めました"],
+    ] as const) {
+      const { calls, events } = await run([msg([use], stop)]);
+      expect(calls, stop).toHaveLength(1);
+      expect(events.some((e) => e.type === "tool"), stop).toBe(false);
+      expect(events.filter((e) => e.type === "text").map((e) => (e as { text: string }).text).join(""), stop).toContain(words);
+    }
+  });
+});
+
 describe("AI の道具", () => {
   it("★ 管理者には金額の道具を渡さない。オーナーには渡す", () => {
     const names = (role: "owner" | "manager") => toolsFor({ ...ctx.user, role }).map((t) => t.name);
@@ -128,6 +168,21 @@ describe("画面から届く会話の確かめ", () => {
     expect(ok([{ role: "assistant", content: "x" }, { role: "user", content: "y" }])).toBe(false);
     expect(ok([{ role: "user", content: "x" }, { role: "assistant", content: "y" }])).toBe(false);
     expect(ok([])).toBe(false);
+  });
+
+  it("AI の答えに入っている考えの記録（署名つき）などは、中身を変えずに通す", () => {
+    const ms = [
+      { role: "user", content: "a" },
+      { role: "assistant", content: [{ type: "thinking", thinking: "", signature: "abc" }, { type: "fallback", from: { model: "x" }, to: { model: "y" } }, { type: "text", text: "b" }] },
+      { role: "user", content: "c" },
+    ];
+    const r = conversationSchema.safeParse(ms);
+    expect(r.success).toBe(true);
+    expect(r.data).toEqual(ms);
+  });
+
+  it("利用者の発言に、AI の答えの形（考えの記録など）は入れられない", () => {
+    expect(ok([{ role: "user", content: [{ type: "thinking", thinking: "x", signature: "y" }] }])).toBe(false);
   });
 
   it("画像は jpeg / png / webp / gif の base64 だけ。URL の画像や知らない形は受け付けない", () => {
