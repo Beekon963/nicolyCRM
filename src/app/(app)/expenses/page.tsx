@@ -39,12 +39,12 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/expense
   return (
     <>
       <PageHeader title="交通費・経費の承認" description="スタッフが実績報告で申請した交通費・経費" />
-      <div className="mx-4 mb-3 flex gap-1 rounded-lg bg-muted p-1">
+      <div className="mx-4 mb-3 flex gap-1 rounded-xl bg-muted p-1">
         {TABS.map((t) => (
           <Link
             key={t.value}
             href={`/expenses?status=${t.value}`}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.value === status ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.value === status ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
           >
             {t.label}
           </Link>

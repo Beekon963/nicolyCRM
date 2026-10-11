@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
+import { VenueColorDot } from "@/components/app/venue-color";
 import { requireMember } from "@/lib/auth";
 import { formatShortJa } from "@/lib/date";
 import { getMasters } from "@/lib/data/masters";
@@ -16,7 +17,7 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
   const [{ data: ev }, { data: reqs }, { data: asg }, { data: candidates }, { data: tpl }, masters] = await Promise.all([
     supabase
       .from("events")
-      .select("id, date, start_time, end_time, meeting_time, meeting_place, belongings, venue:venues(name, address), client:companies(name)")
+      .select("id, date, start_time, end_time, meeting_time, meeting_place, belongings, venue:venues(name, address, color), client:companies(name)")
       .eq("id", id)
       .maybeSingle(),
     supabase.from("event_requirements").select("role_id, required_count").eq("event_id", id),
@@ -41,7 +42,16 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
 
   return (
     <>
-      <PageHeader title="候補を探す" description={`${formatShortJa(ev.date)} ${ev.venue?.name ?? ""}（${ev.client?.name ?? ""}）`} back={`/events/${id}`} />
+      <PageHeader
+        title="候補を探す"
+        description={
+          <span className="flex items-center gap-1.5">
+            <VenueColorDot color={ev.venue?.color} />
+            {`${formatShortJa(ev.date)} ${ev.venue?.name ?? ""}（${ev.client?.name ?? ""}）`}
+          </span>
+        }
+        back={`/events/${id}`}
+      />
       <p className="px-4 pb-2 text-sm text-muted-foreground">
         並び順: ○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。
       </p>

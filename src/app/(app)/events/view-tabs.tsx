@@ -10,13 +10,13 @@ export function EventsViewTabs({ current, month }: { current: "list" | "calendar
     { key: "board", label: "稼働表", href: `/events/board?month=${month}`, icon: TableIcon },
   ] as const;
   return (
-    <div className="mx-4 mb-2 flex gap-1 rounded-lg bg-muted p-1">
+    <div className="mx-4 mb-2 flex gap-1 rounded-xl bg-muted p-1">
       {tabs.map((t) => (
         <Link
           key={t.key}
           href={t.href}
           aria-current={t.key === current ? "page" : undefined}
-          className={cn("flex h-11 flex-1 items-center justify-center gap-1 rounded-md", t.key === current ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+          className={cn("flex h-11 flex-1 items-center justify-center gap-1 rounded-md", t.key === current ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
         >
           <t.icon className="size-4" />
           {t.label}

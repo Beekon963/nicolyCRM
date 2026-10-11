@@ -43,13 +43,13 @@ export default async function AnalysisPage({ searchParams }: PageProps<"/analysi
     return q ? `/analysis?${q}` : "/analysis";
   };
   const seg = <T extends string>(label: string, options: [T, string][], current: T, key: "range" | "basis" | "by" | "sort", def: T) => (
-    <div role="group" aria-label={label} className="flex w-full gap-1 overflow-x-auto rounded-lg bg-muted p-1 text-sm sm:w-fit">
+    <div role="group" aria-label={label} className="flex w-full gap-1 overflow-x-auto rounded-xl bg-muted p-1 text-sm sm:w-fit">
       {options.map(([v, l]) => (
         <Link
           key={v}
           href={href({ [key]: v === def ? null : v })}
           aria-current={current === v ? "page" : undefined}
-          className={cn("flex h-10 flex-1 items-center justify-center rounded-md px-3 whitespace-nowrap sm:flex-none", current === v ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+          className={cn("flex h-10 flex-1 items-center justify-center rounded-md px-3 whitespace-nowrap sm:flex-none", current === v ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
         >
           {l}
         </Link>
@@ -67,13 +67,13 @@ export default async function AnalysisPage({ searchParams }: PageProps<"/analysi
           {seg("集計のもと", [["confirmed", "確定"], ["reported", "速報"]] as [Basis, string][], basis, "basis", "confirmed")}
           {seg("並び", [["total", "獲得件数の順"], ["avg", "1稼働あたりの順"]] as ["total" | "avg", string][], sort, "sort", "total")}
         </div>
-        <div className="flex gap-1 rounded-lg bg-muted p-1">
+        <div className="flex gap-1 rounded-xl bg-muted p-1">
           {(Object.keys(BY_LABEL) as GroupBy[]).map((k) => (
             <Link
               key={k}
               href={href({ by: k === "staff" ? null : k })}
               aria-current={by === k ? "page" : undefined}
-              className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base", by === k ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+              className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base", by === k ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
             >
               {BY_LABEL[k]}
             </Link>

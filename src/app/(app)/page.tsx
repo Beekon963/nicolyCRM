@@ -18,8 +18,6 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "ホーム | NICOLY CRM" };
 
-/** ホームのカード（ゲームのパネルのように太い枠と下の影。Phase 6） */
-const GAME_CARD = "mx-4 rounded-2xl border-2 border-b-4";
 
 function Row({ href, children, alert }: { href: string; children: React.ReactNode; alert?: boolean }) {
   return (
@@ -55,7 +53,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       <PageHeader title="ホーム" description={`${user.name}さん、おつかれさまです`} />
 
       {/* 0. 埋まり具合（ゲージ） */}
-      <Card className={GAME_CARD} data-testid="home-fill">
+      <Card className="mx-4" data-testid="home-fill">
         <CardHeader>
           <CardTitle>埋まり具合</CardTitle>
           <Link href="/events/board" className="text-sm text-primary">
@@ -69,7 +67,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </Card>
 
       {/* 1. 今日・明日の現場 */}
-      <Card className={GAME_CARD}>
+      <Card className="mx-4">
         <CardHeader>
           <CardTitle>今日・明日の現場</CardTitle>
           <Link href="/events" className="text-sm text-primary">
@@ -105,7 +103,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </Card>
 
       {/* 2. 要対応 */}
-      <Card className={cn(GAME_CARD, todo > 0 && "border-status-alert/50")}>
+      <Card className={cn("mx-4", todo > 0 && "border-status-alert/50")}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             要対応
@@ -206,7 +204,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </Card>
 
       {/* 3. 今日やること（営業）: 次回アクション日が今日以前の会社。期限切れは赤 */}
-      <Card className={cn(GAME_CARD, due.some((c) => c.next_action_date! < d.today) && "border-status-alert/50")}>
+      <Card className={cn("mx-4", due.some((c) => c.next_action_date! < d.today) && "border-status-alert/50")}>
         <CardHeader>
           <CardTitle>今日やること（営業）</CardTitle>
           <Link href="/sales?next=due" className="text-sm text-primary">
@@ -245,7 +243,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
 
       {/* 4. 今月の数字（オーナーのみ） */}
       {money && (
-        <Card className={GAME_CARD}>
+        <Card className="mx-4">
           <CardHeader>
             <CardTitle>今月の数字</CardTitle>
             <Link href="/money" className="text-sm text-primary">
@@ -275,7 +273,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       )}
 
       {/* 5. 実績（今月の獲得件数トップ） */}
-      <Card className={GAME_CARD}>
+      <Card className="mx-4">
         <CardHeader>
           <CardTitle>
             今月の獲得件数
@@ -285,7 +283,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </CardTitle>
           <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
             {(["confirmed", "reported"] as const).map((b) => (
-              <Link key={b} href={b === "confirmed" ? "/" : "/?basis=reported"} className={cn("rounded px-3 py-1.5", basis === b ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}>
+              <Link key={b} href={b === "confirmed" ? "/" : "/?basis=reported"} className={cn("rounded px-3 py-1.5", basis === b ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}>
                 {b === "confirmed" ? "確定" : "速報"}
               </Link>
             ))}

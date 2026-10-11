@@ -62,7 +62,7 @@ export function AssignmentPanel({
       // 元に戻せる操作は確認なしで実行し「元に戻す」を出す（要件 §9-7）。キャンセル・当日不稼働は理由を聞いている
       if (status === "cancelled" || status === "no_show") toast.success(`${a.name}さんを「${label}」にしました（稼働履歴メモに記録）`);
       else
-        toast.success(`${a.name}さんを「${label}」にしました`, {
+        toast.success(`${a.name}さんを「${label}」にしました${r.data?.filled ? "。この現場は全員そろいました！" : ""}`, {
           action: { label: "元に戻す", onClick: () => start(async () => void (await setAssignmentStatus(a.id, r.data!.previous))) },
         });
     });

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // 色で状態が分かる: 赤 = 要対応 / 黄 = 待ち / 緑 = 完了 / 灰 = 対象外（要件 §9-5）
 const badgeVariants = cva(
-  "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-sm font-medium",
+  "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-sm font-bold",
   {
     variants: {
       tone: {

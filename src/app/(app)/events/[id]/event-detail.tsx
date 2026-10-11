@@ -2,6 +2,7 @@ import { ExternalLinkIcon, UserSearchIcon } from "lucide-react";
 import Link from "next/link";
 import { Field, Section } from "@/components/app/list-detail";
 import { PageHeader } from "@/components/app/page-header";
+import { VenueColorDot } from "@/components/app/venue-color";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDays, formatLongJa, todayJst } from "@/lib/date";
@@ -70,6 +71,7 @@ export async function EventDetailView({ detail, masters, back, isOwner = false }
         title={venue.name}
         description={
           <span className="flex flex-wrap items-center gap-2">
+            <VenueColorDot color={venue.color} />
             <span className="font-medium text-foreground">{formatLongJa(e.date!)}</span>
             {e.client?.name}
             <Badge tone={status.tone}>{status.label}</Badge>

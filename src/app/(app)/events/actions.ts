@@ -167,7 +167,7 @@ export async function setAssignmentStatus(
   id: string,
   status: Status,
   reason?: { code: string; text: string },
-): Promise<ActionResult<{ previous: Status }>> {
+): Promise<ActionResult<{ previous: Status; filled?: boolean }>> {
   const me = await assertMember();
   if (!STATUSES.includes(status)) return fail("不正な状態です");
   if ((status === "cancelled" || status === "no_show") && !reason?.code) return fail("理由を選んでください");
@@ -190,7 +190,13 @@ export async function setAssignmentStatus(
   if ((status === "cancelled" || status === "no_show") && before.status === "confirmed") await enqueueDropped(id, me.id);
   revalidatePath(`/events/${before.event_id}`, "layout");
   revalidatePath("/");
-  return ok(undefined, { previous: before.status });
+  // 確定にして現場の欠員がなくなったか（画面で「全員そろいました！」と出す）
+  let filled: boolean | undefined;
+  if (status === "confirmed" && before.status !== "confirmed") {
+    const { data: o } = await supabase.from("event_overview").select("shortage_total").eq("id", before.event_id).maybeSingle();
+    filled = o?.shortage_total === 0;
+  }
+  return ok(undefined, { previous: before.status, filled });
 }
 
 /** 打診の取り消し（回答前だけ。元に戻す用） */

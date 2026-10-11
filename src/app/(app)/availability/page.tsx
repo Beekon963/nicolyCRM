@@ -49,12 +49,12 @@ export default async function AvailabilityStatusPage({ searchParams }: PageProps
   return (
     <>
       <PageHeader title="稼働可能日の提出状況" back="/staff" description={`${m}月分 / 締切 ${formatShortJa(deadline)}`} />
-      <div className="mx-4 mb-3 flex gap-1 rounded-lg bg-muted p-1">
+      <div className="mx-4 mb-3 flex gap-1 rounded-xl bg-muted p-1">
         {[thisMonth, next].map((mo) => (
           <Link
             key={mo}
             href={`/availability?month=${mo}`}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", mo === month ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", mo === month ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
           >
             {Number(mo.slice(5))}月分
           </Link>

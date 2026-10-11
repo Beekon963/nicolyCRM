@@ -28,7 +28,7 @@ export default async function MypageAvailability({ params, searchParams }: PageP
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold">稼働可能日</h1>
-      <div className="flex gap-1 rounded-lg bg-muted p-1">
+      <div className="flex gap-1 rounded-xl bg-muted p-1">
         {[
           { m: thisMonth, label: "今月の残り" },
           { m: next, label: "翌月" },
@@ -36,7 +36,7 @@ export default async function MypageAvailability({ params, searchParams }: PageP
           <Link
             key={t.m}
             href={`/m/${token}/availability?month=${t.m}`}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.m === month ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.m === month ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
           >
             {t.label}（{Number(t.m.slice(5))}月）
           </Link>
