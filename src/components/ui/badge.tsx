@@ -8,9 +8,9 @@ const badgeVariants = cva(
   {
     variants: {
       tone: {
-        alert: "border-status-alert/30 bg-status-alert-bg text-status-alert",
-        waiting: "border-status-waiting/30 bg-status-waiting-bg text-status-waiting",
-        done: "border-status-done/30 bg-status-done-bg text-status-done",
+        alert: "border-status-alert/40 bg-status-alert-bg text-status-alert",
+        waiting: "border-status-waiting/40 bg-status-waiting-bg text-status-waiting",
+        done: "border-status-done/40 bg-status-done-bg text-status-done",
         muted: "border-border bg-muted text-muted-foreground",
         brand: "border-primary/30 bg-primary/5 text-primary",
       },
