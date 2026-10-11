@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertMember } from "@/lib/auth";
+import { enqueueConfirmed, enqueueNewEvents } from "@/lib/line/notify";
 import { createClient } from "@/lib/supabase/server";
 
 const time = z.string().transform((v) => (v ? v.slice(0, 5) : null)).pipe(z.string().regex(/^\d{2}:\d{2}$/, "時刻の形式が正しくありません").nullable());
@@ -52,10 +53,11 @@ async function insertEvents(input: EventInput, dates: string[], groupName?: stri
 }
 
 export async function createEvent(input: EventInput, date: string): Promise<ActionResult<{ ids: string[]; groupId: string | null }>> {
-  await assertMember();
+  const me = await assertMember();
   const d = dateSchema.safeParse(date);
   if (!d.success) return fail(d.error.issues[0].message);
   const r = await insertEvents(input, [d.data]);
+  if (r.ok && r.data) await enqueueNewEvents(r.data.ids, me.id);
   return r.ok ? { ...r, message: "現場を作りました" } : r;
 }
 
@@ -65,10 +67,11 @@ export async function createEventsBulk(
   dates: string[],
   groupName: string,
 ): Promise<ActionResult<{ ids: string[]; groupId: string | null }>> {
-  await assertMember();
+  const me = await assertMember();
   const d = z.array(dateSchema).min(1, "作成する日がありません").max(92, "一度に作れるのは92日分までです").safeParse(dates);
   if (!d.success) return fail(d.error.issues[0].message);
   const r = await insertEvents(input, [...new Set(d.data)].sort(), groupName.trim() || "まとめて作成");
+  if (r.ok && r.data) await enqueueNewEvents(r.data.ids, me.id);
   return r.ok ? { ...r, message: `${d.data.length}件の現場を作りました` } : r;
 }
 
@@ -97,7 +100,7 @@ export async function updateEvent(id: string, input: EventInput, date: string): 
 
 /** 別の日に複製（アサインはコピーしない） */
 export async function duplicateEvent(id: string, dates: string[]): Promise<ActionResult<{ ids: string[] }>> {
-  await assertMember();
+  const me = await assertMember();
   const d = z.array(dateSchema).min(1, "複製先の日付を選んでください").max(31).safeParse(dates);
   if (!d.success) return fail(d.error.issues[0].message);
   const supabase = await createClient();
@@ -113,6 +116,7 @@ export async function duplicateEvent(id: string, dates: string[]): Promise<Actio
   if (error || !created) return fail(dbErrorMessage(error));
   const rows = created.flatMap((e) => (reqs ?? []).map((r) => ({ event_id: e.id, ...r })));
   if (rows.length) await supabase.from("event_requirements").insert(rows);
+  await enqueueNewEvents(created.map((e) => e.id), me.id);
   revalidatePath("/events", "layout");
   return ok(`${created.length}件 複製しました`, { ids: created.map((e) => e.id) });
 }
@@ -156,13 +160,14 @@ type Status = (typeof STATUSES)[number];
 /**
  * 状態を手動で変える（LINE で口頭回答が来たときなど。要件 §4.3-5）。
  * キャンセル・当日不稼働は理由が必須で、稼働履歴メモに自動で記録される（DB のトリガー）。
+ * 打診中・補欠 → 確定 のときだけ、LINE の確定のお知らせを入れる（「元に戻す」で確定に戻したときは送らない）。
  */
 export async function setAssignmentStatus(
   id: string,
   status: Status,
   reason?: { code: string; text: string },
 ): Promise<ActionResult<{ previous: Status }>> {
-  await assertMember();
+  const me = await assertMember();
   if (!STATUSES.includes(status)) return fail("不正な状態です");
   if ((status === "cancelled" || status === "no_show") && !reason?.code) return fail("理由を選んでください");
   const supabase = await createClient();
@@ -179,6 +184,7 @@ export async function setAssignmentStatus(
     })
     .eq("id", id);
   if (error) return fail(dbErrorMessage(error));
+  if (status === "confirmed" && (before.status === "offered" || before.status === "waitlisted")) await enqueueConfirmed([id], me.id);
   revalidatePath(`/events/${before.event_id}`, "layout");
   revalidatePath("/");
   return ok(undefined, { previous: before.status });

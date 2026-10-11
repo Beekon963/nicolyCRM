@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:e2e": "ANTHROPIC_API_KEY=e2e-test ANTHROPIC_BASE_URL=http://127.0.0.1:4010 ANTHROPIC_MODEL=e2e-mock next start",
+    "start:e2e": "ANTHROPIC_API_KEY=e2e-test ANTHROPIC_BASE_URL=http://127.0.0.1:4010 ANTHROPIC_MODEL=e2e-mock LINE_CHANNEL_ACCESS_TOKEN=e2e-line LINE_CHANNEL_SECRET=e2e-line-secret LINE_API_BASE=http://127.0.0.1:4011 LINE_SEND_DELAY_SECONDS=0 CRON_SECRET=e2e-cron next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --project unit",

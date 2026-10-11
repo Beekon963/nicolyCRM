@@ -472,3 +472,13 @@ erDiagram
 | `share_links` | `kind` に `training`（研修の予約用リンク）を足した |
 | `training_public_*` | ログインなしで使う関数。`slots`（予約用リンクの鍵で、今から1時間後〜60日先の枠と残りの数。名前は返さない）/ `book`（枠に鍵をかけて定員を数えてから予約、控えの鍵を返す）/ `booking`・`cancel`（控えの鍵で本人の予約だけ。予約用リンクを止めた・作り直したあとも使える）。回数制限あり |
 | `settings`（`training`） | 研修の設定: Google カレンダーの ID・初めに入れておく研修の名前と参加の URL |
+
+## Phase 5 で足したもの
+
+| 対象 | 内容 |
+|---|---|
+| `staff.line_user_id` / `app_users.line_user_id` | LINE の利用者 ID（つないだ人だけ。同じ LINE は1人だけ） |
+| `line_link_codes` | つなぐためのコード（8文字・30分・1回だけ）。スタッフか利用者のどちらか |
+| `line_outbox` | 送るお知らせと送った記録（種類: confirm / reminder / admin_confirm / admin_events、状態: pending / sent / skipped / failed、理由、再送の鍵）。アサインが消えたら一緒に消える。前日のお知らせは1人1回 |
+| `settings`（`line`） | 送るお知らせ: スタッフに確定・前日（時刻）・社内に知らせる（初めはすべてオフ） |
+| 関数 | `mypage_line_link` / `mypage_line_status` / `mypage_line_unlink`（ログインなし、マイページの鍵）、`line_link_code_for_me` / `line_unlink_me`（ログイン）、`line_link_consume` / `line_unlink_user` / `line_enqueue_reminders`（秘密キーだけ） |

@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { LineLinkStart } from "@/components/app/line-link";
+import { addFriendUrl, sendTextUrl } from "@/lib/line/client";
+import { enqueueConfirmed, lineBot } from "@/lib/line/notify";
 import { callMypage } from "@/lib/mypage";
 
 export type MypageResult = { ok: true; message: string; status?: string } | { ok: false; message: string };
@@ -15,6 +18,8 @@ export async function respondOffer(t: string, assignmentId: string, accept: bool
   revalidatePath(`/m/${t}`, "layout");
   const s = r.data.status;
   if (r.data.already) return { ok: true, status: s, message: "すでに回答済みです。変更したいときは管理者に連絡してください。" };
+  // 本人が「参加できる」で確定したら、LINE のお知らせ（本人・社内）を入れる
+  if (s === "confirmed") await enqueueConfirmed([assignmentId], null);
   return {
     ok: true,
     status: s,
@@ -67,4 +72,22 @@ export async function saveAvailability(
   if (!r.ok) return { ok: false, message: r.error };
   revalidatePath(`/m/${t}`, "layout");
   return { ok: true, message: submit ? "稼働可能日を提出しました。ありがとうございます！" : "保存しました" };
+}
+
+/** LINE とつなぐコードを出す（友だち追加・コードを送るリンクも返す） */
+export async function startLineLink(t: string): Promise<LineLinkStart> {
+  if (!token.safeParse(t).success) return { ok: false, message: "URLが正しくありません" };
+  const bot = await lineBot();
+  if (!bot) return { ok: false, message: "いまは LINE とつなげません。担当者に連絡してください。" };
+  const r = await callMypage<{ code: string }>("mypage_line_link", { p_token: t });
+  if (!r.ok) return { ok: false, message: r.error };
+  return { ok: true, code: r.data.code, addFriendUrl: addFriendUrl(bot.basicId), sendCodeUrl: sendTextUrl(bot.basicId, `連携コード ${r.data.code}`) };
+}
+
+/** LINE とのつながりを外す */
+export async function unlinkLine(t: string): Promise<{ ok: boolean; message?: string }> {
+  if (!token.safeParse(t).success) return { ok: false, message: "URLが正しくありません" };
+  const r = await callMypage("mypage_line_unlink", { p_token: t });
+  revalidatePath(`/m/${t}`, "layout");
+  return r.ok ? { ok: true } : { ok: false, message: r.error };
 }

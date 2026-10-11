@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * - マイページ・見るだけリンクは URL の鍵が漏れないよう Referrer を送らない・キャッシュしない
  */
 // /api/cron/ は Cron 用（中で CRON_SECRET を確かめる）
-const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/s/", "/t/", "/api/cron/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
+const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/s/", "/t/", "/api/cron/", "/api/line/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

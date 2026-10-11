@@ -30,6 +30,7 @@ const PAGES = [
   "/expenses?status=approved",
   "/search?q=サンプル",
   "/trainings",
+  "/notifications",
   "/more",
 ];
 

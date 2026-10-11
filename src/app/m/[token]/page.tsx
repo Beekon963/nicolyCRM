@@ -1,5 +1,7 @@
+import { lineBot } from "@/lib/line/notify";
 import { callMypage, type MypageEvent } from "@/lib/mypage";
 import { EventCard } from "./event-card";
+import { LineCard } from "./line-card";
 import { OfferButtons } from "./offer-buttons";
 
 export default async function MypageOffers({ params }: PageProps<"/m/[token]">) {
@@ -7,6 +9,8 @@ export default async function MypageOffers({ params }: PageProps<"/m/[token]">) 
   const r = await callMypage<{ items: { assignment_id: string; role: string; event: MypageEvent }[] }>("mypage_offers", { p_token: token });
   if (!r.ok) return <p className="text-status-alert">{r.error}</p>;
   const items = r.data.items;
+  // LINE 公式アカウントの準備ができているときだけ「LINE とつなぐ」を出す
+  const [bot, line] = await Promise.all([lineBot(), callMypage<{ linked: boolean }>("mypage_line_status", { p_token: token })]);
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-bold">お願い（参加できるか教えてください）</h1>
@@ -19,6 +23,7 @@ export default async function MypageOffers({ params }: PageProps<"/m/[token]">) 
           </EventCard>
         ))
       )}
+      {bot && line.ok && <LineCard token={token} linked={line.data.linked} botName={bot.displayName || bot.basicId} />}
     </div>
   );
 }

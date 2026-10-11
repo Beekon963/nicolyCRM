@@ -32,6 +32,8 @@ export default defineConfig({
   webServer: [
     // AI アシスタントは本物の AI を使わず、偽の Anthropic（e2e/mock-anthropic.mjs）に聞く
     { command: "node e2e/mock-anthropic.mjs", url: "http://127.0.0.1:4010/health", reuseExistingServer: true },
+    // LINE のお知らせは本物に送らず、偽の LINE（e2e/mock-line.mjs）に送る
+    { command: "node e2e/mock-line.mjs", url: "http://127.0.0.1:4011/health", reuseExistingServer: true },
     {
       command: `npm run build && npm run start:e2e -- --port ${PORT}`,
       url: `http://localhost:${PORT}/login`,
