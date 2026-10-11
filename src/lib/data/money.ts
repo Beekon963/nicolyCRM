@@ -1,6 +1,6 @@
 import "server-only";
-import { monthRange } from "@/lib/date";
-import type { MoneyInput, Rate, Rounding } from "@/lib/money";
+import { addDays, monthOf, monthRange } from "@/lib/date";
+import { computeMoney, type MoneyInput, type MoneyResult, type Rate, type Rounding, type Split } from "@/lib/money";
 import { selectAll } from "@/lib/supabase/select-all";
 import { createClient } from "@/lib/supabase/server";
 
@@ -206,4 +206,44 @@ async function chunked<T>(ids: string[], size: number, make: (ids: string[]) => 
     out.push(...(data ?? []));
   }
   return out;
+}
+
+/** 月の請求・支払い・粗利（★オーナーだけ） */
+export async function getMonthMoney(month: string) {
+  return computeMoney(await loadMoneyInput({ month }));
+}
+
+export type TrendPoint = { month: string; revenue: Split; gross: Split };
+
+/** 直近の月ごとの売上・粗利（指定した月を最後に n か月） */
+export async function getTrend(month: string, n = 12): Promise<TrendPoint[]> {
+  const months: string[] = [];
+  let m = month;
+  for (let i = 0; i < n; i++) {
+    months.unshift(m);
+    m = monthOf(addDays(`${m}-01`, -1));
+  }
+  const results = await Promise.all(months.map((mm) => getMonthMoney(mm)));
+  return months.map((mm, i) => ({ month: mm, revenue: results[i].summary.revenue, gross: results[i].summary.gross }));
+}
+
+/** 月次目標（売上・粗利） */
+export async function getTarget(month: string): Promise<{ revenue: number | null; grossProfit: number | null } | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("monthly_targets").select("revenue, gross_profit").eq("month", `${month}-01`).maybeSingle();
+  return data ? { revenue: data.revenue, grossProfit: data.gross_profit } : null;
+}
+
+/** 会場別の売上・粗利 */
+export function byVenue(result: MoneyResult) {
+  const m = new Map<string, { id: string; name: string; revenue: number; gross: number; events: number }>();
+  for (const e of result.events) {
+    if (e.cancelled) continue;
+    const v = m.get(e.venueId) ?? { id: e.venueId, name: e.venueName, revenue: 0, gross: 0, events: 0 };
+    v.revenue += e.bill.subtotal;
+    v.gross += e.gross;
+    v.events += 1;
+    m.set(e.venueId, v);
+  }
+  return [...m.values()].sort((a, b) => b.revenue - a.revenue);
 }

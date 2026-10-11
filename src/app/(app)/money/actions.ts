@@ -187,3 +187,32 @@ export async function saveTargets(rows: { month: string; revenue: number | null;
   revalidatePath("/");
   return ok("月次目標を保存しました");
 }
+
+/** 調整額（＋/−、理由は必須）。締めた月は DB が止める */
+export async function addAdjustment(staffId: string, month: string, amount: number, reason: string): Promise<ActionResult> {
+  await assertOwner();
+  const p = z
+    .object({
+      staffId: z.uuid(),
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      amount: z.number().int("金額は整数（円）で入れてください").refine((v) => v !== 0, "金額を入れてください").refine((v) => Math.abs(v) <= 10_000_000, "金額が大きすぎます"),
+      reason: z.string().trim().min(1, "理由を入れてください").max(200),
+    })
+    .safeParse({ staffId, month, amount, reason });
+  if (!p.success) return fail(p.error.issues[0].message);
+  const supabase = await createClient();
+  const { error } = await supabase.from("payment_adjustments").insert({ staff_id: p.data.staffId, month: `${p.data.month}-01`, amount: p.data.amount, reason: p.data.reason });
+  if (error) return fail(dbErrorMessage(error));
+  revalidatePath("/money", "layout");
+  return ok("調整額を追加しました");
+}
+
+export async function removeAdjustment(id: string): Promise<ActionResult> {
+  await assertOwner();
+  if (!z.uuid().safeParse(id).success) return fail("不正な指定です");
+  const supabase = await createClient();
+  const { error } = await supabase.from("payment_adjustments").delete().eq("id", id);
+  if (error) return fail(dbErrorMessage(error));
+  revalidatePath("/money", "layout");
+  return ok("調整額を消しました");
+}

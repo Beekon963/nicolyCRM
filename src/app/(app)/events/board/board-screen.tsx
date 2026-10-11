@@ -4,7 +4,7 @@ import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
-import { BoardGrid, BoardLegend } from "@/components/app/board-grid";
+import { BoardGrid, BoardLegend, type BoardMoney } from "@/components/app/board-grid";
 import { MessageDialog, type Recipient } from "@/components/app/message-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import { assignFromBoard, setAvailabilityCells, setAvailabilityDay, undoAssignFr
 
 type Sel = { staffId: string; date: string } | { clientId: string; date: string } | null;
 
-export function BoardScreen({ data }: { data: BoardPageData }) {
+export function BoardScreen({ data, money }: { data: BoardPageData; money?: BoardMoney }) {
   const router = useRouter();
   const [sel, setSel] = useState<Sel>(null);
   const [sent, setSent] = useState<Recipient[] | null>(null);
@@ -62,6 +62,7 @@ export function BoardScreen({ data }: { data: BoardPageData }) {
       ) : (
         <BoardGrid
           board={shown}
+          money={money}
           onSetAvailability={saveAvailability}
           onStaffCell={(staffId, date) => setSel({ staffId, date })}
           onClientCell={openClientCell}

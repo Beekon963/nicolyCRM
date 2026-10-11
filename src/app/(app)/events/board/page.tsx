@@ -6,6 +6,8 @@ import { requireMember } from "@/lib/auth";
 import { addDays, formatTimeJst, monthOf, nextMonth, parse, todayJst, toJstDateString } from "@/lib/date";
 import { readServiceAccount } from "@/lib/google/sheets";
 import { loadBoard } from "@/lib/data/board";
+import { getMonthMoney } from "@/lib/data/money";
+import { formatYen } from "@/lib/money";
 import { siteUrl } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { EventsViewTabs } from "../view-tabs";
@@ -34,6 +36,14 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
   };
   const isOwner = me.role === "owner";
   const { y, m } = parse(`${month}-01`);
+  // ★ 金額の列はオーナーのときだけ計算する（管理者・見るだけリンクには出さない。Phase 1.5 で決めたこと）
+  const money = isOwner ? await getMonthMoney(month) : null;
+  const boardMoney = money
+    ? {
+        client: Object.fromEntries(money.clients.map((c) => [c.id, c.subtotal])),
+        staff: Object.fromEntries(money.staff.map((st) => [st.id, st.totals.reward])),
+      }
+    : undefined;
 
   return (
     <>
@@ -72,7 +82,20 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
           </Link>
         </Button>
       </div>
-      <BoardScreen data={data} />
+      {money && (
+        <p className="px-4 pb-2 text-sm tabular-nums">
+          <span className="text-muted-foreground">この月（オーナーのみ）: </span>
+          売上 <b>{formatYen(money.summary.revenue.confirmed + money.summary.revenue.estimate)}</b> ・ 支払 <b>{formatYen(money.summary.pay.confirmed + money.summary.pay.estimate)}</b> ・ 粗利{" "}
+          <b className={money.summary.gross.confirmed + money.summary.gross.estimate < 0 ? "text-status-alert" : undefined}>
+            {formatYen(money.summary.gross.confirmed + money.summary.gross.estimate)}
+          </b>
+          {money.summary.revenue.estimate !== 0 && <span className="text-muted-foreground">（見込みを含む）</span>}
+          <Link href={`/money?month=${month}`} className="ml-2 text-primary underline-offset-2 hover:underline">
+            お金へ
+          </Link>
+        </p>
+      )}
+      <BoardScreen data={data} money={boardMoney} />
     </>
   );
 }
