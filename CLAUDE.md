@@ -62,7 +62,7 @@ Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`
 
 - 共有に出す内容は DB の `board_json()` だけで決める（見るだけリンクの `share_board()` と書き出しの `board_snapshot()` が使う）。**金額・電話番号・マイページの鍵・打診中を足さない**。
 - 書き出しは秘密キーで動くが、読むのは `board_snapshot()` と書き出し先の設定だけにする（テーブルを直接読まない）。
-- anon が実行できる関数は `mypage_*` と `share_board` だけ（`tests/db/rls.test.ts`・`tests/db/mypage.test.ts` で確認）。
+- anon が実行できる関数は `mypage_*` と `share_board`、研修の予約用の `training_public_*` だけ（`tests/db/rls.test.ts`・`tests/db/mypage.test.ts` で確認）。
 
 ## スタッフ用マイページ
 

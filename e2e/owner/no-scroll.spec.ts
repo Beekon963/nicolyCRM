@@ -55,6 +55,8 @@ test("全画面がスマホ幅 375px で横スクロールしない", async ({ p
     "/settings/money",
     "/settings/report-formats",
     "/results/daily",
+    "/trainings",
+    "/trainings?past=1",
     "/settings/targets",
     "/venues",
     "/venues/new",

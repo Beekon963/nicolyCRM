@@ -35,10 +35,13 @@ export function spreadsheetIdFrom(input: string): string | null {
   return /^[\w-]{20,}$/.test(s) ? s : null;
 }
 
-export async function getAccessToken(sa: ServiceAccount, fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<string> {
+export const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+
+export async function getAccessToken(sa: ServiceAccount, fetchImpl: typeof fetch = fetch, now = Date.now(), scope = SHEETS_SCOPE): Promise<string> {
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
   const iat = Math.floor(now / 1000);
-  const unsigned = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ iss: sa.client_email, scope: "https://www.googleapis.com/auth/spreadsheets", aud: TOKEN_URL, iat, exp: iat + 3600 })}`;
+  const unsigned = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ iss: sa.client_email, scope, aud: TOKEN_URL, iat, exp: iat + 3600 })}`;
   let sig: string;
   try {
     sig = createSign("RSA-SHA256").update(unsigned).sign(sa.private_key, "base64url");

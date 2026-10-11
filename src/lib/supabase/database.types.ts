@@ -975,6 +975,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"training_bookings": {
+                  Row: {
+                    "calendar_event_id": string | null,"cancel_token": string,"cancelled_at": string | null,"contact": string,"created_at": string,"created_by": string | null,"id": string,"memo": string,"name": string,"slot_id": string,"source": string
+                  }
+                  Insert: {
+                    "calendar_event_id"?: string | null,"cancel_token"?: string,"cancelled_at"?: string | null,"contact"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"memo"?: string,"name": string,"slot_id": string,"source"?: string
+                  }
+                  Update: {
+                    "calendar_event_id"?: string | null,"cancel_token"?: string,"cancelled_at"?: string | null,"contact"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"memo"?: string,"name"?: string,"slot_id"?: string,"source"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "training_bookings_slot_id_fkey"
+      columns: ["slot_id"]
+isOneToOne: false
+      referencedRelation: "training_slots"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"training_slots": {
+                  Row: {
+                    "capacity": number,"created_at": string,"created_by": string | null,"ends_at": string,"id": string,"is_active": boolean,"meeting_url": string,"note": string,"starts_at": string,"title": string
+                  }
+                  Insert: {
+                    "capacity"?: number,"created_at"?: string,"created_by"?: string | null,"ends_at": string,"id"?: string,"is_active"?: boolean,"meeting_url"?: string,"note"?: string,"starts_at": string,"title"?: string
+                  }
+                  Update: {
+                    "capacity"?: number,"created_at"?: string,"created_by"?: string | null,"ends_at"?: string,"id"?: string,"is_active"?: boolean,"meeting_url"?: string,"note"?: string,"starts_at"?: string,"title"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"venues": {
                   Row: {
                     "access_notes": string,"address": string,"area_id": string | null,"created_at": string,"green_room": string,"id": string,"is_active": boolean,"kana": string,"memo": string,"name": string,"nearest_station": string,"parking": string,"prefecture": string,"search_text": string | null,"updated_at": string
@@ -1126,6 +1158,24 @@ isOneToOne: false
 { Args: { "p_since": string }; Returns: {
               "avg_confirmed": number,"staff_id": string,"worked_count": number
             }[]
+                           },
+"training_booking_by_key":
+{ Args: { "p_cancel_token": string }; Returns: Record<string, unknown>
+                           },
+"training_link_error":
+{ Args: { "p_token": string }; Returns: string
+                           },
+"training_public_book":
+{ Args: { "p_contact": string,"p_memo": string,"p_name": string,"p_slot_id": string,"p_token": string }; Returns: Json
+                           },
+"training_public_booking":
+{ Args: { "p_cancel_token": string }; Returns: Json
+                           },
+"training_public_cancel":
+{ Args: { "p_cancel_token": string }; Returns: Json
+                           },
+"training_public_slots":
+{ Args: { "p_token": string }; Returns: Json
                            },
 "undo_activity":
 { Args: { "p_activity_id": string,"p_before": Json }; Returns: boolean

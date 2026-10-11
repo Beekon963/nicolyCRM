@@ -29,6 +29,7 @@ const PAGES = [
   "/expenses",
   "/expenses?status=approved",
   "/search?q=サンプル",
+  "/trainings",
   "/more",
 ];
 
