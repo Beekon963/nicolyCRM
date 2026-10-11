@@ -9,6 +9,7 @@ import type { AppUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { RecordActivityPicker } from "./activity-sheet";
 import { AiAssistant } from "./ai-assistant";
+import { DropAlerts } from "./drop-alerts";
 import { MORE_TAB, NAV_ITEMS, isActive, visibleItems } from "./nav-items";
 
 export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: boolean; children: React.ReactNode }) {
@@ -74,6 +75,8 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
         </header>
 
         <main className="flex w-full min-w-0 flex-1 flex-col pb-24 md:pb-8">{children}</main>
+        {/* キャンセル・当日不稼働のお知らせ（ポップアップ） */}
+        <DropAlerts />
       </div>
 
       {/* スマホ: 右下の ＋（現場を作る / 活動を記録）。入力画面では保存ボタンと重ならないよう一覧の画面だけに出す */}

@@ -28,6 +28,13 @@ export default defineConfig({
     { name: "owner-desktop", testMatch: /owner\/.*\.spec\.ts/, use: { ...desktop, storageState: "e2e/.auth/owner.json" }, dependencies: ["setup"] },
     { name: "manager-mobile", testMatch: /manager\/.*\.spec\.ts/, use: { ...mobile, storageState: "e2e/.auth/manager.json" }, dependencies: ["setup"] },
     { name: "manager-desktop", testMatch: /manager\/.*\.spec\.ts/, use: { ...desktop, storageState: "e2e/.auth/manager.json" }, dependencies: ["setup"] },
+    // キャンセルのポップアップはほかのテストの画面にも出るので、ほかが終わってから動かす
+    {
+      name: "alerts",
+      testMatch: /alerts\/.*\.spec\.ts/,
+      use: { ...mobile, storageState: "e2e/.auth/manager.json" },
+      dependencies: ["owner-mobile", "owner-desktop", "manager-mobile", "manager-desktop"],
+    },
   ],
   webServer: [
     // AI アシスタントは本物の AI を使わず、偽の Anthropic（e2e/mock-anthropic.mjs）に聞く

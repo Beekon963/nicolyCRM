@@ -3,6 +3,7 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { VenueColorPicker } from "@/components/app/venue-color";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ const EMPTY: VenueInput = {
   parking: "",
   memo: "",
   is_active: true,
+  color: "",
 };
 
 export function VenueForm({ initial, areas }: { initial?: VenueInput; areas: { id: string; name: string }[] }) {
@@ -75,6 +77,10 @@ export function VenueForm({ initial, areas }: { initial?: VenueInput; areas: { i
             ))}
           </NativeSelect>
         </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label>色（稼働表で、この会場のマスがこの色になります）</Label>
+        <VenueColorPicker value={form.color ?? ""} onChange={(v) => set("color", v)} auto={isNew} />
       </div>
       <details className="group rounded-md border" open={!isNew}>
         <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-3 font-medium">

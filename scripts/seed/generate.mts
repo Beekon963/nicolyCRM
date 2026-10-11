@@ -239,11 +239,13 @@ clients.forEach((c, i) => {
 
 // 会場
 const venueIds: string[] = [];
-VENUES.forEach((v) => {
+// 会場の色（トリガーを止めて流すので、ここで順番に付ける。src/lib/venue-colors.ts と同じ7色）
+const VENUE_COLORS = ["blue", "navy", "sky", "purple", "lavender", "pink", "brown"];
+VENUES.forEach((v, i) => {
   const id = uuid(0x7);
   venueIds.push(id);
-  sql(`insert into public.venues (id, name, kana, address, nearest_station, prefecture, area_id, access_notes, green_room, parking, memo)
-values (${q(id)}, ${q(v.name)}, ${q(v.kana)}, ${q(v.address)}, ${q(v.station)}, ${q(v.pref)}, ${v.area >= 0 ? q(areaIds[v.area]) : "null"},
+  sql(`insert into public.venues (id, name, kana, address, nearest_station, prefecture, area_id, color, access_notes, green_room, parking, memo)
+values (${q(id)}, ${q(v.name)}, ${q(v.kana)}, ${q(v.address)}, ${q(v.station)}, ${q(v.pref)}, ${v.area >= 0 ? q(areaIds[v.area]) : "null"}, ${q(VENUE_COLORS[i % VENUE_COLORS.length])},
   ${q(v.address ? "従業員入口から入館。受付で「NICOLYです」と伝える" : "")}, ${q(v.address ? pick(["バックヤード奥", "3階会議室", "なし（休憩は外で）"]) : "")},
   ${q(v.address ? pick(["なし", "提携駐車場あり（2時間無料）", "近隣のコインパーキング"]) : "")}, '');`);
 });

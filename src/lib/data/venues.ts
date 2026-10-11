@@ -10,7 +10,7 @@ export async function listVenues(filters: { q?: string; area?: string; inactive?
   const supabase = await createClient();
   const { data } = await supabase
     .from("venues")
-    .select("id, name, kana, address, nearest_station, prefecture, area_id, is_active")
+    .select("id, name, kana, address, nearest_station, prefecture, area_id, is_active, color")
     .order("kana")
     .order("name");
   return (data ?? [])

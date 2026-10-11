@@ -1,7 +1,9 @@
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { StaffCount } from "@/app/(app)/events/event-list";
+import { FillMeter } from "@/components/app/fill-meter";
 import { PageHeader } from "@/components/app/page-header";
+import { VenueColorDot } from "@/components/app/venue-color";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireMember } from "@/lib/auth";
@@ -15,6 +17,9 @@ import { formatTimeRange } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "ホーム | NICOLY CRM" };
+
+/** ホームのカード（ゲームのパネルのように太い枠と下の影。Phase 6） */
+const GAME_CARD = "mx-4 rounded-2xl border-2 border-b-4";
 
 function Row({ href, children, alert }: { href: string; children: React.ReactNode; alert?: boolean }) {
   return (
@@ -49,8 +54,22 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     <div className="flex flex-col gap-4 pb-6">
       <PageHeader title="ホーム" description={`${user.name}さん、おつかれさまです`} />
 
+      {/* 0. 埋まり具合（ゲージ） */}
+      <Card className={GAME_CARD} data-testid="home-fill">
+        <CardHeader>
+          <CardTitle>埋まり具合</CardTitle>
+          <Link href="/events/board" className="text-sm text-primary">
+            稼働表
+          </Link>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <FillMeter label="今日" fill={d.fill.today} />
+          <FillMeter label="今日から7日間" fill={d.fill.week} />
+        </CardContent>
+      </Card>
+
       {/* 1. 今日・明日の現場 */}
-      <Card className="mx-4">
+      <Card className={GAME_CARD}>
         <CardHeader>
           <CardTitle>今日・明日の現場</CardTitle>
           <Link href="/events" className="text-sm text-primary">
@@ -67,7 +86,10 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                   <Link href={`/events/${e.id}`} className="flex min-h-14 items-center gap-2 py-2 hover:bg-accent">
                     <Badge tone={e.date === d.today ? "brand" : "muted"}>{e.date === d.today ? "今日" : "明日"}</Badge>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{e.venue?.name}</span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <VenueColorDot color={e.venue?.color} />
+                        <span className="truncate">{e.venue?.name}</span>
+                      </span>
                       <span className="block truncate text-sm text-muted-foreground">
                         {formatTimeRange(e.start_time, e.end_time)}
                         {e.date === d.today && (e.unreported_count ?? 0) > 0 && ` / 未報告 ${e.unreported_count}人`}
@@ -83,9 +105,16 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </Card>
 
       {/* 2. 要対応 */}
-      <Card className={cn("mx-4", todo > 0 && "border-status-alert/40")}>
+      <Card className={cn(GAME_CARD, todo > 0 && "border-status-alert/50")}>
         <CardHeader>
-          <CardTitle>要対応</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            要対応
+            {todo > 0 && (
+              <span className="grid h-7 min-w-7 place-items-center rounded-full border-b-2 border-status-alert-edge bg-status-alert-solid px-2 text-sm text-white motion-safe:animate-pop">
+                {todo}
+              </span>
+            )}
+          </CardTitle>
           {todo === 0 && <Badge tone="done">対応が必要なものはありません</Badge>}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -95,7 +124,13 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
               <ul className="divide-y">
                 {d.shortages.slice(0, 15).map((e) => (
                   <Row key={e.id} href={`/events/${e.id}/candidates`} alert>
-                    {formatShortJa(e.date!)} {e.venue?.name} — 欠員 {e.shortage_total}人
+                    <span className="flex items-center gap-1.5">
+                      <VenueColorDot color={e.venue?.color} />
+                      <span className="min-w-0 flex-1">
+                        {formatShortJa(e.date!)} {e.venue?.name}
+                      </span>
+                      <span className="shrink-0 rounded-md bg-status-alert-solid px-1.5 py-0.5 text-sm font-bold text-white">欠{e.shortage_total}</span>
+                    </span>
                   </Row>
                 ))}
               </ul>
@@ -171,7 +206,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </Card>
 
       {/* 3. 今日やること（営業）: 次回アクション日が今日以前の会社。期限切れは赤 */}
-      <Card className={cn("mx-4", due.some((c) => c.next_action_date! < d.today) && "border-status-alert/40")}>
+      <Card className={cn(GAME_CARD, due.some((c) => c.next_action_date! < d.today) && "border-status-alert/50")}>
         <CardHeader>
           <CardTitle>今日やること（営業）</CardTitle>
           <Link href="/sales?next=due" className="text-sm text-primary">
@@ -210,7 +245,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
 
       {/* 4. 今月の数字（オーナーのみ） */}
       {money && (
-        <Card className="mx-4">
+        <Card className={GAME_CARD}>
           <CardHeader>
             <CardTitle>今月の数字</CardTitle>
             <Link href="/money" className="text-sm text-primary">
@@ -240,7 +275,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       )}
 
       {/* 5. 実績（今月の獲得件数トップ） */}
-      <Card className="mx-4">
+      <Card className={GAME_CARD}>
         <CardHeader>
           <CardTitle>
             今月の獲得件数
@@ -277,7 +312,15 @@ function RankList({ title, rows, href }: { title: string; rows: Ranking; href: (
           {rows.map((r, i) => (
             <li key={r.id}>
               <Link href={href(r.id)} className="flex min-h-10 items-center gap-2 hover:bg-accent">
-                <span className="w-5 text-right text-sm text-muted-foreground">{i + 1}</span>
+                {/* 順位の丸（1位は塗りつぶし） */}
+                <span
+                  className={cn(
+                    "grid size-7 shrink-0 place-items-center rounded-full text-sm font-bold",
+                    i === 0 ? "border-b-2 border-primary/60 bg-primary text-primary-foreground" : i < 3 ? "bg-primary/15 text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  {i + 1}
+                </span>
                 <span className="min-w-0 flex-1 truncate">{r.name}</span>
                 <span className="font-bold">{r.total}件</span>
               </Link>

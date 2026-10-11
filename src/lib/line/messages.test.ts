@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminConfirmText, adminEventsText } from "./messages";
+import { adminConfirmText, adminDropText, adminEventsText } from "./messages";
 
 describe("社内向けの LINE のお知らせ", () => {
   it("確定: 日付・会場・取引先・名前・役割と、あと何名かを出す", () => {
@@ -11,6 +11,12 @@ describe("社内向けの LINE のお知らせ", () => {
     const t = adminConfirmText({ date: "2026-10-20", venue: "DS中央", client: "テスト通信", role: "クローザー", staffName: "青木", confirmed: 2, required: 2, bySelf: false });
     expect(t.split("\n")[1]).toBe("青木さん（クローザー）");
     expect(t).toContain("2/2名 そろいました");
+  });
+
+  it("キャンセル・当日不稼働: 日付・会場・名前・役割と、今の欠員を出す", () => {
+    const base = { date: "2026-10-20", venue: "DS中央", client: "テスト通信", role: "クローザー", staffName: "青木" };
+    expect(adminDropText({ ...base, status: "cancelled", shortage: 1 })).toBe("【キャンセル】10/20(火) DS中央（テスト通信）\n青木さん（クローザー）\n欠員1名。代わりの人を探してください");
+    expect(adminDropText({ ...base, status: "no_show", shortage: 0 }).split("\n")).toEqual(["【当日不稼働】10/20(火) DS中央（テスト通信）", "青木さん（クローザー）", "欠員はありません"]);
   });
 
   it("新しい現場: 日付の順に並べ、10件を超えたら「ほか〇件」にまとめる", () => {

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toaster";
-import type { BoardStaffAssignment, BoardStaffRow } from "@/lib/board";
+import { type BoardStaffAssignment, type BoardStaffRow, isDropped } from "@/lib/board";
 import { type AvailabilityChange, applyAvailability, reverseChanges } from "@/lib/board/grid";
 import { formatShortJa } from "@/lib/date";
 import type { BoardEventInfo, BoardPageData } from "@/lib/data/board";
@@ -172,7 +172,11 @@ function StaffDay({ row, date, data, onOffered }: { row: BoardStaffRow; date: st
       </DialogHeader>
 
       {notice && (
-        <div role="status" className="flex min-h-12 items-center justify-between gap-2 rounded-md bg-status-done-bg px-3 text-status-done">
+        <div
+          role="status"
+          key={notice.text}
+          className="flex min-h-12 items-center justify-between gap-2 rounded-lg border-b-4 border-status-done/30 bg-status-done-bg px-3 font-bold text-status-done motion-safe:animate-pop"
+        >
           <span>{notice.text}</span>
           {notice.undo && (
             <Button size="sm" variant="outline" disabled={pending} onClick={undo}>
@@ -271,7 +275,8 @@ function EventRow({
   const [roleId, setRoleId] = useState(defaultRole);
   const roleName = data.roles.find((r) => r.id === roleId)?.name;
   const cell = row.cells[date];
-  const others = (cell?.assignments ?? []).filter((a) => a.eventId !== e.id);
+  // キャンセル・当日不稼働になった別の現場は「同じ日に別の現場」に数えない
+  const others = (cell?.assignments ?? []).filter((a) => a.eventId !== e.id && !isDropped(a.status));
 
   const warnings = [
     cell?.availability === "ng" && "この日は × です",
@@ -332,7 +337,14 @@ function EventRow({
         </ul>
       )}
 
-      {assignment ? (
+      {assignment && isDropped(assignment.status) ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="alert">{assignment.status === "cancelled" ? "キャンセル" : "当日不稼働"}</Badge>
+          <Button asChild size="sm" variant="ghost">
+            <Link href={`/events/${e.id}`}>状態を変えるのは現場の画面で</Link>
+          </Button>
+        </div>
+      ) : assignment ? (
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={assignment.status === "confirmed" ? "done" : "waiting"}>
             {assignment.status === "confirmed" ? "確定" : assignment.status === "offered" ? "打診中" : "補欠"}

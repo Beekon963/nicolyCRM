@@ -97,6 +97,12 @@ describe("コピー", () => {
     expect(cellText(board, rows[4], 1)).toBe("×");
     expect(cellText(board, rows[3], 31)).toBe("1");
   });
+  it("キャンセル・当日不稼働は、頭に「キャンセル」「不稼働」を付ける", () => {
+    const dropped = (status: "cancelled" | "no_show") =>
+      buildBoard({ ...input, assignments: input.assignments.map((a) => (a.status === "offered" ? { ...a, status } : a)) });
+    expect(cellText(dropped("cancelled"), rows[4], 2)).toBe("キャンセル DSテスト中央");
+    expect(cellText(dropped("no_show"), rows[4], 2)).toBe("不稼働 DSテスト中央");
+  });
   it("範囲をタブ区切りにする", () => {
     expect(selectionTsv(board, rows, { anchor: { r: 0, c: 0 }, focus: { r: 4, c: 3 } })).toBe(
       ["日付\t1(日)\t2(月)\t3(火)", "欠員\t\t1人\t", "テスト通信\t\tDSテスト中央 1/2\t", "青木 一郎\t○\tDSテスト中央\t", "井上 花子\t×\t打 DSテスト中央\t△"].join("\n"),

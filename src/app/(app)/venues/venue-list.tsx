@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { FilterBar } from "@/components/app/filter-bar";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
+import { VenueColorDot } from "@/components/app/venue-color";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Masters } from "@/lib/data/masters";
@@ -51,6 +52,7 @@ export function VenueList({
                 className={cn("flex min-h-16 flex-col justify-center px-4 py-2 hover:bg-accent", v.id === selectedId && "bg-primary/10")}
               >
                 <span className="flex items-center gap-2 font-medium">
+                  <VenueColorDot color={v.color} />
                   {v.name}
                   {!v.is_active && <Badge tone="muted">未使用</Badge>}
                 </span>

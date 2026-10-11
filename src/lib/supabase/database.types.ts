@@ -54,6 +54,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"alert_seen": {
+                  Row: {
+                    "seen_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "seen_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "seen_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "alert_seen_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"app_users": {
                   Row: {
                     "created_at": string,"email": string,"id": string,"is_active": boolean,"line_user_id": string | null,"name": string,"role": Database["public"]['Enums']["user_role"],"updated_at": string
@@ -79,6 +98,31 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"assignment_alerts": {
+                  Row: {
+                    "actor_user_id": string | null,"assignment_id": string,"created_at": string,"id": string,"status": Database["public"]['Enums']["assignment_status"]
+                  }
+                  Insert: {
+                    "actor_user_id"?: string | null,"assignment_id": string,"created_at"?: string,"id"?: string,"status": Database["public"]['Enums']["assignment_status"]
+                  }
+                  Update: {
+                    "actor_user_id"?: string | null,"assignment_id"?: string,"created_at"?: string,"id"?: string,"status"?: Database["public"]['Enums']["assignment_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "assignment_alerts_actor_user_id_fkey"
+      columns: ["actor_user_id"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "assignment_alerts_assignment_id_fkey"
+      columns: ["assignment_id"]
+isOneToOne: false
+      referencedRelation: "assignments"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"assignment_private": {
                   Row: {
@@ -1059,13 +1103,13 @@ isOneToOne: false
                   ]
                 },"venues": {
                   Row: {
-                    "access_notes": string,"address": string,"area_id": string | null,"created_at": string,"green_room": string,"id": string,"is_active": boolean,"kana": string,"memo": string,"name": string,"nearest_station": string,"parking": string,"prefecture": string,"search_text": string | null,"updated_at": string
+                    "access_notes": string,"address": string,"area_id": string | null,"color": string,"created_at": string,"green_room": string,"id": string,"is_active": boolean,"kana": string,"memo": string,"name": string,"nearest_station": string,"parking": string,"prefecture": string,"search_text": string | null,"updated_at": string
                   }
                   Insert: {
-                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name": string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"updated_at"?: string
+                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"color"?: string,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name": string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"updated_at"?: string
                   }
                   Update: {
-                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name"?: string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"updated_at"?: string
+                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"color"?: string,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name"?: string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"updated_at"?: string
                   }
                   Relationships: [
                     {

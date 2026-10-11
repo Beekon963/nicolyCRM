@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertMember } from "@/lib/auth";
-import { enqueueConfirmed, enqueueNewEvents } from "@/lib/line/notify";
+import { enqueueConfirmed, enqueueDropped, enqueueNewEvents } from "@/lib/line/notify";
 import { createClient } from "@/lib/supabase/server";
 
 const time = z.string().transform((v) => (v ? v.slice(0, 5) : null)).pipe(z.string().regex(/^\d{2}:\d{2}$/, "時刻の形式が正しくありません").nullable());
@@ -161,6 +161,7 @@ type Status = (typeof STATUSES)[number];
  * 状態を手動で変える（LINE で口頭回答が来たときなど。要件 §4.3-5）。
  * キャンセル・当日不稼働は理由が必須で、稼働履歴メモに自動で記録される（DB のトリガー）。
  * 打診中・補欠 → 確定 のときだけ、LINE の確定のお知らせを入れる（「元に戻す」で確定に戻したときは送らない）。
+ * 確定 → キャンセル・当日不稼働 のときは、社内向けの LINE のお知らせを入れる。
  */
 export async function setAssignmentStatus(
   id: string,
@@ -185,6 +186,8 @@ export async function setAssignmentStatus(
     .eq("id", id);
   if (error) return fail(dbErrorMessage(error));
   if (status === "confirmed" && (before.status === "offered" || before.status === "waitlisted")) await enqueueConfirmed([id], me.id);
+  // 確定していた人が来られなくなった: 社内に LINE で知らせる（画面のポップアップは DB のトリガーが入れる）
+  if ((status === "cancelled" || status === "no_show") && before.status === "confirmed") await enqueueDropped(id, me.id);
   revalidatePath(`/events/${before.event_id}`, "layout");
   revalidatePath("/");
   return ok(undefined, { previous: before.status });

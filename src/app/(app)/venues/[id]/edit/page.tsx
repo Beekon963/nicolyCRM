@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { requireMember } from "@/lib/auth";
 import { getMasters } from "@/lib/data/masters";
 import { createClient } from "@/lib/supabase/server";
+import { isVenueColor } from "@/lib/venue-colors";
 import { VenueForm } from "../../venue-form";
 
 export const metadata = { title: "会場を編集 | NICOLY CRM" };
@@ -31,6 +32,7 @@ export default async function EditVenuePage({ params }: PageProps<"/venues/[id]/
           parking: v.parking,
           memo: v.memo,
           is_active: v.is_active,
+          color: isVenueColor(v.color) ? v.color : "",
         }}
         areas={masters.areas.filter((a) => a.is_active || a.id === v.area_id)}
       />

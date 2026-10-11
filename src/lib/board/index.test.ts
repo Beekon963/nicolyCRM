@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildBoard, type BoardEvent, type BoardInput, type BoardStaff } from "./index";
+import { buildBoard, type BoardEvent, type BoardInput, type BoardStaff, isDropped } from "./index";
 
 const ev = (p: Partial<BoardEvent> & Pick<BoardEvent, "id" | "date">): BoardEvent => ({
   client_id: "c1",
   client_name: "テスト通信",
   venue_id: "v1",
   venue_name: "DSテスト中央",
+  venue_color: "sky",
   required_total: 2,
   confirmed_total: 0,
   shortage_total: 2,
@@ -96,7 +97,7 @@ describe("稼働表を組み立てる", () => {
     const row = b.staff[0];
     expect(row.cells["2026-11-07"]).toEqual({
       availability: "ok",
-      assignments: [{ id: "a1", eventId: "e1", roleId: "r1", venueName: "DSテスト中央", clientName: "テスト通信", status: "confirmed" }],
+      assignments: [{ id: "a1", eventId: "e1", roleId: "r1", venueName: "DSテスト中央", venueColor: "sky", clientName: "テスト通信", status: "confirmed" }],
     });
     expect(row.cells["2026-11-08"].assignments[0]).toMatchObject({ status: "offered", venueName: "DSテスト北" });
     expect(row.cells["2026-11-09"].assignments).toEqual([]);
@@ -117,5 +118,37 @@ describe("稼働表を組み立てる", () => {
       ],
     });
     expect(b.staff[0].cells["2026-11-07"].assignments.map((a) => a.status)).toEqual(["confirmed", "waitlisted"]);
+  });
+
+  it("キャンセル・当日不稼働も（赤いマス用に）入れるが、稼働日数には数えない。確定より後に並べる", () => {
+    const b = buildBoard({
+      ...base,
+      events: [
+        ev({ id: "e1", date: "2026-11-07" }),
+        ev({ id: "e2", date: "2026-11-07", venue_name: "DSテスト北", venue_color: "pink" }),
+        ev({ id: "e3", date: "2026-11-08" }),
+      ],
+      staff: [st({ id: "s1", name: "山本" })],
+      assignments: [
+        { id: "a1", event_id: "e1", staff_id: "s1", role_id: "r1", status: "cancelled" },
+        { id: "a2", event_id: "e2", staff_id: "s1", role_id: "r1", status: "confirmed" },
+        { id: "a3", event_id: "e3", staff_id: "s1", role_id: "r1", status: "no_show" },
+      ],
+    });
+    const row = b.staff[0];
+    expect(row.cells["2026-11-07"].assignments.map((a) => [a.status, a.venueColor])).toEqual([
+      ["confirmed", "pink"],
+      ["cancelled", "sky"],
+    ]);
+    expect(row.cells["2026-11-08"].assignments.map((a) => a.status)).toEqual(["no_show"]);
+    expect(row.workedDays).toBe(1);
+    expect(["cancelled", "no_show"].every((x) => isDropped(x as never))).toBe(true);
+    expect(["confirmed", "offered", "waitlisted"].some((x) => isDropped(x as never))).toBe(false);
+  });
+
+  it("現場のマスに会場の色を入れる（色がない古いデータは空）", () => {
+    const b = buildBoard({ ...base, events: [ev({ id: "e1", date: "2026-11-07" }), ev({ id: "e2", date: "2026-11-08", venue_color: undefined })] });
+    expect(b.clients[0].cells["2026-11-07"][0].venueColor).toBe("sky");
+    expect(b.clients[0].cells["2026-11-08"][0].venueColor).toBe("");
   });
 });

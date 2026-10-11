@@ -53,7 +53,7 @@ export function LineSettingsForm({ initial }: { initial: LineSettings }) {
           </NativeSelect>
         </label>
       )}
-      {row("adminNotify", "社内に知らせる", "スタッフが確定したとき・新しい現場を登録したとき、オーナー・管理者（LINE とつないだ人）に知らせる。自分の操作は自分には届かない")}
+      {row("adminNotify", "社内に知らせる", "スタッフが確定したとき・新しい現場を登録したとき・確定していた人がキャンセル・当日不稼働になったとき、オーナー・管理者（LINE とつないだ人）に知らせる。自分の操作は自分には届かない")}
       <Button type="submit" className="self-start" disabled={pending || !dirty}>
         {pending ? "保存しています…" : "保存"}
       </Button>
