@@ -17,6 +17,7 @@ const TABS = [
   { href: "/money/invoices", label: "請求" },
   { href: "/money/payments", label: "支払い" },
   { href: "/money/closing", label: "締め" },
+  { href: "/money/export", label: "書き出し" },
 ] as const;
 
 /** お金の画面の見出し・月の切り替え・タブ（★オーナーだけ） */
@@ -43,7 +44,7 @@ export function MoneyHeader({
             key={t.href}
             href={`${t.href}?month=${month}`}
             aria-current={current === t.href ? "page" : undefined}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base", current === t.href ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base whitespace-nowrap", current === t.href ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
           >
             {t.label}
           </Link>
@@ -66,7 +67,7 @@ export function MoneyHeader({
           </Link>
         </Button>
       </div>
-      {closing === "closed" && current !== "/money/closing" && (
+      {closing === "closed" && current !== "/money/closing" && current !== "/money/export" && (
         <p className="mx-4 mb-2 flex items-center gap-2 rounded-md bg-status-done-bg px-3 py-2 text-sm">
           <LockIcon className="size-4 shrink-0 text-status-done" aria-hidden />
           <span>

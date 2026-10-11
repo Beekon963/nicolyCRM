@@ -5,6 +5,9 @@ import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertOwner } from "@/lib/auth";
 import { computeMonthLive, toSnapshot } from "@/lib/data/money";
+import type { FreeeSettings } from "@/lib/export/freee";
+import { toZenginKana } from "@/lib/export/kana";
+import type { ZenginSender } from "@/lib/export/zengin";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -274,4 +277,69 @@ export async function setPaid(month: string, staffIds: string[], paidOn: string 
   revalidatePath("/money", "layout");
   const n = data ?? 0;
   return ok(paidOn ? `${n}人を支払済みにしました` : `${n}人の支払済みを取り消しました`);
+}
+
+/** freee の書き出しの勘定科目・税区分 */
+export async function saveFreeeSettings(input: FreeeSettings): Promise<ActionResult> {
+  await assertOwner();
+  const text = z.string().trim().max(50);
+  const p = z
+    .object({
+      salesAccount: text.min(1, "売上の勘定科目を入れてください"),
+      salesTax: text.min(1, "売上の税区分を入れてください"),
+      rewardAccount: text.min(1, "報酬の勘定科目を入れてください"),
+      expenseAccount: text.min(1, "交通費・経費の勘定科目を入れてください"),
+      purchaseTaxRegistered: text.min(1, "インボイス登録ありの税区分を入れてください"),
+      purchaseTaxUnregistered: text,
+      withholdingAccount: text.min(1, "源泉の勘定科目を入れてください"),
+      withholdingTax: text.min(1, "源泉の税区分を入れてください"),
+    })
+    .safeParse(input);
+  if (!p.success) return fail(p.error.issues[0].message);
+  const supabase = await createClient();
+  const { error } = await supabase.from("owner_settings").upsert({ key: "freee_export", value: p.data });
+  if (error) return fail(dbErrorMessage(error));
+  revalidatePath("/settings/money");
+  revalidatePath("/money/export");
+  return ok("freee の書き出しの設定を保存しました");
+}
+
+/** 振込データ（全銀）の振込元の口座・委託者コード */
+export async function saveZenginSettings(input: Partial<ZenginSender>): Promise<ActionResult> {
+  await assertOwner();
+  const digits = (n: number, label: string) =>
+    z
+      .string()
+      .trim()
+      .transform((v) => v.normalize("NFKC"))
+      .refine((v) => v === "" || new RegExp(`^\\d{${n}}$`).test(v), `${label}は${n}桁の数字です`);
+  const kanaText = (label: string) =>
+    z
+      .string()
+      .trim()
+      .max(40)
+      .refine((v) => v === "" || toZenginKana(v).ok, `${label}はカナで入れてください`);
+  const p = z
+    .object({
+      requesterCode: digits(10, "委託者コード"),
+      requesterName: kanaText("委託者名"),
+      bankCode: digits(4, "銀行番号"),
+      bankName: kanaText("銀行名"),
+      branchCode: digits(3, "支店番号"),
+      branchName: kanaText("支店名"),
+      accountType: z.enum(["ordinary", "checking"]).optional(),
+      accountNumber: z
+        .string()
+        .trim()
+        .refine((v) => v === "" || /^\d{1,7}$/.test(v), "口座番号は7桁までの数字です"),
+    })
+    // 一度も触っていない欄は空として扱う
+    .safeParse({ requesterCode: "", requesterName: "", bankCode: "", bankName: "", branchCode: "", branchName: "", accountNumber: "", ...input });
+  if (!p.success) return fail(p.error.issues[0].message);
+  const supabase = await createClient();
+  const { error } = await supabase.from("owner_settings").upsert({ key: "zengin", value: p.data });
+  if (error) return fail(dbErrorMessage(error));
+  revalidatePath("/settings/money");
+  revalidatePath("/money/export");
+  return ok("振込データの設定を保存しました");
 }

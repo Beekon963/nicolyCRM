@@ -51,6 +51,7 @@ test("全画面がスマホ幅 375px で横スクロールしない", async ({ p
     "/money/invoices",
     "/money/payments",
     "/money/closing",
+    "/money/export",
     "/settings/money",
     "/settings/targets",
     "/venues",

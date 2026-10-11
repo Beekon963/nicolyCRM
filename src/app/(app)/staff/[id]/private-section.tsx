@@ -18,7 +18,9 @@ export type StaffPrivate = {
   contract_date: string | null;
   contract_file_path: string | null;
   bank_name: string;
+  bank_code: string | null;
   bank_branch: string;
+  branch_code: string | null;
   account_type: "ordinary" | "checking" | null;
   account_number: string;
   account_holder_kana: string;
@@ -33,7 +35,9 @@ export function PrivateSection({ staffId, initial }: { staffId: string; initial:
     invoice_number: initial?.invoice_number ?? "",
     contract_date: initial?.contract_date ?? "",
     bank_name: initial?.bank_name ?? "",
+    bank_code: initial?.bank_code ?? "",
     bank_branch: initial?.bank_branch ?? "",
+    branch_code: initial?.branch_code ?? "",
     account_type: initial?.account_type ?? "",
     account_number: initial?.account_number ?? "",
     account_holder_kana: initial?.account_holder_kana ?? "",
@@ -100,7 +104,23 @@ export function PrivateSection({ staffId, initial }: { staffId: string; initial:
       <fieldset className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
         <legend className="px-1 text-sm font-medium">振込口座</legend>
         <Input aria-label="銀行名" placeholder="銀行名" value={form.bank_name} onChange={(e) => set("bank_name", e.target.value)} />
+        <Input
+          aria-label="銀行番号（4桁）"
+          inputMode="numeric"
+          maxLength={4}
+          placeholder="銀行番号（4桁・振込データ用）"
+          value={form.bank_code}
+          onChange={(e) => set("bank_code", e.target.value)}
+        />
         <Input aria-label="支店名" placeholder="支店名" value={form.bank_branch} onChange={(e) => set("bank_branch", e.target.value)} />
+        <Input
+          aria-label="支店番号（3桁）"
+          inputMode="numeric"
+          maxLength={3}
+          placeholder="支店番号（3桁・振込データ用）"
+          value={form.branch_code}
+          onChange={(e) => set("branch_code", e.target.value)}
+        />
         <NativeSelect aria-label="口座種別" value={form.account_type} onChange={(e) => set("account_type", e.target.value as "ordinary" | "checking" | "")}>
           <option value="">種別</option>
           {(Object.keys(ACCOUNT_TYPE) as (keyof typeof ACCOUNT_TYPE)[]).map((k) => (

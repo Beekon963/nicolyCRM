@@ -914,13 +914,13 @@ isOneToOne: false
                   ]
                 },"staff_private": {
                   Row: {
-                    "account_holder_kana": string,"account_number": string,"account_type": Database["public"]['Enums']["account_type"] | null,"bank_branch": string,"bank_name": string,"base_daily_rate": number | null,"contract_date": string | null,"contract_file_path": string | null,"invoice_number": string | null,"staff_id": string,"updated_at": string,"withholding_method": Database["public"]['Enums']["withholding_method"]
+                    "account_holder_kana": string,"account_number": string,"account_type": Database["public"]['Enums']["account_type"] | null,"bank_branch": string,"bank_code": string | null,"bank_name": string,"base_daily_rate": number | null,"branch_code": string | null,"contract_date": string | null,"contract_file_path": string | null,"invoice_number": string | null,"staff_id": string,"updated_at": string,"withholding_method": Database["public"]['Enums']["withholding_method"]
                   }
                   Insert: {
-                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_name"?: string,"base_daily_rate"?: number | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id": string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
+                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_code"?: string | null,"bank_name"?: string,"base_daily_rate"?: number | null,"branch_code"?: string | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id": string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
                   }
                   Update: {
-                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_name"?: string,"base_daily_rate"?: number | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id"?: string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
+                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_code"?: string | null,"bank_name"?: string,"base_daily_rate"?: number | null,"branch_code"?: string | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id"?: string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
                   }
                   Relationships: [
                     {

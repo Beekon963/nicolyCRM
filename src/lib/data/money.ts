@@ -1,6 +1,8 @@
 import "server-only";
 import { addDays, monthOf, monthRange } from "@/lib/date";
 import { type ClientMoney, computeMoney, type MoneyInput, type MoneyResult, type Rate, type Rounding, type Split, type StaffMoney } from "@/lib/money";
+import { DEFAULT_FREEE_SETTINGS, type FreeeSettings } from "@/lib/export/freee";
+import type { ZenginSender } from "@/lib/export/zengin";
 import { selectAll } from "@/lib/supabase/select-all";
 import { createClient } from "@/lib/supabase/server";
 
@@ -42,6 +44,22 @@ export async function getMoneySettings(): Promise<MoneySettings> {
 }
 
 type RateRow = { kind: Rate["kind"]; role_id: string | null; item_id: string | null; amount: number };
+export type ExportSettings = { freee: FreeeSettings; zengin: Partial<ZenginSender> };
+
+/** freee の書き出し・振込データ（全銀）の設定 */
+export async function getExportSettings(): Promise<ExportSettings> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("owner_settings").select("key, value").in("key", ["freee_export", "zengin"]);
+  const get = (k: string) => (data?.find((r) => r.key === k)?.value ?? {}) as Record<string, unknown>;
+  const freee = get("freee_export");
+  return {
+    freee: Object.fromEntries(
+      (Object.keys(DEFAULT_FREEE_SETTINGS) as (keyof FreeeSettings)[]).map((k) => [k, typeof freee[k] === "string" ? (freee[k] as string) : DEFAULT_FREEE_SETTINGS[k]]),
+    ) as FreeeSettings,
+    zengin: get("zengin") as Partial<ZenginSender>,
+  };
+}
+
 export const toRate = (r: RateRow): Rate => ({ kind: r.kind, roleId: r.role_id, itemId: r.item_id, amount: r.amount });
 
 /** 取引先の請求設定と標準単価（取引先全体と、会場ごと） */
