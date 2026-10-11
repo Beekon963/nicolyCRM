@@ -710,6 +710,25 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
+                },"report_formats": {
+                  Row: {
+                    "company_id": string | null,"created_at": string,"event_block": string,"footer": string,"for_staff": boolean,"header": string,"id": string,"is_active": boolean,"name": string,"person_block": string,"sort_order": number,"updated_at": string
+                  }
+                  Insert: {
+                    "company_id"?: string | null,"created_at"?: string,"event_block"?: string,"footer"?: string,"for_staff"?: boolean,"header"?: string,"id"?: string,"is_active"?: boolean,"name": string,"person_block"?: string,"sort_order"?: number,"updated_at"?: string
+                  }
+                  Update: {
+                    "company_id"?: string | null,"created_at"?: string,"event_block"?: string,"footer"?: string,"for_staff"?: boolean,"header"?: string,"id"?: string,"is_active"?: boolean,"name"?: string,"person_block"?: string,"sort_order"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "report_formats_company_id_fkey"
+      columns: ["company_id"]
+isOneToOne: false
+      referencedRelation: "companies"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"report_items": {
                   Row: {
                     "assignment_id": string,"confirmed_count": number | null,"diff_note": string,"diff_reason": Database["public"]['Enums']["diff_reason"] | null,"item_id": string,"reported_count": number | null

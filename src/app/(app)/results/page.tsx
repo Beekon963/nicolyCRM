@@ -1,5 +1,7 @@
+import { ClipboardListIcon } from "lucide-react";
 import Link from "next/link";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
+import { Button } from "@/components/ui/button";
 import { requireMember } from "@/lib/auth";
 import { addDays, formatShortJa, todayJst } from "@/lib/date";
 import { getMasters } from "@/lib/data/masters";
@@ -70,6 +72,14 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
         title="実績確認"
         description="速報（スタッフの報告）を確認して、確定件数を決めます。請求・支払いは確定件数で計算します。"
         back={eventId ? `/events/${eventId}` : undefined}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/results/daily">
+              <ClipboardListIcon />
+              日報（LINE用）
+            </Link>
+          </Button>
+        }
       />
       {!eventId && (
         <div className="mx-4 mb-3 flex gap-1 rounded-lg bg-muted p-1">
