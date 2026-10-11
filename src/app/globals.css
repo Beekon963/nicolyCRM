@@ -5,6 +5,9 @@
  * 白ベースのシンプルなUI（要件 §9-10）。
  * --brand はロゴの青。ロゴの赤は「要対応」の赤と紛らわしいのでボタンには使わない。
  * 状態の色: 赤 = 要対応 / 黄 = 待ち / 緑 = 完了（要件 §9-5）。
+ * 薄すぎて見分けにくかったので、文字は濃く・背景ははっきり・塗りつぶし（-solid）を足した。
+ * 赤と緑は色覚の違いでも見分けられる組み合わせにしてある（緑は青みの濃い緑）。色だけに頼らず「欠」「✓」「打」なども必ず添える。
+ * 文字（status-*）は白・薄い背景（status-*-bg）の上で 4.5:1 以上。塗り（-solid）の上の文字は白（黄だけ濃い茶色）。
  */
 :root {
   --radius: 0.625rem;
@@ -30,12 +33,19 @@
   --popover: #ffffff;
   --popover-foreground: #1f2937;
   --destructive: #dc2626;
-  --status-alert: #dc2626;
-  --status-alert-bg: #fef2f2;
-  --status-waiting: #ca8a04;
-  --status-waiting-bg: #fefce8;
-  --status-done: #16a34a;
-  --status-done-bg: #f0fdf4;
+  --status-alert: #b91c1c;
+  --status-alert-bg: #fee2e2;
+  --status-alert-solid: #dc2626;
+  --status-waiting: #b45309;
+  --status-waiting-bg: #fef3c7;
+  --status-waiting-solid: #f59e0b;
+  --status-waiting-on-solid: #451a03;
+  --status-done: #047857;
+  --status-done-bg: #d1fae5;
+  --status-done-solid: #047857;
+  /* 稼働表の土日・祝日の列 */
+  --day-sat-bg: #eff6ff;
+  --day-sun-bg: #fff1f2;
 }
 
 @theme inline {
@@ -65,6 +75,12 @@
   --color-status-waiting-bg: var(--status-waiting-bg);
   --color-status-done: var(--status-done);
   --color-status-done-bg: var(--status-done-bg);
+  --color-status-alert-solid: var(--status-alert-solid);
+  --color-status-waiting-solid: var(--status-waiting-solid);
+  --color-status-waiting-on-solid: var(--status-waiting-on-solid);
+  --color-status-done-solid: var(--status-done-solid);
+  --color-day-sat: var(--day-sat-bg);
+  --color-day-sun: var(--day-sun-bg);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
