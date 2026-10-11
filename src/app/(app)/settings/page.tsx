@@ -12,6 +12,8 @@ const ITEMS = [
   { href: "/settings/masters/areas", label: "エリア", description: "スタッフの対応エリア・会場のエリア" },
   { href: "/settings/templates", label: "文面テンプレート", description: "打診・確定連絡・前日リマインドなどの文面" },
   { href: "/settings/general", label: "締切・会社情報", description: "稼働可能日の締切日、実績報告の期限、会社情報" },
+  { href: "/settings/money", label: "お金の設定", description: "インセンティブ単価、消費税、源泉徴収、支払日" },
+  { href: "/settings/targets", label: "月次目標", description: "月ごとの売上・粗利の目標" },
 ];
 
 export default function SettingsPage() {
@@ -31,9 +33,7 @@ export default function SettingsPage() {
           </li>
         ))}
       </ul>
-      <p className="mx-4 mt-4 text-sm text-muted-foreground">
-        インセンティブ単価・税・源泉・月次目標の設定は Phase 3（お金）で追加します。
-      </p>
+      <p className="mx-4 mt-4 text-sm text-muted-foreground">取引先ごとの単価は「営業 → 取引先 → 請求設定・標準単価」、現場ごとの上書きは現場の画面で入れます。</p>
     </>
   );
 }

@@ -5,9 +5,11 @@ import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireMember } from "@/lib/auth";
-import { formatShortJa, parse } from "@/lib/date";
+import { formatShortJa, monthOf, parse, todayJst } from "@/lib/date";
 import { RecordActivityButton } from "@/components/app/activity-sheet";
 import { listDueCompanies } from "@/lib/data/companies";
+import { getMonthMoney, getTarget } from "@/lib/data/money";
+import { formatYen } from "@/lib/money";
 import { getHomeData, getMonthRanking, type Ranking } from "@/lib/data/home";
 import { formatTimeRange } from "@/lib/templates";
 import { cn } from "@/lib/utils";
@@ -29,7 +31,16 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const user = await requireMember();
   const sp = await searchParams;
   const basis = sp.basis === "reported" ? "reported" : "confirmed";
-  const [d, ranking, due] = await Promise.all([getHomeData(), getMonthRanking(basis), listDueCompanies()]);
+  const isOwner = user.role === "owner";
+  const thisMonth = monthOf(todayJst());
+  // ★ 今月の数字はオーナーのときだけ取りに行く（管理者はデータ自体を取得しない。要件 §4.1）
+  const [d, ranking, due, money, target] = await Promise.all([
+    getHomeData(),
+    getMonthRanking(basis),
+    listDueCompanies(),
+    isOwner ? getMonthMoney(thisMonth) : Promise.resolve(null),
+    isOwner ? getTarget(thisMonth) : Promise.resolve(null),
+  ]);
   const overdueOffers = d.offers.filter((o) => o.overdue);
   const todo =
     d.shortages.length + d.offers.length + d.unreported.length + d.pendingExpenses + d.reminderPending.length + (d.availability.missing > 0 ? 1 : 0);
@@ -196,6 +207,37 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           )}
         </CardContent>
       </Card>
+
+      {/* 4. 今月の数字（オーナーのみ） */}
+      {money && (
+        <Card className="mx-4">
+          <CardHeader>
+            <CardTitle>今月の数字</CardTitle>
+            <Link href="/money" className="text-sm text-primary">
+              お金へ
+            </Link>
+          </CardHeader>
+          <CardContent className="grid grid-cols-3 gap-2 text-center">
+            {(
+              [
+                ["売上（税抜）", money.summary.revenue, target?.revenue],
+                ["支払", money.summary.pay, null],
+                ["粗利", money.summary.gross, target?.grossProfit],
+              ] as const
+            ).map(([label, split, goal]) => {
+              const t = split.confirmed + split.estimate;
+              return (
+                <div key={label} className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm text-muted-foreground">{label}</span>
+                  <span className={cn("text-lg font-bold tabular-nums", t < 0 && "text-status-alert")}>{formatYen(t)}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">確定 {formatYen(split.confirmed)}</span>
+                  {goal != null && goal > 0 && <span className="text-xs text-muted-foreground">目標の {Math.round((t / goal) * 100)}%</span>}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* 5. 実績（今月の獲得件数トップ） */}
       <Card className="mx-4">

@@ -261,6 +261,10 @@ function ResizeHandle({ label, onStart, onReset }: { label: string; onStart: (e:
   );
 }
 
+export type BoardMoney = { client: Record<string, number>; staff: Record<string, number> };
+
+const yen = (n: number | undefined) => (n == null ? "" : `${n.toLocaleString("ja-JP")}円`);
+
 /**
  * 稼働表の表（今の月のスプレッドシートと同じ並び）。管理画面と「見るだけリンク」で共通。
  * - 名前の列と日付の行は固定し、表の中だけ縦横に動かす（画面全体は横にずれない）
@@ -275,9 +279,12 @@ export function BoardGrid({
   onClientCell,
   onSetAvailability,
   staffHref,
+  money,
   className,
 }: {
   board: Board;
+  /** ★ オーナーだけ: 右端に出す金額（取引先の売上・スタッフの報酬）。見るだけリンクには渡さない */
+  money?: BoardMoney;
   onStaffCell?: (staffId: string, date: string) => void;
   onClientCell?: (clientId: string, date: string) => void;
   /** キーで稼働可能日を入れたとき（管理画面だけ） */
@@ -624,12 +631,18 @@ export function BoardGrid({
                 <th data-c={lastDay + 1} className="sticky top-0 z-20 w-16 min-w-16 border-b bg-background px-1 py-1 text-center font-medium">
                   稼働日数
                 </th>
+                {money && (
+                  <th className="sticky top-0 z-20 w-28 min-w-28 border-b border-l bg-background px-1 py-1 text-center text-sm font-medium">
+                    売上・報酬
+                    <span className="block text-xs font-normal text-muted-foreground">オーナーのみ</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {board.clients.length > 0 && (
                 <>
-                  <SectionRow label="現場（取引先ごと）" days={board.days} />
+                  <SectionRow label="現場（取引先ごと）" days={board.days} extra={money ? 1 : 0} />
                   <tr data-r={r++}>
                     <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background px-2 py-1 text-left font-normal text-muted-foreground">
                       欠員
@@ -642,6 +655,7 @@ export function BoardGrid({
                     <td data-c={lastDay + 1} className="border-b px-1 text-center font-bold">
                       {board.totals.shortage > 0 && <span className="text-status-alert">{board.totals.shortage}</span>}
                     </td>
+                    {money && <td className="border-b border-l" />}
                   </tr>
                   {board.clients.map((c) => (
                     <tr key={c.id} data-r={r++}>
@@ -661,11 +675,12 @@ export function BoardGrid({
                         );
                       })}
                       <td data-c={lastDay + 1} className="border-b" />
+                      {money && <td className="border-b border-l px-1 text-right text-sm tabular-nums">{yen(money.client[c.id])}</td>}
                     </tr>
                   ))}
                 </>
               )}
-              <SectionRow label={`スタッフ（${board.staff.length}人）`} days={board.days} />
+              <SectionRow label={`スタッフ（${board.staff.length}人）`} days={board.days} extra={money ? 1 : 0} />
               {board.staff.map((s) => (
                 <tr key={s.id} data-r={r++}>
                   <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background px-2 py-1 text-left font-medium">
@@ -691,6 +706,7 @@ export function BoardGrid({
                   <td data-c={lastDay + 1} className="border-b px-1 text-center font-bold">
                     {s.workedDays || ""}
                   </td>
+                  {money && <td className="border-b border-l px-1 text-right text-sm tabular-nums">{yen(money.staff[s.id])}</td>}
                 </tr>
               ))}
             </tbody>
@@ -714,11 +730,11 @@ function dayColor(d: BoardDay) {
   return undefined;
 }
 
-function SectionRow({ label, days }: { label: string; days: BoardDay[] }) {
+function SectionRow({ label, days, extra = 0 }: { label: string; days: BoardDay[]; extra?: number }) {
   return (
     <tr>
       <th className="sticky left-0 z-10 border-r border-b bg-muted px-2 py-1 text-left font-bold">{label}</th>
-      <td colSpan={days.length + 1} className="border-b bg-muted" />
+      <td colSpan={days.length + 1 + extra} className="border-b bg-muted" />
     </tr>
   );
 }

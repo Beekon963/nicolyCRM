@@ -9,7 +9,7 @@ import { EVENT_FILTER_KEYS, loadEventList } from "../load";
 import { EventDetailView } from "./event-detail";
 
 export default async function EventDetailPage({ params, searchParams }: PageProps<"/events/[id]">) {
-  await requireMember();
+  const user = await requireMember();
   const { id } = await params;
   const filters = pickParams(await searchParams, EVENT_FILTER_KEYS);
   const listFilters = filters.view === "calendar" ? { ...filters, view: undefined } : filters;
@@ -19,7 +19,7 @@ export default async function EventDetailPage({ params, searchParams }: PageProp
   return (
     <ListDetail
       list={<EventList {...list} filters={listFilters} selectedId={id} />}
-      detail={<EventDetailView detail={detail} masters={masters} back={`/events${query ? `?${query}` : ""}`} />}
+      detail={<EventDetailView detail={detail} masters={masters} isOwner={user.role === "owner"} back={`/events${query ? `?${query}` : ""}`} />}
     />
   );
 }

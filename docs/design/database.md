@@ -140,7 +140,9 @@ erDiagram
     date contract_date "契約締結日"
     text contract_file_path "契約書PDF"
     text bank_name "銀行"
+    text bank_code "銀行番号4桁（Phase 3）"
     text bank_branch "支店"
+    text branch_code "支店番号3桁（Phase 3）"
     enum account_type "普通/当座"
     text account_number "口座番号"
     text account_holder_kana "名義カナ"
@@ -318,6 +320,7 @@ erDiagram
     enum status "締め済/ロック解除中"
     timestamptz closed_at
     uuid closed_by FK
+    jsonb summary "月の数字（Phase 3）"
   }
   closing_logs {
     uuid id PK
@@ -443,3 +446,17 @@ erDiagram
 
 - ステータスの変更は、これまでどおり `companies` の監査ログに残る。
 - 実績の分析・ホームの実績トップは、確定したアサイン・報告・件数を読んで画面側（`src/lib/analysis.ts`）で数える。金額のテーブルは読まない。
+
+## Phase 3 で足したもの（お金）
+
+| 対象 | 内容 |
+|---|---|
+| 計算 | 請求・支払い・粗利はすべて `src/lib/money`（`computeMoney`）で計算する。DB には単価と実績だけを持ち、SQL では計算しない |
+| `monthly_closings.summary` | 締めたときの月の数字（売上・支払・粗利の確定分と見込み分、源泉、差引）。締めた月の画面・推移はこれと `invoices` / `payments` を読む |
+| `invoices.detail` / `payments.detail` | 締めたときの取引先ごと・スタッフごとの計算結果（現場ごとの明細つき）をそのまま保存する（スナップショット） |
+| `close_month(月, 月の数字, 請求, 支払い)` | 画面側で計算した結果を1つのトランザクションで保存し、その月を「締め済」にする。オーナーだけ。まだ終わっていない月・締め済みの月は不可。もう一度締めるときは支払済みの状態・支払日を残し、金額が変わった支払済みの人を返す |
+| `unlock_month(月, 理由)` | ロック解除（理由は必須）。「確定」の支払いを「未確定」に戻す（支払済みはそのまま）。`closing_logs` に残す |
+| `set_payments_paid(月, スタッフ, 支払日)` | 支払済みにする／取り消す（支払日が空なら取り消し）。締めた月だけ |
+| 締めた月のロック | これまでの実績・単価・経費・調整額・日当上書き・アサインに加えて、**現場（`events`）**も変更できなくする（中止・日付・取引先・会場の変更で請求が変わるため）。別の月から締めた月へ動かすことも不可 |
+| `staff_private.bank_code` / `branch_code` | 全銀フォーマットの振込データ用（4桁・3桁） |
+| `owner_settings` | `freee_export`（freee の勘定科目・税区分）、`zengin`（振込元の口座・委託者コード）を足した |

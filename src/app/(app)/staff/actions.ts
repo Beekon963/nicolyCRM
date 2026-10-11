@@ -142,7 +142,17 @@ const privateSchema = z.object({
     .refine((v) => v === "" || /^T\d{13}$/.test(v), "インボイス登録番号は「T」＋13桁の数字です"),
   contract_date: z.union([z.iso.date(), z.literal("")]),
   bank_name: z.string().trim(),
+  bank_code: z
+    .string()
+    .trim()
+    .transform((v) => v.normalize("NFKC"))
+    .refine((v) => v === "" || /^\d{4}$/.test(v), "銀行番号は4桁の数字です"),
   bank_branch: z.string().trim(),
+  branch_code: z
+    .string()
+    .trim()
+    .transform((v) => v.normalize("NFKC"))
+    .refine((v) => v === "" || /^\d{3}$/.test(v), "支店番号は3桁の数字です"),
   account_type: z.union([z.enum(["ordinary", "checking"]), z.literal("")]),
   account_number: z
     .string()
@@ -166,7 +176,9 @@ export async function saveStaffPrivate(input: StaffPrivateInput): Promise<Action
     invoice_number: v.invoice_number || null,
     contract_date: v.contract_date || null,
     bank_name: v.bank_name,
+    bank_code: v.bank_code || null,
     bank_branch: v.bank_branch,
+    branch_code: v.branch_code || null,
     account_type: v.account_type || null,
     account_number: v.account_number,
     account_holder_kana: v.account_holder_kana,

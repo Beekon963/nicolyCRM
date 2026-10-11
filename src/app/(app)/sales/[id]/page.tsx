@@ -14,6 +14,9 @@ import { ACTIVITY_KIND, ACTIVITY_RESULT, COMPANY_KIND, COMPANY_STATUS, EVENT_STA
 import { isNextActionMissing } from "@/lib/sales";
 import { pickParams } from "@/lib/params";
 import { CompanyList } from "../company-list";
+import { getClientBilling } from "@/lib/data/money";
+import { createClient } from "@/lib/supabase/server";
+import { ClientBillingSection } from "./client-billing";
 import { ContactsSection, ItemsSection, LinksSection } from "./company-sections";
 
 export default async function CompanyDetailPage({ params, searchParams }: PageProps<"/sales/[id]">) {
@@ -29,6 +32,16 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
   const [companies, masters, users] = await Promise.all([listCompanies({ ...filters, kind }, user.id), getMasters(), listActiveUsers()]);
   const today = todayJst();
   const missing = isNextActionMissing(company);
+  // ★ 請求設定・標準単価はオーナーのときだけ取りに行く（管理者には渡さない）
+  const isOwner = user.role === "owner" && kind === "client";
+  const [billing, venueList] = isOwner
+    ? await Promise.all([
+        getClientBilling(id),
+        (await createClient()).from("venues").select("id, name").eq("is_active", true).order("name").then((r) => r.data ?? []),
+      ])
+    : [null, []];
+  const activeItems = masters.items.filter((i) => i.is_active);
+  const billingItems = itemIds.length ? activeItems.filter((i) => itemIds.includes(i.id)) : activeItems;
   const recordTarget = {
     id: company.id,
     name: company.name,
@@ -159,6 +172,19 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
           <Section title="関連資料のリンク">
             <LinksSection companyId={id} links={links} />
           </Section>
+          {isOwner && billing && (
+            <Section title="請求設定・標準単価（オーナーのみ）" className="border-primary/30">
+              <ClientBillingSection
+                companyId={id}
+                billing={billing.billing}
+                rates={billing.rates}
+                venueRates={billing.venues}
+                roles={masters.roles.filter((r) => r.is_active)}
+                items={billingItems}
+                venues={venueList}
+              />
+            </Section>
+          )}
         </div>
       }
     />

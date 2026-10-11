@@ -584,13 +584,13 @@ isOneToOne: false
                   ]
                 },"monthly_closings": {
                   Row: {
-                    "closed_at": string | null,"closed_by": string | null,"month": string,"status": Database["public"]['Enums']["closing_status"]
+                    "closed_at": string | null,"closed_by": string | null,"month": string,"status": Database["public"]['Enums']["closing_status"],"summary": NonNullable<Json>
                   }
                   Insert: {
-                    "closed_at"?: string | null,"closed_by"?: string | null,"month": string,"status": Database["public"]['Enums']["closing_status"]
+                    "closed_at"?: string | null,"closed_by"?: string | null,"month": string,"status": Database["public"]['Enums']["closing_status"],"summary"?: NonNullable<Json>
                   }
                   Update: {
-                    "closed_at"?: string | null,"closed_by"?: string | null,"month"?: string,"status"?: Database["public"]['Enums']["closing_status"]
+                    "closed_at"?: string | null,"closed_by"?: string | null,"month"?: string,"status"?: Database["public"]['Enums']["closing_status"],"summary"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -914,13 +914,13 @@ isOneToOne: false
                   ]
                 },"staff_private": {
                   Row: {
-                    "account_holder_kana": string,"account_number": string,"account_type": Database["public"]['Enums']["account_type"] | null,"bank_branch": string,"bank_name": string,"base_daily_rate": number | null,"contract_date": string | null,"contract_file_path": string | null,"invoice_number": string | null,"staff_id": string,"updated_at": string,"withholding_method": Database["public"]['Enums']["withholding_method"]
+                    "account_holder_kana": string,"account_number": string,"account_type": Database["public"]['Enums']["account_type"] | null,"bank_branch": string,"bank_code": string | null,"bank_name": string,"base_daily_rate": number | null,"branch_code": string | null,"contract_date": string | null,"contract_file_path": string | null,"invoice_number": string | null,"staff_id": string,"updated_at": string,"withholding_method": Database["public"]['Enums']["withholding_method"]
                   }
                   Insert: {
-                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_name"?: string,"base_daily_rate"?: number | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id": string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
+                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_code"?: string | null,"bank_name"?: string,"base_daily_rate"?: number | null,"branch_code"?: string | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id": string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
                   }
                   Update: {
-                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_name"?: string,"base_daily_rate"?: number | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id"?: string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
+                    "account_holder_kana"?: string,"account_number"?: string,"account_type"?: Database["public"]['Enums']["account_type"] | null,"bank_branch"?: string,"bank_code"?: string | null,"bank_name"?: string,"base_daily_rate"?: number | null,"branch_code"?: string | null,"contract_date"?: string | null,"contract_file_path"?: string | null,"invoice_number"?: string | null,"staff_id"?: string,"updated_at"?: string,"withholding_method"?: Database["public"]['Enums']["withholding_method"]
                   }
                   Relationships: [
                     {
@@ -1012,6 +1012,9 @@ isOneToOne: false
 "board_snapshot":
 { Args: { "p_month": string }; Returns: Json
                            },
+"close_month":
+{ Args: { "p_invoices": Json,"p_month": string,"p_payments": Json,"p_summary": Json }; Returns: Json
+                           },
 "company_key":
 { Args: { "t": string }; Returns: string
                            },
@@ -1091,6 +1094,9 @@ isOneToOne: false
 "search_norm":
 { Args: { "t": string }; Returns: string
                            },
+"set_payments_paid":
+{ Args: { "p_month": string,"p_paid_on": string,"p_staff_ids": (string)[] }; Returns: number
+                           },
 "setting_int":
 { Args: { "p_default": number,"p_key": string }; Returns: number
                            },
@@ -1104,6 +1110,9 @@ isOneToOne: false
                            },
 "undo_activity":
 { Args: { "p_activity_id": string,"p_before": Json }; Returns: boolean
+                           },
+"unlock_month":
+{ Args: { "p_month": string,"p_reason": string }; Returns: undefined
                            }
           }
           Enums: {
