@@ -5,16 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { requireMember } from "@/lib/auth";
 import { addDays, formatShortJa, todayJst } from "@/lib/date";
 import { COMPANY_KIND, STAFF_STATUS } from "@/lib/labels";
-import { digitsOnly, searchNorm } from "@/lib/search";
+import { digitsOnly, orLike, searchNorm } from "@/lib/search";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "検索 | NICOLY CRM" };
-
-/** PostgREST の or() に入れる部分一致（値はダブルクォートで囲んでカンマなどを無害にする） */
-function orLike(cols: string[], value: string) {
-  const v = `%${value.replace(/[\\%_]/g, (c) => `\\${c}`).replace(/"/g, "")}%`;
-  return cols.map((c) => `${c}.ilike."${v}"`).join(",");
-}
 
 /** 横断検索（要件 §4.11）。ひらがな / カタカナ、電話番号のハイフン有無を吸収する */
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {

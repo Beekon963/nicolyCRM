@@ -29,10 +29,14 @@ export default defineConfig({
     { name: "manager-mobile", testMatch: /manager\/.*\.spec\.ts/, use: { ...mobile, storageState: "e2e/.auth/manager.json" }, dependencies: ["setup"] },
     { name: "manager-desktop", testMatch: /manager\/.*\.spec\.ts/, use: { ...desktop, storageState: "e2e/.auth/manager.json" }, dependencies: ["setup"] },
   ],
-  webServer: {
-    command: `npm run build && npm run start -- --port ${PORT}`,
-    url: `http://localhost:${PORT}/login`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 240_000,
-  },
+  webServer: [
+    // AI アシスタントは本物の AI を使わず、偽の Anthropic（e2e/mock-anthropic.mjs）に聞く
+    { command: "node e2e/mock-anthropic.mjs", url: "http://127.0.0.1:4010/health", reuseExistingServer: true },
+    {
+      command: `npm run build && npm run start:e2e -- --port ${PORT}`,
+      url: `http://localhost:${PORT}/login`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 240_000,
+    },
+  ],
 });

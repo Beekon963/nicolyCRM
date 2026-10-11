@@ -64,6 +64,14 @@ Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`
 - 書き出しは秘密キーで動くが、読むのは `board_snapshot()` と書き出し先の設定だけにする（テーブルを直接読まない）。
 - anon が実行できる関数は `mypage_*` と `share_board`、研修の予約用の `training_public_*` だけ（`tests/db/rls.test.ts`・`tests/db/mypage.test.ts` で確認）。
 
+## AI アシスタント（`src/lib/ai`）
+
+- 道具（`tools.ts`・`proposals.ts`）は**ログイン中の人の権限（`createClient()`）だけ**で読む・書く。秘密キーを使わない。
+- 金額を返す道具は `ownerOnly: true` にする（管理者には道具ごと渡さない。`agent.test.ts` で確認）。
+- 電話番号・住所・口座・マイページの鍵は道具から返さない（AI に渡す個人情報を減らす）。
+- 登録・変更は `propose_*` で確認カードを出すだけにし、画面の「登録する」で `executeProposal` が値をもう一度確かめてから登録する。AI が直接書き込む道具を作らない。
+- キー（`ANTHROPIC_API_KEY`）はサーバーだけで使う。モデルの名前はコードに書かず、`ANTHROPIC_MODEL`（空なら一番新しい高性能のもの）で決める。
+
 ## スタッフ用マイページ
 
 - ログイン不要。推測できない長いランダムトークンの URL で本人を特定する。
@@ -94,7 +102,7 @@ npm run db:reset     # ダミーデータを作り直し、ローカル DB に�
 npm run db:types     # DB の型（src/lib/supabase/database.types.ts）を作り直す（マイグレーションを変えたら必ず）
 npm run env:local    # ローカルの Supabase につなぐ .env.local を作る
 npm run test:db      # DB・権限のテスト（ローカルの Supabase が必要）
-npm run test:e2e     # 画面テスト（スマホ幅 375px と PC）。npm run build && npm run start で本番ビルドを起動してから
+npm run test:e2e     # 画面テスト（スマホ幅 375px と PC）。npm run build && npm run start:e2e で本番ビルドを起動してから（AI は偽の Anthropic e2e/mock-anthropic.mjs に聞く）
 ```
 
 - 画面テストは DB にデータを足すので、気になったら `npm run db:reset` で作り直す。今日の日付で現場を作るテストは `cleanupEvent()` で後片付けする。
