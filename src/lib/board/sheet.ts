@@ -9,9 +9,25 @@ import type { Board } from "./index";
 
 const SHIFT: Record<string, string> = { ok: "⭕️", maybe: "🔺", ng: "❌" };
 
-/** シートのタブ名（今のシートと同じ 202611 の形） */
+/**
+ * シートのタブ名。いつもの管理用シートに書き出しても、手で作った「202611」などのタブと重ならないよう
+ * 「CRM 202611」にする（CRM はこの名前のタブにしか書かない）。
+ */
 export function sheetTitle(month: string) {
-  return month.replace("-", "");
+  return `CRM ${month.replace("-", "")}`;
+}
+
+/** CRM が書き出したタブの左上（A1）の書き出し。これで始まらないタブには書かない */
+const MARK = "最終更新 ";
+const MARK_TAIL = "（CRM から自動。ここで直しても CRM には戻りません）";
+
+/**
+ * 同じ名前のタブがすでにあるとき、そこに書いてよいか（左上が空か、CRM が書いたものだけ）。
+ * 人が作ったタブを上書きしないための安全装置。
+ */
+export function canOverwriteTab(a1: string | null | undefined): boolean {
+  const v = (a1 ?? "").trim();
+  return v === "" || (v.startsWith(MARK) && v.endsWith(MARK_TAIL));
 }
 
 export function boardToSheetValues(board: Board, updatedAt: string): string[][] {
@@ -20,7 +36,7 @@ export function boardToSheetValues(board: Board, updatedAt: string): string[][] 
   const row = (head: [string, string, string, string], cells: string[], tail = "") => [...head, ...cells, tail];
 
   const rows: string[][] = [
-    row([`最終更新 ${updatedAt}（CRM から自動。ここで直しても CRM には戻りません）`, "", "", "日付"], days.map((d) => `${m}/${d.day}`), "稼働日数"),
+    row([`${MARK}${updatedAt}${MARK_TAIL}`, "", "", "日付"], days.map((d) => `${m}/${d.day}`), "稼働日数"),
     row(["ランク", "名前", "最寄り駅", "曜日"], days.map((d) => (d.holiday ? `${d.weekday}・祝` : d.weekday))),
   ];
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBoard } from "./index";
-import { boardToSheetValues, sheetTitle } from "./sheet";
+import { boardToSheetValues, canOverwriteTab, sheetTitle } from "./sheet";
 
 // 架空のデータ
 const board = buildBoard({
@@ -28,8 +28,16 @@ describe("スプレッドシートへの書き出し", () => {
   const rows = boardToSheetValues(board, "11/1 10:00");
   const col = (d: number) => 3 + d;
 
-  it("タブ名は今のシートと同じ 202611 の形", () => {
-    expect(sheetTitle("2026-11")).toBe("202611");
+  it("タブ名は「CRM 202611」（手で作った「202611」のタブと重ならない）", () => {
+    expect(sheetTitle("2026-11")).toBe("CRM 202611");
+  });
+
+  it("同じ名前のタブがあっても、左上が空か CRM が書いたものでなければ上書きしない", () => {
+    expect(canOverwriteTab(rows[0][0])).toBe(true);
+    expect(canOverwriteTab("")).toBe(true);
+    expect(canOverwriteTab(undefined)).toBe(true);
+    expect(canOverwriteTab("NICOLY")).toBe(false);
+    expect(canOverwriteTab("最終更新 10/1（手で入力）")).toBe(false);
   });
 
   it("1・2行目は日付と曜日（祝日つき）。右端は稼働日数", () => {

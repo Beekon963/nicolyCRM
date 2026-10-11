@@ -43,7 +43,7 @@ export function SheetExport({ state, isOwner }: { state: SheetExportState; isOwn
           <DialogHeader>
             <DialogTitle>シートへの書き出し</DialogTitle>
             <DialogDescription>
-              稼働表（今月と来月）を、今と同じ形のスプレッドシートに10分ごとに書き出します。見るだけ用です（シートで直しても CRM には戻りません）。金額・電話番号は書き出しません。
+              稼働表（今月と来月）を、スプレッドシートの「CRM 202610」のような CRM 専用のタブに10分ごとに書き出します。ほかのタブには触らないので、いつもの管理用シートでも使えます。見るだけ用です（シートで直しても CRM には戻りません）。金額・電話番号は書き出しません。
             </DialogDescription>
           </DialogHeader>
 

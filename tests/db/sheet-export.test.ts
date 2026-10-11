@@ -11,6 +11,8 @@ afterAll(closePool);
 const SHEET_ID = "TEST_SHEET_ID_0123456789abcdef";
 let calls: { url: string; method: string; body: unknown }[] = [];
 let sheetsStatus = 200;
+/** 書き出し先にすでにあるタブ（タブ名 → 左上の文字） */
+let existingTabs: Record<string, string> = {};
 
 beforeAll(() => {
   const s = localSupabase() as { API_URL: string; SECRET_KEY: string };
@@ -29,7 +31,9 @@ beforeAll(() => {
     if (url.startsWith("https://sheets.googleapis.com/")) {
       calls.push({ url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : null });
       if (sheetsStatus !== 200) return Response.json({}, { status: sheetsStatus });
-      return Response.json(url.includes("?fields=sheets.properties.title") ? { sheets: [] } : {});
+      if (url.includes("?fields=sheets.properties.title")) return Response.json({ sheets: Object.keys(existingTabs).map((title) => ({ properties: { title } })) });
+      const a1 = Object.entries(existingTabs).find(([t]) => (init?.method ?? "GET") === "GET" && url.includes(encodeURIComponent(`'${t}'!A1`)));
+      return Response.json(a1 ? { values: [[a1[1]]] } : {});
     }
     return real(input, init);
   });
@@ -38,6 +42,7 @@ beforeAll(() => {
 afterEach(async () => {
   calls = [];
   sheetsStatus = 200;
+  existingTabs = {};
   await getPool().query(`delete from public.settings where key = 'sheet_export'`);
   await getPool().query(`delete from public.sheet_exports where ran_at > now() - interval '10 minutes'`);
 });
@@ -56,12 +61,16 @@ describe("スプレッドシートへの書き出し", () => {
     expect(r.ok).toBe(true);
     const titles = calls.filter((c) => c.url.includes(":batchUpdate")).map((c) => (c.body as { requests: { addSheet: { properties: { title: string } } }[] }).requests[0].addSheet.properties.title);
     expect(titles).toHaveLength(2);
-    expect(titles.every((t) => /^\d{6}$/.test(t))).toBe(true);
+    expect(titles.every((t) => /^CRM \d{6}$/.test(t))).toBe(true);
     expect(r.message).toBe(`${titles.join("・")} を書き出しました`);
 
     const written = calls.filter((c) => c.method === "PUT").map((c) => (c.body as { values: string[][] }).values);
     expect(written).toHaveLength(2);
     expect(written[0][1].slice(0, 4)).toEqual(["ランク", "名前", "最寄り駅", "曜日"]);
+    // スタッフの行には名前が入る
+    const staffRows = written[0].filter((r) => r[3] === "場所");
+    expect(staffRows.length).toBeGreaterThan(0);
+    expect(staffRows.every((r) => r[1] !== "")).toBe(true);
     expect(written[0].length).toBeGreaterThan(10);
     const all = JSON.stringify(written);
     for (const s of Object.values(SENTINELS)) expect(all).not.toContain(String(s));
@@ -69,6 +78,26 @@ describe("スプレッドシートへの書き出し", () => {
 
     const log = (await getPool().query(`select ok, message, source from public.sheet_exports order by ran_at desc limit 1`)).rows[0];
     expect(log).toEqual({ ok: true, message: r.message, source: "button" });
+  });
+
+  it("いつもの管理用シートでも、手で作ったタブには触らない。同じ名前の「CRM」タブが人の作ったものなら止める", async () => {
+    await getPool().query(`insert into public.settings (key, value) values ('sheet_export', $1)`, [{ spreadsheet_id: SHEET_ID }]);
+    const month = (await getPool().query(`select to_char(public.jst_today(), 'YYYYMM') as m`)).rows[0].m as string;
+    existingTabs = { [month]: "", メンバー管理: "氏名" };
+    const ok = await run();
+    expect(ok.ok).toBe(true);
+    // 書いたのは「CRM 〜」のタブだけ
+    const touched = calls.filter((c) => c.method !== "GET").map((c) => decodeURIComponent(c.url));
+    expect(touched.some((u) => u.includes(`'${month}'`))).toBe(false);
+    expect(touched.some((u) => u.includes("メンバー管理"))).toBe(false);
+
+    // 「CRM 今月」タブが人の作ったもの（左上が CRM の書き出しでない）なら、書かずに止める
+    calls = [];
+    existingTabs = { [`CRM ${month}`]: "NICOLY" };
+    const ng = await run();
+    expect(ng.ok).toBe(false);
+    expect(ng.message).toContain(`「CRM ${month}」タブは CRM が作ったものではないので、書き出しを止めました`);
+    expect(calls.some((c) => c.method !== "GET")).toBe(false);
   });
 
   it("共有されていないときは、直し方を記録に残す", async () => {
