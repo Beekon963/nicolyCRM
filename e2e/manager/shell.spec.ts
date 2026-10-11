@@ -25,3 +25,11 @@ test("管理者も研修の予約を使える（カレンダー連携の設定�
   await expect(page.getByRole("button", { name: "カレンダー連携・設定" })).toHaveCount(0);
   await expectNoHorizontalScroll(page);
 });
+
+test("管理者も LINE の通知の画面を開ける（送るお知らせの設定はオーナーだけ）", async ({ page }) => {
+  await page.goto("/notifications");
+  await expect(page.getByRole("heading", { name: "LINE の通知" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "送るお知らせ（オーナー）" })).toHaveCount(0);
+  await expect(page.getByTestId("my-line")).toBeVisible();
+  await expectNoHorizontalScroll(page);
+});

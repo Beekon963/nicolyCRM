@@ -36,7 +36,10 @@ type Rpc =
   | "mypage_availability_get"
   | "mypage_availability_save"
   | "mypage_history"
-  | "mypage_respond";
+  | "mypage_respond"
+  | "mypage_line_link"
+  | "mypage_line_status"
+  | "mypage_line_unlink";
 
 /** マイページの DB 関数を呼ぶ（ログインなし。鍵の検証は DB 側） */
 export async function callMypage<T>(fn: Rpc, args: Record<string, unknown>): Promise<{ ok: true; data: T } | { ok: false; error: string }> {

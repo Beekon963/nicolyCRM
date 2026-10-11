@@ -56,13 +56,13 @@ isOneToOne: false
                   ]
                 },"app_users": {
                   Row: {
-                    "created_at": string,"email": string,"id": string,"is_active": boolean,"name": string,"role": Database["public"]['Enums']["user_role"],"updated_at": string
+                    "created_at": string,"email": string,"id": string,"is_active": boolean,"line_user_id": string | null,"name": string,"role": Database["public"]['Enums']["user_role"],"updated_at": string
                   }
                   Insert: {
-                    "created_at"?: string,"email": string,"id": string,"is_active"?: boolean,"name": string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                    "created_at"?: string,"email": string,"id": string,"is_active"?: boolean,"line_user_id"?: string | null,"name": string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"email"?: string,"id"?: string,"is_active"?: boolean,"name"?: string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
+                    "created_at"?: string,"email"?: string,"id"?: string,"is_active"?: boolean,"line_user_id"?: string | null,"name"?: string,"role"?: Database["public"]['Enums']["user_role"],"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -568,6 +568,56 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"line_link_codes": {
+                  Row: {
+                    "app_user_id": string | null,"code": string,"created_at": string,"expires_at": string,"staff_id": string | null,"used_at": string | null
+                  }
+                  Insert: {
+                    "app_user_id"?: string | null,"code": string,"created_at"?: string,"expires_at"?: string,"staff_id"?: string | null,"used_at"?: string | null
+                  }
+                  Update: {
+                    "app_user_id"?: string | null,"code"?: string,"created_at"?: string,"expires_at"?: string,"staff_id"?: string | null,"used_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "line_link_codes_app_user_id_fkey"
+      columns: ["app_user_id"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "line_link_codes_staff_id_fkey"
+      columns: ["staff_id"]
+isOneToOne: false
+      referencedRelation: "staff"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"line_outbox": {
+                  Row: {
+                    "actor_user_id": string | null,"assignment_id": string | null,"attempts": number,"created_at": string,"event_ids": (string)[],"id": string,"kind": string,"note": string,"retry_key": string,"sent_at": string | null,"status": string
+                  }
+                  Insert: {
+                    "actor_user_id"?: string | null,"assignment_id"?: string | null,"attempts"?: number,"created_at"?: string,"event_ids"?: (string)[],"id"?: string,"kind": string,"note"?: string,"retry_key"?: string,"sent_at"?: string | null,"status"?: string
+                  }
+                  Update: {
+                    "actor_user_id"?: string | null,"assignment_id"?: string | null,"attempts"?: number,"created_at"?: string,"event_ids"?: (string)[],"id"?: string,"kind"?: string,"note"?: string,"retry_key"?: string,"sent_at"?: string | null,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "line_outbox_actor_user_id_fkey"
+      columns: ["actor_user_id"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "line_outbox_assignment_id_fkey"
+      columns: ["assignment_id"]
+isOneToOne: false
+      referencedRelation: "assignments"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"message_templates": {
                   Row: {
@@ -1089,6 +1139,24 @@ isOneToOne: false
 "jst_today":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"line_enqueue_reminders":
+{ Args: { "p_date": string }; Returns: number
+                           },
+"line_link_code_for_me":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"line_link_consume":
+{ Args: { "p_code": string,"p_line_user_id": string }; Returns: Json
+                           },
+"line_new_code":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"line_unlink_me":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"line_unlink_user":
+{ Args: { "p_line_user_id": string }; Returns: undefined
+                           },
 "month_start":
 { Args: { "d": string }; Returns: string
                            },
@@ -1102,6 +1170,15 @@ isOneToOne: false
 { Args: { "p_event_id": string }; Returns: Json
                            },
 "mypage_history":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_line_link":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_line_status":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"mypage_line_unlink":
 { Args: { "p_token": string }; Returns: Json
                            },
 "mypage_me":

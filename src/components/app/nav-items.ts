@@ -1,5 +1,6 @@
 import {
   BarChart3Icon,
+  BellIcon,
   BuildingIcon,
   CalendarCheckIcon,
   CalendarDaysIcon,
@@ -44,6 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/expenses", label: "交通費・経費の承認", icon: ReceiptIcon, sidebar: true, more: true },
   { href: "/availability", label: "稼働可能日の提出状況", icon: CalendarCheckIcon, sidebar: true, more: true },
   { href: "/trainings", label: "研修の予約", icon: VideoIcon, sidebar: true, more: true },
+  { href: "/notifications", label: "LINE の通知", icon: BellIcon, sidebar: true, more: true },
   { href: "/money", label: "お金", icon: WalletIcon, ownerOnly: true, sidebar: true, more: true },
   { href: "/import", label: "データ取り込み", icon: UploadIcon, ownerOnly: true, sidebar: true, more: true },
   { href: "/audit", label: "変更履歴", icon: FileClockIcon, ownerOnly: true, sidebar: true, more: true },

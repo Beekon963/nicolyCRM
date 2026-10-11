@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertMember } from "@/lib/auth";
+import { enqueueConfirmed } from "@/lib/line/notify";
 import { createClient } from "@/lib/supabase/server";
 import { removeOffer, setAssignmentStatus } from "../actions";
 
@@ -27,7 +28,7 @@ export async function assignFromBoard(
   roleId: string,
   status: "offered" | "confirmed",
 ): Promise<ActionResult<{ id: string; previous: LiveStatus | null }>> {
-  await assertMember();
+  const me = await assertMember();
   const parsed = z
     .object({ eventId: z.uuid(), staffId: z.uuid(), roleId: z.uuid(), status: z.enum(["offered", "confirmed"]) })
     .safeParse({ eventId, staffId, roleId, status });
@@ -58,6 +59,7 @@ export async function assignFromBoard(
     .select("id")
     .single();
   if (error || !data) return fail(dbErrorMessage(error));
+  if (status === "confirmed") await enqueueConfirmed([data.id], me.id);
   revalidate(eventId);
   return ok(status === "confirmed" ? "確定にしました" : "打診しました", { id: data.id, previous: null });
 }
