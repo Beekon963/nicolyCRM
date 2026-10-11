@@ -69,12 +69,15 @@ export function EventMoneySection({
   rates: initialRates,
   incentives: initialIncentives,
   daily: initialDaily,
+  locked = false,
 }: {
   eventId: string;
   money: EventMoneyView;
   rates: RateField[];
   incentives: SimpleField[];
   daily: SimpleField[];
+  /** 締めた月の現場（単価は変えられない。金額はいまのデータでの計算） */
+  locked?: boolean;
 }) {
   const [rates, setRates] = useState(initialRates);
   const [incentives, setIncentives] = useState(initialIncentives);
@@ -163,9 +166,13 @@ export function EventMoneySection({
           setDirty(true);
         }}
       />
-      <Button className="self-start" disabled={pending} onClick={save}>
-        {pending ? "保存中…" : "この現場の単価を保存"}
-      </Button>
+      {locked ? (
+        <p className="text-sm text-muted-foreground">締め済みの月のため、単価は変えられません。直すときは「お金 → 締め」でロックを解除してください。</p>
+      ) : (
+        <Button className="self-start" disabled={pending} onClick={save}>
+          {pending ? "保存中…" : "この現場の単価を保存"}
+        </Button>
+      )}
     </div>
   );
 }

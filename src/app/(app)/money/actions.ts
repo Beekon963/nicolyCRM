@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertOwner } from "@/lib/auth";
+import { computeMonthLive, toSnapshot } from "@/lib/data/money";
+import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -215,4 +217,61 @@ export async function removeAdjustment(id: string): Promise<ActionResult> {
   if (error) return fail(dbErrorMessage(error));
   revalidatePath("/money", "layout");
   return ok("調整額を消しました");
+}
+
+const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
+const monthLabel = (m: string) => `${Number(m.slice(0, 4))}年${Number(m.slice(5, 7))}月`;
+
+function refreshMonth() {
+  revalidatePath("/money", "layout");
+  revalidatePath("/events", "layout");
+  revalidatePath("/");
+}
+
+/**
+ * 月次締め（初めて・もう一度）。いまのデータで計算した請求・支払い・月の数字を保存し、その月を変更できなくする。
+ * 支払済みの人の金額が変わったときは人数を返す（差額は翌月の調整額で精算する）。
+ */
+export async function closeMonth(month: string): Promise<ActionResult<{ changedPaid: number }>> {
+  await assertOwner();
+  if (!monthSchema.safeParse(month).success) return fail("月の指定が正しくありません");
+  const snap = toSnapshot(await computeMonthLive(month));
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("close_month", {
+    p_month: `${month}-01`,
+    p_summary: snap.summary as unknown as Json,
+    p_invoices: snap.invoices as unknown as Json,
+    p_payments: snap.payments as unknown as Json,
+  });
+  if (error) return fail(dbErrorMessage(error, "締められませんでした。もう一度お試しください。"));
+  const changedPaid = ((data as { changed_paid?: unknown[] } | null)?.changed_paid ?? []).length;
+  refreshMonth();
+  return ok(`${monthLabel(month)}を締めました`, { changedPaid });
+}
+
+/** ロック解除（理由は必須） */
+export async function unlockMonth(month: string, reason: string): Promise<ActionResult> {
+  await assertOwner();
+  const p = z.object({ month: monthSchema, reason: z.string().trim().min(1, "ロックを解除する理由を入れてください").max(500) }).safeParse({ month, reason });
+  if (!p.success) return fail(p.error.issues[0].message);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("unlock_month", { p_month: `${month}-01`, p_reason: p.data.reason });
+  if (error) return fail(dbErrorMessage(error));
+  refreshMonth();
+  return ok(`${monthLabel(month)}のロックを解除しました。直したら、もう一度締めてください`);
+}
+
+/** 支払済みにする（paidOn が null なら取り消す）。締めた月だけ */
+export async function setPaid(month: string, staffIds: string[], paidOn: string | null): Promise<ActionResult> {
+  await assertOwner();
+  const p = z
+    .object({ month: monthSchema, staffIds: z.array(z.uuid()).min(1).max(500), paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "支払日を入れてください").nullable() })
+    .safeParse({ month, staffIds, paidOn });
+  if (!p.success) return fail(p.error.issues[0].message);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_payments_paid", { p_month: `${month}-01`, p_staff_ids: p.data.staffIds, p_paid_on: p.data.paidOn as string });
+  if (error) return fail(dbErrorMessage(error));
+  revalidatePath("/money", "layout");
+  const n = data ?? 0;
+  return ok(paidOn ? `${n}人を支払済みにしました` : `${n}人の支払済みを取り消しました`);
 }

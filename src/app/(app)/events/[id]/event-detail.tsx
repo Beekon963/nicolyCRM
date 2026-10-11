@@ -182,7 +182,7 @@ export async function EventDetailView({ detail, masters, back, isOwner = false }
       )}
       {money && (
         <Section title="単価（この現場だけ・オーナーのみ）" className="border-primary/30">
-          <EventMoneySection eventId={e.id!} money={money.view} rates={money.rates} incentives={money.incentives} daily={money.daily} />
+          <EventMoneySection eventId={e.id!} money={money.view} rates={money.rates} incentives={money.incentives} daily={money.daily} locked={e.status === "closed"} />
         </Section>
       )}
     </div>

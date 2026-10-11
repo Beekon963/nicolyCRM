@@ -65,7 +65,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
 
   return (
     <div className="flex flex-col gap-4 pb-8">
-      <MoneyHeader month={month} current="/money" />
+      <MoneyHeader month={month} current="/money" closing={money.closing} />
 
       <div className="grid gap-3 px-4 sm:grid-cols-3">
         <Tile label="売上（税抜）" split={summary.revenue} />

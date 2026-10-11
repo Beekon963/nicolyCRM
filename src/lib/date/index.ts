@@ -118,6 +118,14 @@ export function nextMonth(month: string): string {
   return fromUtcDate(new Date(Date.UTC(y, m, 1))).slice(0, 7);
 }
 
+/** 対象月の報酬の支払日（翌月の day 日。0 か、その月にない日は翌月の末日） */
+export function paymentDateOf(month: string, day: number): DateString {
+  const { end } = monthRange(nextMonth(month));
+  if (day <= 0) return end;
+  const d = `${end.slice(0, 8)}${String(day).padStart(2, "0")}`;
+  return d < end ? d : end;
+}
+
 /** 期間内の日付を列挙（start〜end を含む） */
 export function eachDay(start: DateString, end: DateString): DateString[] {
   const n = diffDays(start, end);

@@ -11,6 +11,7 @@ import {
   jstToInstant,
   monthRange,
   nextMonth,
+  paymentDateOf,
   todayJst,
   tomorrowJst,
   weekdayJa,
@@ -70,6 +71,12 @@ describe("暦日の計算", () => {
     expect(monthRange("2026-02")).toEqual({ start: "2026-02-01", end: "2026-02-28" });
     expect(monthRange("2028-02")).toEqual({ start: "2028-02-01", end: "2028-02-29" });
     expect(nextMonth("2026-12")).toBe("2027-01");
+    // 報酬の支払日（翌月の決まった日。0 は月末。その月にない日は月末）
+    expect(paymentDateOf("2026-09", 25)).toBe("2026-10-25");
+    expect(paymentDateOf("2026-12", 10)).toBe("2027-01-10");
+    expect(paymentDateOf("2026-01", 0)).toBe("2026-02-28");
+    expect(paymentDateOf("2026-01", 31)).toBe("2026-02-28");
+    expect(paymentDateOf("2027-12", 0)).toBe("2028-01-31");
   });
 
   it("不正な日付は弾く", () => {

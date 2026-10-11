@@ -26,7 +26,7 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/money/i
 
   return (
     <div className="flex flex-col gap-3 pb-8">
-      <MoneyHeader month={month} current="/money/invoices" />
+      <MoneyHeader month={month} current="/money/invoices" closing={money.closing} />
       {money.clients.length === 0 ? (
         <EmptyState title="この月の現場はありません">現場ができると、取引先ごとの請求額がここに出ます。</EmptyState>
       ) : (

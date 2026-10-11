@@ -1,8 +1,9 @@
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, LockIcon, LockOpenIcon } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { addDays, monthOf, nextMonth, parse, todayJst } from "@/lib/date";
+import type { ClosingStatus } from "@/lib/data/money";
 import { cn } from "@/lib/utils";
 
 /** URL の month（YYYY-MM）。なければ今月 */
@@ -15,10 +16,22 @@ const TABS = [
   { href: "/money", label: "月次集計" },
   { href: "/money/invoices", label: "請求" },
   { href: "/money/payments", label: "支払い" },
+  { href: "/money/closing", label: "締め" },
 ] as const;
 
 /** お金の画面の見出し・月の切り替え・タブ（★オーナーだけ） */
-export function MoneyHeader({ month, current, actions }: { month: string; current: (typeof TABS)[number]["href"]; actions?: React.ReactNode }) {
+export function MoneyHeader({
+  month,
+  current,
+  actions,
+  closing,
+}: {
+  month: string;
+  current: (typeof TABS)[number]["href"];
+  actions?: React.ReactNode;
+  /** 締めの状態（締め済み・ロック解除中のときに1行出す） */
+  closing?: ClosingStatus;
+}) {
   const { y, m } = parse(`${month}-01`);
   const prev = monthOf(addDays(`${month}-01`, -1));
   return (
@@ -53,6 +66,30 @@ export function MoneyHeader({ month, current, actions }: { month: string; curren
           </Link>
         </Button>
       </div>
+      {closing === "closed" && current !== "/money/closing" && (
+        <p className="mx-4 mb-2 flex items-center gap-2 rounded-md bg-status-done-bg px-3 py-2 text-sm">
+          <LockIcon className="size-4 shrink-0 text-status-done" aria-hidden />
+          <span>
+            締め済み（締めた時点の金額）。直すときは
+            <Link href={`/money/closing?month=${month}`} className="mx-1 text-primary underline underline-offset-2">
+              締め
+            </Link>
+            でロックを解除します。
+          </span>
+        </p>
+      )}
+      {closing === "unlocked" && current !== "/money/closing" && (
+        <p className="mx-4 mb-2 flex items-center gap-2 rounded-md bg-status-alert-bg px-3 py-2 text-sm">
+          <LockOpenIcon className="size-4 shrink-0 text-status-alert" aria-hidden />
+          <span>
+            ロック解除中（いまのデータで計算した金額）。直したら
+            <Link href={`/money/closing?month=${month}`} className="mx-1 text-primary underline underline-offset-2">
+              締め
+            </Link>
+            でもう一度締めてください。
+          </span>
+        </p>
+      )}
     </>
   );
 }
