@@ -80,6 +80,13 @@ export class SheetsClient {
     return (j.sheets ?? []).map((s) => s.properties.title);
   }
 
+  /** タブの左上（A1）の文字（空なら ""） */
+  async readA1(title: string): Promise<string> {
+    const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1`);
+    const j = (await this.call(`/values/${range}`)) as { values?: string[][] };
+    return j.values?.[0]?.[0] ?? "";
+  }
+
   /** タブを足す（1・2行目と左の4列を固定。今のシートと同じ） */
   async addSheet(title: string) {
     await this.call(":batchUpdate", {

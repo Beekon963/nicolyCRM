@@ -1,13 +1,14 @@
 import "server-only";
 import { boardFromSnapshot, type BoardSnapshot } from "@/lib/board/snapshot";
-import { boardToSheetValues, sheetTitle } from "@/lib/board/sheet";
+import { boardToSheetValues, canOverwriteTab, sheetTitle } from "@/lib/board/sheet";
 import { formatTimeJst, monthOf, monthRange, nextMonth, parse, todayJst } from "@/lib/date";
 import { holidaysBetween } from "@/lib/date/holidays";
 import { getAccessToken, readServiceAccount, SheetError, SheetsClient } from "@/lib/google/sheets";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * 稼働表をスプレッドシートへ書き出す（Phase 1.5）。今月と来月の2つのタブ（202610 など）を入れ替える。
+ * 稼働表をスプレッドシートへ書き出す（Phase 1.5）。今月と来月の2つのタブ（「CRM 202610」など）を入れ替える。
+ * CRM はこの名前のタブにしか書かないので、いつもの管理用シートを書き出し先にしてもほかのタブには触らない。
  * 自動実行（ログインなし）からも動くので秘密キーで DB に接続するが、読むのは board_snapshot()
  * （見るだけリンクと同じ、金額・電話番号のない内容）と書き出し先の設定だけ。結果は sheet_exports に残す。
  */
@@ -40,6 +41,9 @@ export async function runSheetExport(source: "cron" | "button"): Promise<{ ok: b
       const board = boardFromSnapshot(data as unknown as BoardSnapshot, month, today, holidaysBetween(start, end));
       const title = sheetTitle(month);
       if (!titles.includes(title)) await client.addSheet(title);
+      // ★ 安全装置: 同じ名前のタブが人の作ったものなら書かない（いつもの管理用シートを壊さない）
+      else if (!canOverwriteTab(await client.readA1(title)))
+        throw new SheetError(`「${title}」タブは CRM が作ったものではないので、書き出しを止めました。そのタブの名前を変えてから、もう一度書き出してください`);
       await client.replaceValues(title, boardToSheetValues(board, updatedAt));
     }
     return log(true, `${months.map(sheetTitle).join("・")} を書き出しました`);

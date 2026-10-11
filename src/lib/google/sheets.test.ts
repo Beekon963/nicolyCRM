@@ -67,6 +67,15 @@ describe("スプレッドシートへの書き込み", () => {
     expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ authorization: "Bearer tok" });
   });
 
+  it("タブの左上（A1）を読む（空のタブは空文字）", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request) =>
+      String(url).includes(encodeURIComponent("'CRM 202610'!A1")) ? json(200, { values: [["最終更新 10/1 9:00"]] }) : json(200, {}),
+    );
+    const c = new SheetsClient("tok", "SHEET_ID_0123456789abc", sa.client_email, fetchMock as unknown as typeof fetch);
+    expect(await c.readA1("CRM 202610")).toBe("最終更新 10/1 9:00");
+    expect(await c.readA1("CRM 202611")).toBe("");
+  });
+
   it("共有されていない（403）・見つからない（404）ときは、直し方を日本語で伝える", async () => {
     const c403 = new SheetsClient("tok", "X".repeat(25), sa.client_email, (async () => json(403, {})) as unknown as typeof fetch);
     await expect(c403.sheetTitles()).rejects.toThrow(`共有に ${sa.client_email} を「編集者」で追加してください`);
