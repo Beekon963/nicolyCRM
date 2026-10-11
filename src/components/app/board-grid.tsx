@@ -692,7 +692,8 @@ export function BoardGrid({
                   </tr>
                   {board.clients.map((c) => (
                     <tr key={c.id} data-r={r++}>
-                      <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1 text-left font-medium">
+                      {/* 現場の多い日があって行が高くなっても、取引先名は行の上にそろえる（真ん中に浮かないように） */}
+                      <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1.5 text-left align-top font-medium">
                         <span className="line-clamp-[var(--lines,2)] break-all">{c.name}</span>
                       </th>
                       {board.days.map((d, i) => {
@@ -708,7 +709,7 @@ export function BoardGrid({
                         );
                       })}
                       <td data-c={lastDay + 1} className="border-b" />
-                      {money && <td className="border-b border-l px-1 text-right text-sm tabular-nums">{yen(money.client[c.id])}</td>}
+                      {money && <td className="border-b border-l px-1 py-1.5 text-right align-top text-sm tabular-nums">{yen(money.client[c.id])}</td>}
                     </tr>
                   ))}
                 </>
