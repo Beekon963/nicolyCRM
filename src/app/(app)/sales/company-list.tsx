@@ -55,7 +55,7 @@ export function CompanyList({
   const tab = (k: "client" | "partner", label: string) => (
     <Link
       href={`/sales?kind=${k}${view === "kanban" ? "&view=kanban" : ""}`}
-      className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base", kind === k ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+      className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base", kind === k ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
     >
       {label}
     </Link>
@@ -83,7 +83,7 @@ export function CompanyList({
           </Button>
         }
       />
-      <div className="mx-4 mb-3 flex gap-1 rounded-lg bg-muted p-1">
+      <div className="mx-4 mb-3 flex gap-1 rounded-xl bg-muted p-1">
         {tab("client", "取引先")}
         {tab("partner", "協力会社")}
       </div>
@@ -123,13 +123,13 @@ export function CompanyList({
         />
       </Suspense>
       {!selectedId && (
-        <div className="mx-4 mb-3 flex w-fit gap-1 rounded-lg bg-muted p-1 text-sm" role="group" aria-label="表示">
+        <div className="mx-4 mb-3 flex w-fit gap-1 rounded-xl bg-muted p-1 text-sm" role="group" aria-label="表示">
           {(["list", "kanban"] as const).map((v) => (
             <Link
               key={v}
               href={href({ view: v === "list" ? null : v })}
               aria-current={view === v ? "page" : undefined}
-              className={cn("flex h-9 items-center rounded-md px-4", view === v ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+              className={cn("flex h-9 items-center rounded-md px-4", view === v ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
             >
               {v === "list" ? "リスト" : "カンバン"}
             </Link>

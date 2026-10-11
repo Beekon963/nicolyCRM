@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { FilterBar } from "@/components/app/filter-bar";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
+import { VenueColorDot } from "@/components/app/venue-color";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { addDays, eachDay, formatShortJa, monthRange, nextMonth, parse, weekdayJa } from "@/lib/date";
@@ -147,7 +148,10 @@ export function EventList({
                         className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", e.id === selectedId && "bg-primary/10", e.cancelled_at && "opacity-60")}
                       >
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">{e.venue?.name}</span>
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <VenueColorDot color={e.venue?.color} />
+                            <span className="truncate">{e.venue?.name}</span>
+                          </span>
                           <span className="block truncate text-sm text-muted-foreground">
                             {[formatTimeRange(e.start_time, e.end_time), e.client?.name].filter(Boolean).join(" / ")}
                           </span>
@@ -197,6 +201,8 @@ function MonthCalendar({
           if (!d) return <div key={`b${i}`} />;
           const list = (byDate.get(d) ?? []).filter((e) => !e.cancelled_at);
           const short = list.some((e) => e.shortage_total! > 0);
+          // その日の会場の色（4つまで）
+          const colors = [...new Set(list.map((e) => e.venue?.color ?? ""))].slice(0, 4);
           const wd = i % 7;
           return (
             <Link
@@ -204,19 +210,37 @@ function MonthCalendar({
               href={`/events${qs({ ...filters, view: undefined, month: undefined }, { from: d, to: d })}`}
               title={holidays[d]}
               className={cn(
-                "flex min-h-16 flex-col items-center gap-1 rounded-md border p-1 hover:bg-accent",
-                list.length && (short ? "border-status-alert/40 bg-status-alert-bg" : "border-status-done/40 bg-status-done-bg"),
+                "flex min-h-16 flex-col items-center gap-1 rounded-lg border p-1 hover:bg-accent",
+                // 欠員のある日はマスごと赤、そろった日は緑（ゲームのタイルのように下に縁）
+                list.length > 0 &&
+                  (short
+                    ? "border-b-4 border-status-alert-edge bg-status-alert-solid text-white hover:bg-status-alert-solid/90"
+                    : "border-b-4 border-status-done/40 bg-status-done-bg"),
               )}
             >
-              <span className={cn("text-xs", (wd === 0 || holidays[d]) && "text-status-alert", wd === 6 && !holidays[d] && "text-primary")}>
+              <span
+                className={cn(
+                  "text-xs",
+                  !short && (wd === 0 || holidays[d]) && "text-status-alert",
+                  !short && wd === 6 && !holidays[d] && "text-primary",
+                  short && "font-bold",
+                )}
+              >
                 {Number(d.slice(8))}
               </span>
-              {list.length > 0 && <span className={cn("text-sm font-bold", short ? "text-status-alert" : "text-status-done")}>{list.length}件</span>}
+              {list.length > 0 && <span className={cn("text-sm font-bold", !short && "text-status-done")}>{list.length}件</span>}
+              {colors.length > 0 && (
+                <span className="flex gap-0.5" aria-hidden>
+                  {colors.map((c) => (
+                    <VenueColorDot key={c} color={c} className="size-2.5 ring-white" />
+                  ))}
+                </span>
+              )}
             </Link>
           );
         })}
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">赤 = 欠員あり、緑 = 人員確定。日付を押すとその日の現場が出ます。</p>
+      <p className="mt-2 text-sm text-muted-foreground">赤 = 欠員あり、緑 = 人員確定。丸は会場の色。日付を押すとその日の現場が出ます。</p>
     </div>
   );
 }

@@ -82,7 +82,7 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
         }
       />
       {!eventId && (
-        <div className="mx-4 mb-3 flex gap-1 rounded-lg bg-muted p-1">
+        <div className="mx-4 mb-3 flex gap-1 rounded-xl bg-muted p-1">
           {[
             { v: "open", label: "未確定がある現場" },
             { v: "all", label: "直近45日すべて" },
@@ -90,7 +90,7 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
             <Link
               key={t.v}
               href={`/results?show=${t.v}`}
-              className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.v === show ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+              className={cn("flex h-11 flex-1 items-center justify-center rounded-md", t.v === show ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
             >
               {t.label}
             </Link>

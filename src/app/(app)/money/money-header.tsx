@@ -38,13 +38,13 @@ export function MoneyHeader({
   return (
     <>
       <PageHeader title="お金" description="オーナーだけが見られます" actions={actions} />
-      <nav className="mx-4 mb-2 flex gap-1 rounded-lg bg-muted p-1" aria-label="お金の画面">
+      <nav className="mx-4 mb-2 flex gap-1 rounded-xl bg-muted p-1" aria-label="お金の画面">
         {TABS.map((t) => (
           <Link
             key={t.href}
             href={`${t.href}?month=${month}`}
             aria-current={current === t.href ? "page" : undefined}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base whitespace-nowrap", current === t.href ? "bg-background font-bold shadow-sm" : "text-muted-foreground")}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base whitespace-nowrap", current === t.href ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
           >
             {t.label}
           </Link>

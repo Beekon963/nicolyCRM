@@ -34,8 +34,9 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
                 key={i.href}
                 href={i.href}
                 className={cn(
-                  "flex h-11 items-center gap-3 rounded-md px-3 text-base hover:bg-accent",
-                  isActive(pathname, i.href) && "bg-primary/10 font-bold text-primary",
+                  "flex h-11 items-center gap-3 rounded-xl px-3 text-base hover:bg-accent",
+                  // 選んでいるメニューは、ゲームのボタンのように枠と下の縁を付ける
+                  isActive(pathname, i.href) && "border-2 border-b-4 border-primary/25 bg-primary/10 font-bold text-primary",
                 )}
               >
                 <i.icon className="size-5" />
@@ -95,7 +96,10 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
                 active ? "font-bold text-primary" : "text-muted-foreground",
               )}
             >
-              <t.icon className="size-6" />
+              {/* 選んでいるタブはアイコンを丸い札で囲む */}
+              <span className={cn("grid h-8 w-12 place-items-center rounded-full", active && "bg-primary/15 motion-safe:animate-pop")}>
+                <t.icon className="size-6" />
+              </span>
               {t.label}
             </Link>
           );
@@ -111,7 +115,7 @@ export { NAV_ITEMS };
 function CreateFab() {
   const [menu, setMenu] = useState(false);
   const [record, setRecord] = useState(false);
-  const item = "flex h-12 items-center gap-2 rounded-full bg-background px-5 text-base font-medium shadow-lg ring-1 ring-border";
+  const item = "flex h-12 items-center gap-2 rounded-full border-2 border-b-4 bg-background px-5 text-base font-bold shadow-lg";
   return (
     <div className="md:hidden">
       {menu && <button type="button" aria-label="閉じる" className="fixed inset-0 z-40 bg-black/20" onClick={() => setMenu(false)} />}
@@ -139,7 +143,7 @@ function CreateFab() {
         aria-label={menu ? "閉じる" : "作成"}
         aria-expanded={menu}
         onClick={() => setMenu(!menu)}
-        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg"
+        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full border-b-4 border-black/25 bg-primary text-primary-foreground shadow-lg motion-safe:active:translate-y-0.5"
       >
         {menu ? <XIcon className="size-7" /> : <PlusIcon className="size-7" />}
       </button>
