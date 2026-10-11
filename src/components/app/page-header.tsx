@@ -22,7 +22,8 @@ export function PageHeader({
   return (
     <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-4 pb-2", className)}>
       {back && (
-        <Link href={back} aria-label="戻る" className="-ml-2 grid size-11 place-items-center rounded-xl text-[#344054] hover:bg-accent">
+        // 見出しが2〜3行になっても、矢印は見出しの1行目の横にそろえる
+        <Link href={back} aria-label="戻る" className="-my-1.5 -ml-2 grid size-11 shrink-0 place-items-center self-start rounded-xl text-[#344054] hover:bg-accent">
           <ChevronLeftIcon className="size-6" />
         </Link>
       )}
