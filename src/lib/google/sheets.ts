@@ -80,6 +80,15 @@ export class SheetsClient {
     return (j.sheets ?? []).map((s) => s.properties.title);
   }
 
+  /** タブの中身を、画面に見えている文字のまま読む（右端の空のマスは省かれるので、行の長さはそろえる） */
+  async readValues(title: string): Promise<string[][]> {
+    const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'`);
+    const j = (await this.call(`/values/${range}?valueRenderOption=FORMATTED_VALUE`)) as { values?: string[][] };
+    const rows = (j.values ?? []).map((r) => r.map((v) => String(v ?? "")));
+    const width = Math.max(0, ...rows.map((r) => r.length));
+    return rows.map((r) => [...r, ...Array<string>(width - r.length).fill("")]);
+  }
+
   /** タブの左上（A1）の文字（空なら ""） */
   async readA1(title: string): Promise<string> {
     const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1`);

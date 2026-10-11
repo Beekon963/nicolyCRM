@@ -208,7 +208,13 @@ describe("粗利", () => {
 });
 
 describe("金額の表示と入力", async () => {
-  const { formatYen, parseYen } = await import("./format");
+  const { formatYen, parseYen, rateRangeText } = await import("./format");
+  it("稼働表のマスの単価は、1つならその額、違う単価があれば「安い〜高い」。0円・なしは空", () => {
+    expect(rateRangeText([22000, 22000])).toBe("22,000");
+    expect(rateRangeText([25000, 20000, 22000])).toBe("20,000〜25,000");
+    expect(rateRangeText([0])).toBe("");
+    expect(rateRangeText([])).toBe("");
+  });
   it("表示は3桁区切りに「円」", () => {
     expect(formatYen(25000)).toBe("25,000円");
     expect(formatYen(-3000)).toBe("−3,000円");

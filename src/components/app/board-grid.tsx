@@ -261,7 +261,14 @@ function ResizeHandle({ label, onStart, onReset }: { label: string; onStart: (e:
   );
 }
 
-export type BoardMoney = { client: Record<string, number>; staff: Record<string, number> };
+export type BoardMoney = {
+  client: Record<string, number>;
+  staff: Record<string, number>;
+  /** 現場ごとの請求単価（人日。表示用の文字） */
+  eventRate: Record<string, string>;
+  /** アサインごとの日当（確定して稼働したもの） */
+  daily: Record<string, number>;
+};
 
 const yen = (n: number | undefined) => (n == null ? "" : `${n.toLocaleString("ja-JP")}円`);
 
@@ -668,7 +675,7 @@ export function BoardGrid({
                           <td key={d.date} data-c={i + 1} className={cn("border-r border-b p-0 align-top", DAY_W, d.isToday && "bg-primary/5")}>
                             <Cell onClick={onClientCell && (() => onClientCell(c.id, d.date))} label={`${c.name} ${d.day}日`}>
                               {chips.map((e) => (
-                                <EventChip key={e.id} e={e} />
+                                <EventChip key={e.id} e={e} rate={money?.eventRate[e.id]} />
                               ))}
                             </Cell>
                           </td>
@@ -699,7 +706,7 @@ export function BoardGrid({
                   {board.days.map((d, i) => (
                     <td key={d.date} data-c={i + 1} className={cn("border-r border-b p-0 align-top", DAY_W, d.isToday && "bg-primary/5")}>
                       <Cell onClick={onStaffCell && (() => onStaffCell(s.id, d.date))} label={`${s.name} ${d.day}日`}>
-                        <StaffCellView cell={s.cells[d.date]} />
+                        <StaffCellView cell={s.cells[d.date]} daily={money?.daily} />
                       </Cell>
                     </td>
                   ))}
@@ -749,7 +756,13 @@ function Cell({ onClick, label, children }: { onClick?: () => void; label: strin
   );
 }
 
-function EventChip({ e }: { e: BoardEventChip }) {
+/** ★ オーナーだけ: マスの中の単価（今のシートの「単価」の行と同じ情報）。行の高さ「小」では出さない */
+function RateLine({ text }: { text: string | undefined }) {
+  if (!text) return null;
+  return <span className="text-xs font-normal tabular-nums opacity-80 group-data-[density=small]/board:hidden">¥{text}</span>;
+}
+
+function EventChip({ e, rate }: { e: BoardEventChip; rate?: string }) {
   return (
     <span
       className={cn(
@@ -763,11 +776,12 @@ function EventChip({ e }: { e: BoardEventChip }) {
         {e.cancelled ? "中止" : `${e.confirmed}/${e.required}`}
         {e.offered > 0 && !e.cancelled && <span className="ml-1 font-normal text-status-waiting">打{e.offered}</span>}
       </span>
+      {!e.cancelled && <RateLine text={rate} />}
     </span>
   );
 }
 
-function StaffCellView({ cell }: { cell: BoardStaffCell | undefined }) {
+function StaffCellView({ cell, daily }: { cell: BoardStaffCell | undefined; daily?: Record<string, number> }) {
   if (!cell) return null;
   if (cell.assignments.length) {
     return cell.assignments.map((a) => (
@@ -784,6 +798,12 @@ function StaffCellView({ cell }: { cell: BoardStaffCell | undefined }) {
         {a.status === "offered" && "打 "}
         {a.status === "waitlisted" && "補 "}
         {a.venueName}
+        {a.status === "confirmed" && daily?.[a.id] ? (
+          <>
+            {" "}
+            <RateLine text={daily[a.id].toLocaleString("ja-JP")} />
+          </>
+        ) : null}
       </span>
     ));
   }

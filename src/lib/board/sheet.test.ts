@@ -48,29 +48,36 @@ describe("スプレッドシートへの書き出し", () => {
     expect(rows.every((r) => r.length === rows[0].length)).toBe(true);
   });
 
-  it("上の段: 取引先・会場ごとに「現場 / 人数（確定/必要）」、中止はそう書く。その下に欠員", () => {
-    expect(rows[2].slice(0, 4)).toEqual(["テスト通信", "", "", "現場"]);
-    expect(rows[2][col(1)]).toBe("DSテスト中央");
-    expect(rows[2][col(3)]).toBe("DSテスト中央（中止）");
-    expect(rows[3][col(1)]).toBe("1/2");
-    expect(rows[3][col(3)]).toBe("");
-    expect(rows[4].slice(0, 4)).toEqual(["", "", "", "現場"]);
-    expect(rows[4][col(2)]).toBe("家電ストア架空");
-    expect(rows[6].slice(0, 4)).toEqual(["", "", "", "欠員"]);
-    expect(rows[6][col(1)]).toBe("1");
-    expect(rows[6][col(3)]).toBe("");
+  it("上の段: 取引先・会場ごとに「単価（空）/ 現場 / 人数（確定/必要）」の3行。中止はそう書く。その下に欠員", () => {
+    expect(rows[2].slice(0, 4)).toEqual(["テスト通信", "", "", "単価"]);
+    expect(rows[2].slice(4).every((v) => v === "")).toBe(true);
+    expect(rows[3].slice(0, 4)).toEqual(["", "", "", "現場"]);
+    expect(rows[3][col(1)]).toBe("DSテスト中央");
+    expect(rows[3][col(3)]).toBe("DSテスト中央（中止）");
+    expect(rows[4][col(1)]).toBe("1/2");
+    expect(rows[4][col(3)]).toBe("");
+    expect(rows[5].slice(0, 4)).toEqual(["", "", "", "単価"]);
+    expect(rows[6].slice(0, 4)).toEqual(["", "", "", "現場"]);
+    expect(rows[6][col(2)]).toBe("家電ストア架空");
+    expect(rows[8].slice(0, 4)).toEqual(["", "", "", "欠員"]);
+    expect(rows[8][col(1)]).toBe("1");
+    expect(rows[8][col(3)]).toBe("");
   });
 
-  it("下の段: 確定した場所だけ書き（打診中は書かない）、シフトは ⭕️🔺❌。稼働日数を右端に", () => {
-    const [place, shift] = rows.slice(7, 9);
-    expect(place.slice(0, 4)).toEqual(["S", "山田 太郎", "架空駅", "場所"]);
+  it("下の段: 名前の行（単価・空）→ 場所（確定した場所だけ。打診中は書かない）→ シフト（⭕️🔺❌）。稼働日数を右端に", () => {
+    const [name, place, shift] = rows.slice(9, 12);
+    expect(name.slice(0, 4)).toEqual(["S", "山田 太郎", "架空駅", "単価"]);
+    expect(name.at(-1)).toBe("1");
+    expect(place.slice(0, 4)).toEqual(["", "", "", "場所"]);
     expect(place[col(1)]).toBe("DSテスト中央");
     expect(place[col(2)]).toBe("");
-    expect(place.at(-1)).toBe("1");
     expect([shift[col(1)], shift[col(2)], shift[col(3)], shift[col(4)]]).toEqual(["⭕️", "🔺", "", "❌"]);
   });
 
-  it("金額は書き出さない", () => {
-    expect(JSON.stringify(rows)).not.toMatch(/単価|売上|人件費|利益|¥/);
+  it("金額は書き出さない（「単価」の行は並びをそろえるためだけで、中は空）", () => {
+    const unitRows = rows.filter((r) => r[3] === "単価");
+    expect(unitRows.length).toBeGreaterThan(0);
+    expect(unitRows.every((r) => r.slice(4, -1).every((v) => v === ""))).toBe(true);
+    expect(JSON.stringify(rows)).not.toMatch(/売上|人件費|利益|¥|円/);
   });
 });

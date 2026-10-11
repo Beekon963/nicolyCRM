@@ -67,6 +67,16 @@ describe("スプレッドシートへの書き込み", () => {
     expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ authorization: "Bearer tok" });
   });
 
+  it("タブの中身を読み、行の長さをそろえる", async () => {
+    const fetchMock = vi.fn(async (...args: [string | URL | Request]) => (void args, json(200, { values: [["", "", "", "日付", "11/1"], ["ランク", "名前"]] })));
+    const c = new SheetsClient("tok", "SHEET_ID_0123456789abc", sa.client_email, fetchMock as unknown as typeof fetch);
+    expect(await c.readValues("202611")).toEqual([
+      ["", "", "", "日付", "11/1"],
+      ["ランク", "名前", "", "", ""],
+    ]);
+    expect(String(fetchMock.mock.calls[0][0])).toContain(`/values/${encodeURIComponent("'202611'")}?valueRenderOption=FORMATTED_VALUE`);
+  });
+
   it("タブの左上（A1）を読む（空のタブは空文字）", async () => {
     const fetchMock = vi.fn(async (url: string | URL | Request) =>
       String(url).includes(encodeURIComponent("'CRM 202610'!A1")) ? json(200, { values: [["最終更新 10/1 9:00"]] }) : json(200, {}),

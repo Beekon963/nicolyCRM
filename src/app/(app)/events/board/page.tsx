@@ -7,7 +7,7 @@ import { addDays, formatTimeJst, monthOf, nextMonth, parse, todayJst, toJstDateS
 import { readServiceAccount } from "@/lib/google/sheets";
 import { loadBoard } from "@/lib/data/board";
 import { getMonthMoney } from "@/lib/data/money";
-import { formatYen } from "@/lib/money";
+import { formatYen, rateRangeText } from "@/lib/money";
 import { siteUrl } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { EventsViewTabs } from "../view-tabs";
@@ -42,6 +42,11 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
     ? {
         client: Object.fromEntries(money.clients.map((c) => [c.id, c.subtotal])),
         staff: Object.fromEntries(money.staff.map((st) => [st.id, st.totals.reward])),
+        // 今のシートの「単価」の行と同じ情報（現場の人日単価・スタッフの日当）をマスに出す
+        eventRate: Object.fromEntries(
+          money.events.map((e) => [e.id, rateRangeText(e.bill.lines.filter((l) => l.kind === "person_day").map((l) => l.unit))]),
+        ),
+        daily: Object.fromEntries(money.staff.flatMap((st) => st.assignments.filter((a) => a.worked && a.pay.daily > 0).map((a) => [a.assignmentId, a.pay.daily]))),
       }
     : undefined;
 

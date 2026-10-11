@@ -17,7 +17,7 @@ import { MonthSheetImport } from "./month-sheet-import";
 
 type Step = "target" | "file" | "map" | "preview" | "done";
 
-export function ImportWizard({ roles }: { roles: { id: string; name: string }[] }) {
+export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; name: string }[]; defaultSheetUrl?: string }) {
   const [step, setStep] = useState<Step>("target");
   const [monthSheet, setMonthSheet] = useState(false);
   const [target, setTarget] = useState<ImportTarget>("staff");
@@ -50,7 +50,7 @@ export function ImportWizard({ roles }: { roles: { id: string; name: string }[] 
     return (
       <div className="flex flex-col gap-4 px-4 pb-8">
         <h2 className="text-lg font-bold">月の稼働表（今のスプレッドシート）</h2>
-        <MonthSheetImport roles={roles} onBack={() => setMonthSheet(false)} />
+        <MonthSheetImport roles={roles} defaultSheetUrl={defaultSheetUrl} onBack={() => setMonthSheet(false)} />
       </div>
     );
   }
