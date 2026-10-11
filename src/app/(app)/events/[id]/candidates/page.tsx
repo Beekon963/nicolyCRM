@@ -52,9 +52,10 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
         }
         back={`/events/${id}`}
       />
-      <p className="px-4 pb-2 text-sm text-muted-foreground">
-        並び順: ○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。
-      </p>
+      <details className="px-4 pb-2 text-sm text-muted-foreground">
+        <summary className="w-fit cursor-pointer select-none hover:text-foreground">並び順について</summary>
+        <p className="pt-1">○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。</p>
+      </details>
       <CandidatePicker
         eventId={id}
         roles={roles}

@@ -49,7 +49,7 @@ export function VenueList({
             <li key={v.id}>
               <Link
                 href={`/venues/${v.id}${query ? `?${query}` : ""}`}
-                className={cn("flex min-h-16 flex-col justify-center px-4 py-2 hover:bg-accent", v.id === selectedId && "bg-primary/10")}
+                className={cn("flex min-h-16 flex-col justify-center px-4 py-2 hover:bg-accent", v.id === selectedId && "bg-brand-50")}
               >
                 <span className="flex items-center gap-2 font-medium">
                   <VenueColorDot color={v.color} />

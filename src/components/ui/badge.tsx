@@ -4,15 +4,15 @@ import { cn } from "@/lib/utils";
 
 // 色で状態が分かる: 赤 = 要対応 / 黄 = 待ち / 緑 = 完了 / 灰 = 対象外（要件 §9-5）
 const badgeVariants = cva(
-  "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-sm font-bold",
+  "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-sm font-semibold",
   {
     variants: {
       tone: {
-        alert: "border-status-alert/40 bg-status-alert-bg text-status-alert",
-        waiting: "border-status-waiting/40 bg-status-waiting-bg text-status-waiting",
-        done: "border-status-done/40 bg-status-done-bg text-status-done",
+        alert: "border-status-alert-border bg-status-alert-bg text-status-alert",
+        waiting: "border-status-waiting-border bg-status-waiting-bg text-status-waiting",
+        done: "border-status-done-border bg-status-done-bg text-status-done",
         muted: "border-border bg-muted text-muted-foreground",
-        brand: "border-primary/30 bg-primary/5 text-primary",
+        brand: "border-brand-100 bg-brand-50 text-primary",
       },
     },
     defaultVariants: { tone: "muted" },

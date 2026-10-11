@@ -4,20 +4,22 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 // タップ領域は 44px 以上（要件 §9-9）
-// ゲームのボタンのように、下に濃い縁を付けて少し浮かせ、押すと沈む（Phase 6。動きを減らす設定の人には沈む動きを出さない）
-const PRESS = "border-b-4 motion-safe:active:translate-y-0.5 active:border-b-2";
+// ボタンの下にうっすら縁（内側の影）を付けて、押せるものだと分かるようにし、押すと少し沈む（Phase 6・7）。
+// 縁は内側の影なので大きさは変わらない。動きを減らす設定の人には沈む動きを出さない
+const RAISED = "shadow-[inset_0_-2px_0_rgb(0_0_0/0.18),0_1px_2px_rgb(16_24_40/0.08)] active:shadow-[inset_0_-1px_0_rgb(0_0_0/0.18)] motion-safe:active:translate-y-px";
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl text-base font-bold transition-[color,background-color,transform] outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl text-base font-semibold transition-[color,background-color,box-shadow,transform] duration-150 outline-none focus-visible:ring-4 focus-visible:ring-ring/25 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
-        default: `${PRESS} border-black/25 bg-primary text-primary-foreground hover:bg-primary/90`,
-        secondary: `${PRESS} border-black/10 bg-secondary text-secondary-foreground hover:bg-secondary/80`,
-        outline: `${PRESS} border-2 border-input bg-background hover:bg-accent`,
-        ghost: "hover:bg-accent",
-        destructive: `${PRESS} border-black/25 bg-destructive text-white hover:bg-destructive/90`,
+        default: `${RAISED} bg-primary text-primary-foreground hover:bg-brand-700`,
+        secondary: "bg-secondary text-secondary-foreground hover:bg-[#e8ebf0] motion-safe:active:translate-y-px",
+        outline:
+          "border border-input bg-background text-[#344054] shadow-[inset_0_-2px_0_rgb(16_24_40/0.06),0_1px_2px_rgb(16_24_40/0.05)] hover:bg-accent active:shadow-none motion-safe:active:translate-y-px",
+        ghost: "text-[#344054] hover:bg-accent",
+        destructive: `${RAISED} bg-destructive text-white hover:bg-status-alert-edge`,
         link: "text-primary underline-offset-4 hover:underline",
-        line: `${PRESS} border-black/20 bg-[#06C755] text-white hover:bg-[#06C755]/90`,
+        line: `${RAISED} bg-[#06C755] text-white hover:bg-[#05b34c]`,
       },
       size: {
         default: "h-11 px-4",

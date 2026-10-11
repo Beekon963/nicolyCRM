@@ -27,7 +27,7 @@ export function ChipSelect({
             onClick={() => onChange(on ? value.filter((v) => v !== o.id) : [...value, o.id])}
             className={cn(
               "inline-flex h-11 items-center gap-1 rounded-full border px-4 text-base",
-              on ? "border-primary bg-primary/10 font-medium text-primary" : "border-input text-muted-foreground",
+              on ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input text-muted-foreground",
             )}
           >
             {on && <CheckIcon className="size-4" />}

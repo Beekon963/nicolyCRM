@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { RecordActivityPicker } from "./activity-sheet";
 import { AiAssistant } from "./ai-assistant";
 import { DropAlerts } from "./drop-alerts";
-import { MORE_TAB, NAV_ITEMS, isActive, visibleItems } from "./nav-items";
+import { MORE_TAB, NAV_GROUPS, NAV_ITEMS, type NavItem, isActive, visibleItems } from "./nav-items";
 
 export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -26,23 +26,25 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
           <Image src="/logo.png" alt="" width={36} height={28} />
           <span className="text-lg font-bold">NICOLY CRM</span>
         </Link>
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2">
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2" aria-label="メニュー">
+          {/* 毎日使う画面を上に、そのあとは見出しごとにまとめる */}
           {items
-            .filter((i) => i.sidebar)
+            .filter((i) => i.sidebar && !i.group)
             .map((i) => (
-              <Link
-                key={i.href}
-                href={i.href}
-                className={cn(
-                  "flex h-11 items-center gap-3 rounded-xl px-3 text-base hover:bg-accent",
-                  // 選んでいるメニューは、ゲームのボタンのように枠と下の縁を付ける
-                  isActive(pathname, i.href) && "border-2 border-b-4 border-primary/25 bg-primary/10 font-bold text-primary",
-                )}
-              >
-                <i.icon className="size-5" />
-                {i.label}
-              </Link>
+              <SideLink key={i.href} item={i} active={isActive(pathname, i.href)} />
             ))}
+          {NAV_GROUPS.map((g) => {
+            const list = items.filter((i) => i.sidebar && i.group === g.key);
+            if (!list.length) return null;
+            return (
+              <div key={g.key} className="flex flex-col gap-0.5">
+                <p className="px-3 pt-4 pb-1 text-xs font-semibold text-[#667085]">{g.label}</p>
+                {list.map((i) => (
+                  <SideLink key={i.href} item={i} active={isActive(pathname, i.href)} />
+                ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="border-t p-3 text-sm">
           <p className="truncate font-medium">{user.name}</p>
@@ -97,7 +99,7 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
               )}
             >
               {/* 選んでいるタブはアイコンを丸い札で囲む */}
-              <span className={cn("grid h-8 w-12 place-items-center rounded-full", active && "bg-primary/15 motion-safe:animate-pop")}>
+              <span className={cn("grid h-8 w-14 place-items-center rounded-full transition-colors", active && "bg-brand-50 motion-safe:animate-pop")}>
                 <t.icon className="size-6" />
               </span>
               {t.label}
@@ -111,11 +113,28 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
 
 export { NAV_ITEMS };
 
+/** サイドバーの1項目。選んでいるメニューは、薄い青の地と左の青い線 */
+function SideLink({ item: i, active }: { item: NavItem; active: boolean }) {
+  return (
+    <Link
+      href={i.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex h-10 items-center gap-3 rounded-xl px-3 text-base font-medium text-[#344054] transition-colors hover:bg-accent",
+        active && "bg-brand-50 font-semibold text-primary shadow-[inset_3px_0_0_var(--brand)] hover:bg-brand-50",
+      )}
+    >
+      <i.icon className={cn("size-5", active ? "text-primary" : "text-[#667085]")} />
+      {i.label}
+    </Link>
+  );
+}
+
 /** 右下の ＋。押すと「現場を作る」「活動を記録」を出す（画面一覧 §1） */
 function CreateFab() {
   const [menu, setMenu] = useState(false);
   const [record, setRecord] = useState(false);
-  const item = "flex h-12 items-center gap-2 rounded-full border-2 border-b-4 bg-background px-5 text-base font-bold shadow-lg";
+  const item = "flex h-12 items-center gap-2 rounded-full border bg-background px-5 text-base font-semibold shadow-raised";
   return (
     <div className="md:hidden">
       {menu && <button type="button" aria-label="閉じる" className="fixed inset-0 z-40 bg-black/20" onClick={() => setMenu(false)} />}
@@ -143,7 +162,7 @@ function CreateFab() {
         aria-label={menu ? "閉じる" : "作成"}
         aria-expanded={menu}
         onClick={() => setMenu(!menu)}
-        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full border-b-4 border-black/25 bg-primary text-primary-foreground shadow-lg motion-safe:active:translate-y-0.5"
+        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-[inset_0_-3px_0_rgb(0_0_0/0.2),0_10px_24px_-6px_rgb(0_74_174/0.55)] motion-safe:active:translate-y-px"
       >
         {menu ? <XIcon className="size-7" /> : <PlusIcon className="size-7" />}
       </button>

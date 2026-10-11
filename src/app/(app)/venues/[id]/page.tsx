@@ -45,7 +45,7 @@ export default async function VenueDetailPage({ params, searchParams }: PageProp
             <dl>
               <Field label="住所">
                 {venue.address && (
-                  <a href={mapUrl(venue)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
+                  <a href={mapUrl(venue)} target="_blank" rel="noreferrer" className="text-primary [&>svg]:ml-1 [&>svg]:inline [&>svg]:align-[-3px]">
                     {venue.address}
                     <ExternalLinkIcon className="size-4" />
                   </a>

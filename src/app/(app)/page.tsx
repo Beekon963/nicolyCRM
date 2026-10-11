@@ -22,7 +22,15 @@ export const metadata = { title: "ホーム | NICOLY CRM" };
 function Row({ href, children, alert }: { href: string; children: React.ReactNode; alert?: boolean }) {
   return (
     <li>
-      <Link href={href} className={cn("flex min-h-12 items-center gap-2 py-2 hover:bg-accent", alert && "text-status-alert")}>
+      <Link
+        href={href}
+        data-alert={alert || undefined}
+        className={cn(
+          "relative -mx-2 flex min-h-12 items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-accent",
+          // 要対応は文字を赤くせず、左の赤い縦線で知らせる（赤は札と線だけにして落ち着かせる）
+          alert && "pl-4 before:absolute before:inset-y-2.5 before:left-1 before:w-[3px] before:rounded-full before:bg-status-alert-solid",
+        )}
+      >
         <span className="min-w-0 flex-1">{children}</span>
         <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground" />
       </Link>
@@ -49,11 +57,13 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     d.shortages.length + d.offers.length + d.unreported.length + d.pendingExpenses + d.reminderPending.length + (d.availability.missing > 0 ? 1 : 0);
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <PageHeader title="ホーム" description={`${user.name}さん、おつかれさまです`} />
+    // スマホは1列（埋まり具合 → 今日・明日 → 要対応 → 営業 → 数字 → 獲得件数）。
+    // PC は2列: 左に「要対応」（いちばん大事なので広く）、右に今日・明日・営業・数字
+    <div className="flex flex-col gap-4 pb-6 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:px-4 lg:[&>*]:mx-0">
+      <PageHeader title="ホーム" description={`${user.name}さん、おつかれさまです`} className="lg:col-span-2 lg:px-0" />
 
       {/* 0. 埋まり具合（ゲージ） */}
-      <Card className="mx-4" data-testid="home-fill">
+      <Card className="order-1 mx-4 lg:order-none lg:col-span-2 lg:row-start-2" data-testid="home-fill">
         <CardHeader>
           <CardTitle>埋まり具合</CardTitle>
           <Link href="/events/board" className="text-sm text-primary">
@@ -66,49 +76,15 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         </CardContent>
       </Card>
 
-      {/* 1. 今日・明日の現場 */}
-      <Card className="mx-4">
-        <CardHeader>
-          <CardTitle>今日・明日の現場</CardTitle>
-          <Link href="/events" className="text-sm text-primary">
-            現場一覧
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {d.todayTomorrow.length === 0 ? (
-            <p className="text-muted-foreground">今日・明日の現場はありません</p>
-          ) : (
-            <ul className="divide-y">
-              {d.todayTomorrow.map((e) => (
-                <li key={e.id}>
-                  <Link href={`/events/${e.id}`} className="flex min-h-14 items-center gap-2 py-2 hover:bg-accent">
-                    <Badge tone={e.date === d.today ? "brand" : "muted"}>{e.date === d.today ? "今日" : "明日"}</Badge>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <VenueColorDot color={e.venue?.color} />
-                        <span className="truncate">{e.venue?.name}</span>
-                      </span>
-                      <span className="block truncate text-sm text-muted-foreground">
-                        {formatTimeRange(e.start_time, e.end_time)}
-                        {e.date === d.today && (e.unreported_count ?? 0) > 0 && ` / 未報告 ${e.unreported_count}人`}
-                      </span>
-                    </span>
-                    <StaffCount e={e} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 2. 要対応 */}
-      <Card className={cn("mx-4", todo > 0 && "border-status-alert/50")}>
+      {/* 左の列（PC）: 要対応。スマホでは display: contents で並び順（order）に従う */}
+      <div className="contents lg:col-start-1 lg:row-start-3 lg:flex lg:flex-col lg:gap-4 [&>*]:mx-4 lg:[&>*]:mx-0">
+      {/* 2. 要対応（スマホでは今日・明日の下） */}
+      <Card className={cn("order-3", todo > 0 && "border-status-alert/50")}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             要対応
             {todo > 0 && (
-              <span className="grid h-7 min-w-7 place-items-center rounded-full border-b-2 border-status-alert-edge bg-status-alert-solid px-2 text-sm text-white motion-safe:animate-pop">
+              <span className="grid h-6 min-w-6 place-items-center rounded-full bg-status-alert-solid px-2 text-sm font-bold text-white tabular-nums motion-safe:animate-pop">
                 {todo}
               </span>
             )}
@@ -127,7 +103,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                       <span className="min-w-0 flex-1">
                         {formatShortJa(e.date!)} {e.venue?.name}
                       </span>
-                      <span className="shrink-0 rounded-md bg-status-alert-solid px-1.5 py-0.5 text-sm font-bold text-white">欠{e.shortage_total}</span>
+                      <span className="shrink-0 rounded-full bg-status-alert-solid px-2 py-0.5 text-sm font-bold text-white tabular-nums">欠{e.shortage_total}</span>
                     </span>
                   </Row>
                 ))}
@@ -201,10 +177,49 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             </ul>
           )}
         </CardContent>
+            </Card>
+      </div>
+
+      {/* 右の列（PC）: 今日・明日、営業、数字 */}
+      <div className="contents lg:col-start-2 lg:row-start-3 lg:flex lg:flex-col lg:gap-4 [&>*]:mx-4 lg:[&>*]:mx-0">
+      {/* 1. 今日・明日の現場 */}
+      <Card className="order-2">
+        <CardHeader>
+          <CardTitle>今日・明日の現場</CardTitle>
+          <Link href="/events" className="text-sm text-primary">
+            現場一覧
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {d.todayTomorrow.length === 0 ? (
+            <p className="text-muted-foreground">今日・明日の現場はありません</p>
+          ) : (
+            <ul className="divide-y">
+              {d.todayTomorrow.map((e) => (
+                <li key={e.id}>
+                  <Link href={`/events/${e.id}`} className="flex min-h-14 items-center gap-2 py-2 hover:bg-accent">
+                    <Badge tone={e.date === d.today ? "brand" : "muted"}>{e.date === d.today ? "今日" : "明日"}</Badge>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <VenueColorDot color={e.venue?.color} />
+                        <span className="truncate">{e.venue?.name}</span>
+                      </span>
+                      <span className="block truncate text-sm text-muted-foreground">
+                        {formatTimeRange(e.start_time, e.end_time)}
+                        {e.date === d.today && (e.unreported_count ?? 0) > 0 && ` / 未報告 ${e.unreported_count}人`}
+                      </span>
+                    </span>
+                    <StaffCount e={e} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
       </Card>
 
       {/* 3. 今日やること（営業）: 次回アクション日が今日以前の会社。期限切れは赤 */}
-      <Card className={cn("mx-4", due.some((c) => c.next_action_date! < d.today) && "border-status-alert/50")}>
+      <Card className={cn("order-4", due.some((c) => c.next_action_date! < d.today) && "border-status-alert/50")}>
         <CardHeader>
           <CardTitle>今日やること（営業）</CardTitle>
           <Link href="/sales?next=due" className="text-sm text-primary">
@@ -243,7 +258,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
 
       {/* 4. 今月の数字（オーナーのみ） */}
       {money && (
-        <Card className="mx-4">
+        <Card className="order-5">
           <CardHeader>
             <CardTitle>今月の数字</CardTitle>
             <Link href="/money" className="text-sm text-primary">
@@ -272,8 +287,10 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         </Card>
       )}
 
+      </div>
+
       {/* 5. 実績（今月の獲得件数トップ） */}
-      <Card className="mx-4">
+      <Card className="order-6 mx-4 lg:order-none lg:col-span-2 lg:row-start-4">
         <CardHeader>
           <CardTitle>
             今月の獲得件数
@@ -283,7 +300,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </CardTitle>
           <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
             {(["confirmed", "reported"] as const).map((b) => (
-              <Link key={b} href={b === "confirmed" ? "/" : "/?basis=reported"} className={cn("rounded px-3 py-1.5", basis === b ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}>
+              <Link key={b} href={b === "confirmed" ? "/" : "/?basis=reported"} className={cn("rounded px-3 py-1.5", basis === b ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}>
                 {b === "confirmed" ? "確定" : "速報"}
               </Link>
             ))}
@@ -314,7 +331,7 @@ function RankList({ title, rows, href }: { title: string; rows: Ranking; href: (
                 <span
                   className={cn(
                     "grid size-7 shrink-0 place-items-center rounded-full text-sm font-bold",
-                    i === 0 ? "border-b-2 border-primary/60 bg-primary text-primary-foreground" : i < 3 ? "bg-primary/15 text-primary" : "text-muted-foreground",
+                    i === 0 ? "bg-primary text-primary-foreground" : i < 3 ? "bg-brand-50 text-primary" : "text-muted-foreground",
                   )}
                 >
                   {i + 1}

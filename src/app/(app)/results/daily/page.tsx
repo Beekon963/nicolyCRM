@@ -45,7 +45,7 @@ export default async function DailyReportPage({ searchParams }: PageProps<"/resu
             href={`/results/daily?date=${q.value}`}
             className={cn(
               "inline-flex h-11 items-center rounded-full border px-4",
-              q.value === date ? "border-primary bg-primary/10 font-medium text-primary" : "border-input text-muted-foreground",
+              q.value === date ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input text-muted-foreground",
             )}
           >
             {q.label}

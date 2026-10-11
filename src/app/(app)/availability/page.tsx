@@ -54,7 +54,7 @@ export default async function AvailabilityStatusPage({ searchParams }: PageProps
           <Link
             key={mo}
             href={`/availability?month=${mo}`}
-            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", mo === month ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
+            className={cn("flex h-11 flex-1 items-center justify-center rounded-md", mo === month ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
           >
             {Number(mo.slice(5))}月分
           </Link>

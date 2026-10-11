@@ -10,6 +10,7 @@ import { getMonthMoney } from "@/lib/data/money";
 import { formatYen, rateRangeText } from "@/lib/money";
 import { siteUrl } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import { EventsViewTabs } from "../view-tabs";
 import { BoardScreen } from "./board-screen";
 import { SheetExport } from "./sheet-export";
@@ -55,7 +56,8 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
       <PageHeader
         title="稼働表"
         actions={
-          <>
+          // スマホでは2つのボタンを1行に半分ずつ並べる（表を少しでも上に出すため）
+          <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto [&_button]:w-full [&_button]:gap-1.5 [&_button]:px-2 md:[&_button]:w-auto md:[&_button]:px-3">
             <ShareLink link={share ? { url: `${siteUrl()}/s/${share.token}`, active: share.is_active } : null} isOwner={isOwner} />
             <SheetExport
               isOwner={isOwner}
@@ -65,7 +67,7 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
                 serviceEmail: isOwner ? (readServiceAccount()?.client_email ?? null) : null,
               }}
             />
-          </>
+          </div>
         }
         actionsBelow
       />
@@ -88,17 +90,28 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
         </Button>
       </div>
       {money && (
-        <p className="px-4 pb-2 text-sm tabular-nums">
-          <span className="text-muted-foreground">この月（オーナーのみ）: </span>
-          売上 <b>{formatYen(money.summary.revenue.confirmed + money.summary.revenue.estimate)}</b> ・ 支払 <b>{formatYen(money.summary.pay.confirmed + money.summary.pay.estimate)}</b> ・ 粗利{" "}
-          <b className={money.summary.gross.confirmed + money.summary.gross.estimate < 0 ? "text-status-alert" : undefined}>
-            {formatYen(money.summary.gross.confirmed + money.summary.gross.estimate)}
-          </b>
-          {money.summary.revenue.estimate !== 0 && <span className="text-muted-foreground">（見込みを含む）</span>}
-          <Link href={`/money?month=${month}`} className="ml-2 text-primary underline-offset-2 hover:underline">
-            お金へ
-          </Link>
-        </p>
+        // オーナーだけ: この月の数字を3つ横に並べる（見込みを含む）
+        <Link
+          href={`/money?month=${month}`}
+          className="mx-4 mb-2 grid grid-cols-3 divide-x rounded-xl border bg-[#fcfcfd] py-1.5 text-center tabular-nums transition-colors hover:bg-accent"
+          aria-label="この月の数字（お金の画面へ）"
+        >
+          {(
+            [
+              ["売上", money.summary.revenue.confirmed + money.summary.revenue.estimate],
+              ["支払", money.summary.pay.confirmed + money.summary.pay.estimate],
+              ["粗利", money.summary.gross.confirmed + money.summary.gross.estimate],
+            ] as const
+          ).map(([label, v]) => (
+            <span key={label} className="flex min-w-0 flex-col px-1">
+              <span className="text-xs text-muted-foreground">
+                {label}
+                {label === "売上" && money.summary.revenue.estimate !== 0 && <span className="max-md:hidden">（見込み含む）</span>}
+              </span>
+              <span className={cn("truncate text-sm font-bold", v < 0 && "text-status-alert")}>{formatYen(v)}</span>
+            </span>
+          ))}
+        </Link>
       )}
       <BoardScreen data={data} money={boardMoney} />
     </>

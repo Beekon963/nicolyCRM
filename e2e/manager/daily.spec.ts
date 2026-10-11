@@ -12,7 +12,7 @@ test("欠員がホームに赤で出て、埋まると消える", async ({ page 
     const row = page.locator(`a[href="/events/${ev.id}/candidates"]`);
     await expect(row).toContainText(ev.venue);
     await expect(row).toContainText("欠1");
-    await expect(row).toHaveClass(/text-status-alert/);
+    await expect(row).toHaveAttribute("data-alert", "true");
     // 埋まり具合のゲージ: 今日の欠員があるので「あと〇人」が赤で出る
     await expect(page.getByTestId("home-fill").getByRole("meter", { name: "今日の埋まり具合" })).toBeVisible();
     await expect(page.getByTestId("home-fill")).toContainText("あと");

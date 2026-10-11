@@ -2,53 +2,68 @@
 @import "tw-animate-css";
 
 /*
- * 白ベースのシンプルなUI（要件 §9-10）。
- * --brand はロゴの青。ロゴの赤は「要対応」の赤と紛らわしいのでボタンには使わない。
- * 状態の色: 赤 = 要対応 / 黄 = 待ち / 緑 = 完了（要件 §9-5）。
- * 薄すぎて見分けにくかったので、文字は濃く・背景ははっきり・塗りつぶし（-solid）を足した。
- * 赤と緑は色覚の違いでも見分けられる組み合わせにしてある（緑は青みの濃い緑）。色だけに頼らず「欠」「✓」「打」なども必ず添える。
- * 文字（status-*）は白・薄い背景（status-*-bg）の上で 4.5:1 以上。塗り（-solid）の上の文字は白（黄だけ濃い茶色）。
+ * 白ベースのUI（要件 §9-10）。Phase 7 でデザインを仕上げた:
+ * - 濃い塗りつぶしをやめ、「薄い色の地 ＋ はっきりした差し色（左の線・小さな札）＋ 濃い文字」にそろえた（濃すぎず、見分けやすい）
+ * - 文字は濃いグレー（#101828）、補足は #475467。どちらも白・薄い地の上で 4.5:1 以上
+ * - --brand はロゴの青。ロゴの赤は「要対応」の赤と紛らわしいのでボタンには使わない
+ *
+ * 状態の色（要件 §9-5）: 赤 = 要対応 / 黄 = 待ち / 緑 = 完了。それぞれ 4 段:
+ *   status-*        文字（白・-bg・-tint の上で 4.5:1 以上）
+ *   status-*-bg     いちばん薄い地（札・お知らせ）
+ *   status-*-tint   マスの地（稼働表の「マスごと赤」など。薄すぎず濃すぎない）
+ *   status-*-solid  差し色（左の線・小さな札・大事なボタン）。上の文字は白（黄だけ濃い茶色 -on-solid）
+ * 赤（#d92d20）・黄（#fdb022）・緑（青みの緑 #047857）は色覚の違いでも見分けられる組み合わせ（validate_palette で確認）。
+ * 色だけに頼らず「欠」「✓」「打」「キャンセル」などの文字も必ず添える。
  */
 :root {
   --radius: 0.625rem;
   --background: #ffffff;
-  --foreground: #1f2937;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --border: #e5e7eb;
-  --input: #d1d5db;
+  --foreground: #101828;
+  --muted: #f2f4f7;
+  --muted-foreground: #475467;
+  --border: #eaecf0;
+  --input: #d0d5dd;
   --ring: var(--brand);
   --brand: #004aae;
+  --brand-50: #eef4ff;
+  --brand-100: #dbe6fb;
+  --brand-700: #003a8c;
   --brand-red: #e20012;
   --brand-purple: #2e1a6a;
   --brand-foreground: #ffffff;
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
-  --secondary: #f3f4f6;
-  --secondary-foreground: #1f2937;
-  --accent: #f3f4f6;
-  --accent-foreground: #1f2937;
+  --secondary: #f2f4f7;
+  --secondary-foreground: #344054;
+  --accent: #f5f7fa;
+  --accent-foreground: #101828;
   --card: #ffffff;
-  --card-foreground: #1f2937;
+  --card-foreground: #101828;
   --popover: #ffffff;
-  --popover-foreground: #1f2937;
-  --destructive: #dc2626;
-  --status-alert: #b91c1c;
-  --status-alert-bg: #fee2e2;
-  --status-alert-solid: #dc2626;
-  /* 赤いタイルの下の縁（ゲームのタイルのように少し浮いて見せる） */
-  --status-alert-edge: #991b1b;
-  --status-waiting: #b45309;
-  --status-waiting-bg: #fef3c7;
-  --status-waiting-solid: #f59e0b;
-  --status-waiting-on-solid: #451a03;
+  --popover-foreground: #101828;
+  --destructive: #d92d20;
+  --status-alert: #b42318;
+  --status-alert-bg: #fef3f2;
+  --status-alert-tint: #fee4e2;
+  --status-alert-border: #fecdca;
+  --status-alert-solid: #d92d20;
+  --status-alert-edge: #b42318;
+  --status-waiting: #b54708;
+  --status-waiting-bg: #fffaeb;
+  --status-waiting-tint: #fef0c7;
+  --status-waiting-border: #fedf89;
+  --status-waiting-solid: #fdb022;
+  --status-waiting-on-solid: #4e1d09;
   --status-done: #047857;
-  --status-done-bg: #d1fae5;
+  --status-done-bg: #ecfdf5;
+  --status-done-tint: #d1fae5;
+  --status-done-border: #a7f3d0;
   --status-done-solid: #047857;
-  --status-done-edge: #064e3b;
-  /* 稼働表の土日・祝日の列 */
-  --day-sat-bg: #eff6ff;
-  --day-sun-bg: #fff1f2;
+  --status-done-edge: #065f46;
+  /* 稼働表の今日・土曜・日曜祝日の列（ごく薄く） */
+  --today-bg: #eef4ff;
+  --day-sat-bg: #f5f9ff;
+  --day-sun-bg: #fff5f5;
 }
 
 @theme inline {
@@ -60,6 +75,9 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-brand: var(--brand);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-700: var(--brand-700);
   --color-brand-foreground: var(--brand-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
@@ -74,36 +92,46 @@
   --color-destructive: var(--destructive);
   --color-status-alert: var(--status-alert);
   --color-status-alert-bg: var(--status-alert-bg);
-  --color-status-waiting: var(--status-waiting);
-  --color-status-waiting-bg: var(--status-waiting-bg);
-  --color-status-done: var(--status-done);
-  --color-status-done-bg: var(--status-done-bg);
+  --color-status-alert-tint: var(--status-alert-tint);
+  --color-status-alert-border: var(--status-alert-border);
   --color-status-alert-solid: var(--status-alert-solid);
   --color-status-alert-edge: var(--status-alert-edge);
+  --color-status-waiting: var(--status-waiting);
+  --color-status-waiting-bg: var(--status-waiting-bg);
+  --color-status-waiting-tint: var(--status-waiting-tint);
+  --color-status-waiting-border: var(--status-waiting-border);
   --color-status-waiting-solid: var(--status-waiting-solid);
   --color-status-waiting-on-solid: var(--status-waiting-on-solid);
+  --color-status-done: var(--status-done);
+  --color-status-done-bg: var(--status-done-bg);
+  --color-status-done-tint: var(--status-done-tint);
+  --color-status-done-border: var(--status-done-border);
   --color-status-done-solid: var(--status-done-solid);
   --color-status-done-edge: var(--status-done-edge);
+  --color-today: var(--today-bg);
   --color-day-sat: var(--day-sat-bg);
   --color-day-sun: var(--day-sun-bg);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  /* 日本語は端末標準フォントを使う（Webフォントを読み込まず表示を速くする） */
+  /* 影: カード（ごく弱く）と、上に重なるもの（ポップアップ・メニュー） */
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-raised: 0 16px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.08);
   /* ゲームのような動き（Phase 6）。動きを減らす設定の端末では motion-safe: で止める */
   --animate-pop: pop 0.35s ease-out;
   --animate-shake: shake 0.5s ease-in-out;
   @keyframes pop {
-    0% { transform: scale(0.9); opacity: 0; }
-    60% { transform: scale(1.04); opacity: 1; }
+    0% { transform: scale(0.92); opacity: 0; }
+    60% { transform: scale(1.03); opacity: 1; }
     100% { transform: scale(1); }
   }
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-6px); }
-    40%, 80% { transform: translateX(6px); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
   }
+  /* 日本語は端末標準フォントを使う（Webフォントを読み込まず表示を速くする） */
   --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
     "Yu Gothic UI", Meiryo, system-ui, sans-serif;
 }
@@ -118,6 +146,22 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
+    /* 日本語を言葉の切れ目で折り返し、行末に1〜2文字だけ残らないようにする（対応していない端末ではふつうの折り返し） */
+    word-break: auto-phrase;
+    text-wrap: pretty;
+    /* 長い住所・URL などは、はみ出さずに折り返す（言葉の切れ目で収まらないときだけ） */
+    overflow-wrap: anywhere;
+  }
+  /* 見出しは、かなの詰め（palt）で引き締め、行の長さをそろえる */
+  h1,
+  h2,
+  h3 {
+    font-feature-settings: "palt" 1;
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: var(--brand-100);
   }
 }

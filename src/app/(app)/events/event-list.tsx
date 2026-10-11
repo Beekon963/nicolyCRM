@@ -6,7 +6,7 @@ import { EmptyState, PageHeader } from "@/components/app/page-header";
 import { VenueColorDot } from "@/components/app/venue-color";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { addDays, eachDay, formatShortJa, monthRange, nextMonth, parse, weekdayJa } from "@/lib/date";
+import { addDays, eachDay, formatShortJa, monthRange, nextMonth, parse, todayJst, weekdayJa } from "@/lib/date";
 import type { EventFilters, EventListItem } from "@/lib/data/events";
 import { EVENT_STATUS } from "@/lib/labels";
 import { formatTimeRange } from "@/lib/templates";
@@ -145,7 +145,7 @@ export function EventList({
                     <li key={e.id}>
                       <Link
                         href={`/events/${e.id}${qs(filters, {})}`}
-                        className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", e.id === selectedId && "bg-primary/10", e.cancelled_at && "opacity-60")}
+                        className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", e.id === selectedId && "bg-brand-50", e.cancelled_at && "opacity-60")}
                       >
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5 font-medium">
@@ -187,6 +187,7 @@ function MonthCalendar({
   filters: EventFilters;
 }) {
   const { start, end } = monthRange(month);
+  const today = todayJst();
   const lead = "日月火水木金土".indexOf(weekdayJa(start));
   const cells: (string | null)[] = [...Array.from({ length: lead }, () => null), ...eachDay(start, end)];
   return (
@@ -200,7 +201,9 @@ function MonthCalendar({
         {cells.map((d, i) => {
           if (!d) return <div key={`b${i}`} />;
           const list = (byDate.get(d) ?? []).filter((e) => !e.cancelled_at);
-          const short = list.some((e) => e.shortage_total! > 0);
+          // 過ぎた日は対応できないので、赤・緑にせず灰色で控えめに出す
+          const past = d < today;
+          const short = !past && list.some((e) => e.shortage_total! > 0);
           // その日の会場の色（4つまで）
           const colors = [...new Set(list.map((e) => e.venue?.color ?? ""))].slice(0, 4);
           const wd = i % 7;
@@ -210,29 +213,35 @@ function MonthCalendar({
               href={`/events${qs({ ...filters, view: undefined, month: undefined }, { from: d, to: d })}`}
               title={holidays[d]}
               className={cn(
-                "flex min-h-16 flex-col items-center gap-1 rounded-lg border p-1 hover:bg-accent",
-                // 欠員のある日はマスごと赤、そろった日は緑（ゲームのタイルのように下に縁）
+                "flex min-h-16 flex-col items-center gap-1 rounded-xl border p-1 transition-colors hover:bg-accent",
+                // 欠員のある日はマスごと薄い赤、そろった日は薄い緑
                 list.length > 0 &&
-                  (short
-                    ? "border-b-4 border-status-alert-edge bg-status-alert-solid text-white hover:bg-status-alert-solid/90"
-                    : "border-b-4 border-status-done/40 bg-status-done-bg"),
+                  (past
+                    ? "bg-muted/60 text-muted-foreground"
+                    : short
+                      ? "border-status-alert-border bg-status-alert-tint text-status-alert hover:bg-status-alert-tint/80"
+                      : "border-status-done-border bg-status-done-bg text-status-done hover:bg-status-done-bg/80"),
+                past && "opacity-70",
+                // 今日は青い枠
+                d === today && "ring-2 ring-primary ring-offset-1",
               )}
             >
               <span
                 className={cn(
                   "text-xs",
-                  !short && (wd === 0 || holidays[d]) && "text-status-alert",
-                  !short && wd === 6 && !holidays[d] && "text-primary",
-                  short && "font-bold",
+                  !list.length && (wd === 0 || holidays[d]) && "text-status-alert",
+                  !list.length && wd === 6 && !holidays[d] && "text-primary",
+                  d === today && "font-bold text-primary",
+                  list.length > 0 && "font-semibold",
                 )}
               >
                 {Number(d.slice(8))}
               </span>
-              {list.length > 0 && <span className={cn("text-sm font-bold", !short && "text-status-done")}>{list.length}件</span>}
+              {list.length > 0 && <span className="text-sm font-bold">{list.length}件</span>}
               {colors.length > 0 && (
                 <span className="flex gap-0.5" aria-hidden>
                   {colors.map((c) => (
-                    <VenueColorDot key={c} color={c} className="size-2.5 ring-white" />
+                    <VenueColorDot key={c} color={c} className="size-2 ring-white" />
                   ))}
                 </span>
               )}
@@ -240,7 +249,7 @@ function MonthCalendar({
           );
         })}
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">赤 = 欠員あり、緑 = 人員確定。丸は会場の色。日付を押すとその日の現場が出ます。</p>
+      <p className="mt-3 mb-20 text-sm text-muted-foreground md:mb-0">赤 = 欠員あり、緑 = 人員確定、灰色 = 過ぎた日。丸は会場の色。青い枠は今日。日付を押すとその日の現場が出ます。</p>
     </div>
   );
 }

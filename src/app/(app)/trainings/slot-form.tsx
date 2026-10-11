@@ -76,7 +76,7 @@ export function SlotForm({ defaults, today, days }: { defaults: { title: string;
                 type="button"
                 aria-pressed={on}
                 onClick={() => toggle(d)}
-                className={cn("h-11 rounded-md border text-base", on ? "border-primary bg-primary/10 font-bold text-primary" : "border-input text-muted-foreground")}
+                className={cn("h-11 rounded-md border text-base", on ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input text-muted-foreground")}
               >
                 {d === today ? "今日" : formatShortJa(d)}
               </button>
@@ -109,7 +109,7 @@ export function SlotForm({ defaults, today, days }: { defaults: { title: string;
               type="button"
               aria-pressed={startTime === t}
               onClick={() => setStartTime(t)}
-              className={cn("h-11 rounded-full border px-4 text-base", startTime === t ? "border-primary bg-primary/10 font-medium text-primary" : "border-input text-muted-foreground")}
+              className={cn("h-11 rounded-full border px-4 text-base", startTime === t ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input text-muted-foreground")}
             >
               {t}
             </button>
@@ -127,7 +127,7 @@ export function SlotForm({ defaults, today, days }: { defaults: { title: string;
               type="button"
               aria-pressed={minutes === m}
               onClick={() => setMinutes(m)}
-              className={cn("h-11 rounded-full border px-4 text-base", minutes === m ? "border-primary bg-primary/10 font-medium text-primary" : "border-input text-muted-foreground")}
+              className={cn("h-11 rounded-full border px-4 text-base", minutes === m ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input text-muted-foreground")}
             >
               {m}分
             </button>

@@ -144,7 +144,7 @@ export function EventForm({
                 type="button"
                 className={cn(
                   "h-11 rounded-full border px-4",
-                  range.from === p.from && range.to === p.to ? "border-primary bg-primary/10 font-medium text-primary" : "border-input",
+                  range.from === p.from && range.to === p.to ? "border-primary bg-brand-50 font-semibold text-primary" : "border-input",
                 )}
                 onClick={() => {
                   setRange({ from: p.from, to: p.to, weekdays: p.weekdays });

@@ -24,7 +24,7 @@ export function EventCard({
 }) {
   const v = event.venue;
   return (
-    <section className={cn("flex flex-col gap-2 rounded-xl border p-4", event.cancelled && "opacity-60", className)}>
+    <section className={cn("flex flex-col gap-2 rounded-2xl border bg-card p-4 shadow-card", event.cancelled && "opacity-60", className)}>
       <p className="text-lg font-bold">
         {formatShortJa(event.date)} {formatTimeRange(event.start_time, event.end_time)}
       </p>
@@ -32,14 +32,14 @@ export function EventCard({
       {role && <p className="text-muted-foreground">役割: {role}</p>}
       {event.cancelled && <p className="font-bold text-status-alert">この現場は中止になりました</p>}
       {detail && (
-        <dl className="grid grid-cols-[5rem_1fr] gap-x-2 gap-y-1 text-base">
+        <dl className="mb-2 grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-1.5 text-base">
           <dt className="text-muted-foreground">集合</dt>
           <dd className="font-bold">{[formatTime(event.meeting_time), event.meeting_place].filter(Boolean).join(" ") || "−"}</dd>
           {v.address && (
             <>
               <dt className="text-muted-foreground">住所</dt>
               <dd>
-                <a href={mapLink(v)} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-primary underline">
+                <a href={mapLink(v)} target="_blank" rel="noreferrer noopener" className="text-primary underline [&>svg]:ml-1 [&>svg]:inline [&>svg]:align-[-3px]">
                   {v.address}
                   <ExternalLinkIcon className="size-4" />
                 </a>

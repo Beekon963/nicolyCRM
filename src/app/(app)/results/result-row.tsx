@@ -63,34 +63,40 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
 
   return (
     <li className={cn("flex flex-col gap-2 p-3", a.confirmed && !editing && "bg-status-done-bg/40")}>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
         <Link href={`/staff/${a.staffId}`} className="font-medium hover:underline">
           {a.name}
         </Link>
         <span className="text-sm text-muted-foreground">{a.role}</span>
         {a.confirmed ? <Badge tone="done">確定済み</Badge> : a.submitted ? <Badge tone="waiting">報告済み・未確定</Badge> : <Badge tone="alert">未報告</Badge>}
         {a.source === "admin" && <span className="text-xs text-muted-foreground">入力: {INPUT_SOURCE.admin}</span>}
+        </span>
+        {/* 履歴は同じ行の右端に（スマホでは文字を隠してアイコンだけ） */}
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto text-muted-foreground"
+          className="shrink-0 px-2.5 text-muted-foreground"
           onClick={() => start(async () => setHistory(await getReportHistory(a.id)))}
         >
           <HistoryIcon />
-          履歴
+          <span className="max-sm:sr-only">履歴</span>
         </Button>
       </div>
       {a.comment && <p className="rounded bg-muted px-2 py-1 text-sm">「{a.comment}」</p>}
       {proxy && editing && <p className="text-sm text-muted-foreground">未報告です。LINE などで聞いた件数を入れて確定できます（代理入力）。</p>}
 
-      <ul className="flex flex-col gap-2">
+      {/* 項目ごとに1行（左に項目名と速報、右に件数）。カードを重ねず1つの枠にまとめる */}
+      <ul className="divide-y rounded-xl border bg-card">
         {items.map((i) => {
           const differs = !proxy && i.reported != null && i.reported !== i.value;
           return (
-            <li key={i.item_id} className="flex flex-col gap-1 rounded-md border p-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="min-w-24 flex-1">{i.name}</span>
-                {!proxy && <span className="text-sm text-muted-foreground">速報 {i.reported ?? "−"}</span>}
+            <li key={i.item_id} className="flex flex-col gap-2 px-3 py-2">
+              <div className="flex items-center gap-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{i.name}</span>
+                  {!proxy && <span className="block text-sm text-muted-foreground tabular-nums">速報 {i.reported ?? "−"}</span>}
+                </span>
                 {editing ? (
                   <CountStepper label={`${a.name}の${i.name}の確定件数`} value={i.value} onChange={(v) => set(i.item_id, { value: v })} />
                 ) : (

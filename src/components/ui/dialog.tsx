@@ -17,14 +17,14 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & { side?: "center" | "bottom" | "right" }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[#0c111d]/50 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed z-50 flex max-h-[90dvh] flex-col gap-4 overflow-y-auto bg-background p-4 shadow-lg outline-none",
+          "fixed z-50 flex max-h-[90dvh] flex-col gap-4 overflow-y-auto bg-background p-5 shadow-raised outline-none",
           side === "center" &&
-            "top-1/2 left-1/2 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-b-4 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+            "top-1/2 left-1/2 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           side === "bottom" &&
-            "inset-x-0 bottom-0 rounded-t-2xl border-t-2 pb-[max(1rem,env(safe-area-inset-bottom))] data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom",
+            "inset-x-0 bottom-0 rounded-t-3xl pb-[max(1rem,env(safe-area-inset-bottom))] data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom",
           side === "right" &&
             "inset-y-0 right-0 h-full w-full max-w-xl data-[state=open]:animate-in data-[state=open]:slide-in-from-right",
           className,

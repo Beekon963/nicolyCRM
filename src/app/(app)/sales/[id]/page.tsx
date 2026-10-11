@@ -128,7 +128,7 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
               <Field label="住所">{company.address}</Field>
               <Field label="Web">
                 {company.website && (
-                  <a href={company.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
+                  <a href={company.website} target="_blank" rel="noreferrer" className="text-primary [&>svg]:ml-1 [&>svg]:inline [&>svg]:align-[-3px]">
                     {company.website}
                     <ExternalLinkIcon className="size-4" />
                   </a>

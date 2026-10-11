@@ -265,7 +265,7 @@ function CancelDialog({
               key={r.code}
               type="button"
               onClick={() => setCode(r.code)}
-              className={cn("h-11 rounded-md border px-3 text-left", code === r.code ? "border-primary bg-primary/10 font-medium" : "border-input")}
+              className={cn("h-11 rounded-md border px-3 text-left", code === r.code ? "border-primary bg-brand-50 font-semibold" : "border-input")}
             >
               {r.label}
             </button>

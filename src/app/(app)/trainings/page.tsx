@@ -60,7 +60,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
               href={t.href}
               role="tab"
               aria-selected={t.on}
-              className={cn("inline-flex h-11 items-center rounded-full border px-4 whitespace-nowrap", t.on ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground")}
+              className={cn("inline-flex h-11 items-center rounded-full border px-4 whitespace-nowrap", t.on ? "border-primary bg-brand-50 font-semibold text-primary" : "text-muted-foreground")}
             >
               {t.label}
             </Link>

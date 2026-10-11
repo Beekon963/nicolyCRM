@@ -113,7 +113,7 @@ export function StaffList({
               <li key={s.id}>
                 <Link
                   href={href(s.id)}
-                  className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", s.id === selectedId && "bg-primary/10")}
+                  className={cn("flex min-h-16 items-center gap-3 px-4 py-2 hover:bg-accent", s.id === selectedId && "bg-brand-50")}
                 >
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-sm font-bold">
                     {masters.rankById.get(s.rank_id ?? "")?.name ?? "−"}

@@ -55,7 +55,7 @@ export function CompanyList({
   const tab = (k: "client" | "partner", label: string) => (
     <Link
       href={`/sales?kind=${k}${view === "kanban" ? "&view=kanban" : ""}`}
-      className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base", kind === k ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
+      className={cn("flex h-11 flex-1 items-center justify-center rounded-md text-base", kind === k ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
     >
       {label}
     </Link>
@@ -98,7 +98,6 @@ export function CompanyList({
                   {
                     name: "status",
                     label: "ステータス",
-                    allLabel: "ステータス",
                     options: (Object.keys(COMPANY_STATUS) as CompanyStatus[]).map((k) => ({ value: k, label: COMPANY_STATUS[k].label })),
                   },
                 ]
@@ -106,7 +105,6 @@ export function CompanyList({
             {
               name: "next",
               label: "次回アクション",
-              allLabel: "次回アクション",
               options: [
                 { value: "due", label: "次回 今日まで" },
                 { value: "missing", label: "次回 未設定" },
@@ -115,10 +113,9 @@ export function CompanyList({
             {
               name: "owner",
               label: "担当者",
-              allLabel: "担当者",
               options: [{ value: "me", label: "担当 自分" }, ...users.map((u) => ({ value: u.id, label: `担当 ${u.name}` })), { value: "none", label: "担当者なし" }],
             },
-            { name: "priority", label: "優先度", allLabel: "優先度", options: (["high", "mid", "low"] as const).map((p) => ({ value: p, label: `優先度 ${PRIORITY[p]}` })) },
+            { name: "priority", label: "優先度", options: (["high", "mid", "low"] as const).map((p) => ({ value: p, label: `優先度 ${PRIORITY[p]}` })) },
           ]}
         />
       </Suspense>
@@ -129,7 +126,7 @@ export function CompanyList({
               key={v}
               href={href({ view: v === "list" ? null : v })}
               aria-current={view === v ? "page" : undefined}
-              className={cn("flex h-9 items-center rounded-md px-4", view === v ? "border-2 border-b-4 bg-background font-bold text-primary" : "text-muted-foreground")}
+              className={cn("flex h-9 items-center rounded-md px-4", view === v ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
             >
               {v === "list" ? "リスト" : "カンバン"}
             </Link>
@@ -152,7 +149,7 @@ export function CompanyList({
       ) : (
         <ul className="divide-y border-y">
           {companies.map((c) => (
-            <li key={c.id} className={cn("flex items-center gap-1 pr-2", c.id === selectedId && "bg-primary/10")}>
+            <li key={c.id} className={cn("flex items-center gap-2 pr-4", c.id === selectedId && "bg-brand-50")}>
               <Link href={detailHref(c.id)} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2 pl-4 hover:bg-accent">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">

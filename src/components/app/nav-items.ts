@@ -31,7 +31,16 @@ export type NavItem = {
   more?: boolean;
   /** まだ作っていない画面（フェーズ） */
   phase?: number;
+  /** サイドバーと「その他」での見出し（毎日の作業 / 管理 / 設定）。下部タブの項目にはない */
+  group?: NavGroup;
 };
+
+export type NavGroup = "daily" | "manage" | "admin";
+export const NAV_GROUPS: { key: NavGroup; label: string }[] = [
+  { key: "daily", label: "毎日の作業" },
+  { key: "manage", label: "管理" },
+  { key: "admin", label: "設定・記録" },
+];
 
 // 要件 §5: スマホは下部タブ「ホーム / 現場 / スタッフ / 営業 / その他」、PC はサイドバーに同じ項目＋お金・設定
 export const NAV_ITEMS: NavItem[] = [
@@ -39,17 +48,17 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/events", label: "現場", icon: CalendarDaysIcon, tab: true, sidebar: true },
   { href: "/staff", label: "スタッフ", icon: UsersIcon, tab: true, sidebar: true },
   { href: "/sales", label: "営業", icon: BuildingIcon, tab: true, sidebar: true },
-  { href: "/venues", label: "会場", icon: MapPinIcon, sidebar: true, more: true },
-  { href: "/results", label: "実績確認", icon: ClipboardCheckIcon, sidebar: true, more: true },
-  { href: "/analysis", label: "実績の分析", icon: BarChart3Icon, sidebar: true, more: true },
-  { href: "/expenses", label: "交通費・経費の承認", icon: ReceiptIcon, sidebar: true, more: true },
-  { href: "/availability", label: "稼働可能日の提出状況", icon: CalendarCheckIcon, sidebar: true, more: true },
-  { href: "/trainings", label: "研修の予約", icon: VideoIcon, sidebar: true, more: true },
-  { href: "/notifications", label: "LINE の通知", icon: BellIcon, sidebar: true, more: true },
-  { href: "/money", label: "お金", icon: WalletIcon, ownerOnly: true, sidebar: true, more: true },
-  { href: "/import", label: "データ取り込み", icon: UploadIcon, ownerOnly: true, sidebar: true, more: true },
-  { href: "/audit", label: "変更履歴", icon: FileClockIcon, ownerOnly: true, sidebar: true, more: true },
-  { href: "/settings", label: "設定", icon: SettingsIcon, ownerOnly: true, sidebar: true, more: true },
+  { href: "/venues", label: "会場", icon: MapPinIcon, sidebar: true, more: true, group: "manage" },
+  { href: "/results", label: "実績確認", icon: ClipboardCheckIcon, sidebar: true, more: true, group: "daily" },
+  { href: "/analysis", label: "実績の分析", icon: BarChart3Icon, sidebar: true, more: true, group: "manage" },
+  { href: "/expenses", label: "交通費・経費の承認", icon: ReceiptIcon, sidebar: true, more: true, group: "daily" },
+  { href: "/availability", label: "稼働可能日の提出状況", icon: CalendarCheckIcon, sidebar: true, more: true, group: "daily" },
+  { href: "/trainings", label: "研修の予約", icon: VideoIcon, sidebar: true, more: true, group: "manage" },
+  { href: "/notifications", label: "LINE の通知", icon: BellIcon, sidebar: true, more: true, group: "manage" },
+  { href: "/money", label: "お金", icon: WalletIcon, ownerOnly: true, sidebar: true, more: true, group: "manage" },
+  { href: "/import", label: "データ取り込み", icon: UploadIcon, ownerOnly: true, sidebar: true, more: true, group: "admin" },
+  { href: "/audit", label: "変更履歴", icon: FileClockIcon, ownerOnly: true, sidebar: true, more: true, group: "admin" },
+  { href: "/settings", label: "設定", icon: SettingsIcon, ownerOnly: true, sidebar: true, more: true, group: "admin" },
 ];
 
 export const MORE_TAB: NavItem = { href: "/more", label: "その他", icon: MenuIcon, tab: true };
