@@ -30,27 +30,27 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
   const linkUrl = link ? `${siteUrl()}/t/${link.token}` : null;
   const today = todayJst();
 
+  const extra = (
+    <>
+      <TrainingLink link={link && linkUrl ? { url: linkUrl, active: link.is_active } : null} isOwner={isOwner} />
+      {isOwner && <TrainingSettingsButton settings={settings} serviceEmail={readServiceAccount()?.client_email ?? null} />}
+    </>
+  );
+
   return (
     <>
       <PageHeader
         title="研修の予約"
         description="オンライン研修の日時（枠）を作って、予約用リンクを LINE で送ります。受ける人は空いている日時を選んで予約します。"
-        actions={
-          <>
-            <TrainingLink link={link && linkUrl ? { url: linkUrl, active: link.is_active } : null} isOwner={isOwner} />
-            {isOwner && (
-              <TrainingSettingsButton
-                settings={settings}
-                serviceEmail={readServiceAccount()?.client_email ?? null}
-              />
-            )}
-          </>
-        }
-        actionsBelow
       />
       <div className="flex flex-col gap-4 px-4 pb-8">
-        {!past && <SlotForm defaults={{ title: settings.defaultTitle, meetingUrl: settings.defaultUrl }} today={today} days={Array.from({ length: 21 }, (_, i) => addDays(today, i))} />}
-        <div className="flex gap-2" role="tablist">
+        {past ? (
+          <div className="flex flex-wrap gap-2">{extra}</div>
+        ) : (
+          <SlotForm defaults={{ title: settings.defaultTitle, meetingUrl: settings.defaultUrl }} today={today} days={Array.from({ length: 21 }, (_, i) => addDays(today, i))} extra={extra} />
+        )}
+        {/* ほかの画面と同じ切り替え（灰色の地に白い札） */}
+        <div className="flex w-fit gap-1 rounded-xl bg-muted p-1" role="tablist">
           {[
             { label: "これから", href: "/trainings", on: !past },
             { label: "過去（60日）", href: "/trainings?past=1", on: past },
@@ -60,7 +60,7 @@ export default async function TrainingsPage({ searchParams }: PageProps<"/traini
               href={t.href}
               role="tab"
               aria-selected={t.on}
-              className={cn("inline-flex h-11 items-center rounded-full border px-4 whitespace-nowrap", t.on ? "border-primary bg-brand-50 font-semibold text-primary" : "text-muted-foreground")}
+              className={cn("inline-flex h-10 items-center rounded-md px-4 whitespace-nowrap", t.on ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
             >
               {t.label}
             </Link>

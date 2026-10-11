@@ -30,7 +30,8 @@ export function UsersClient({ users, meId }: { users: User[]; meId: string }) {
     <div className="flex flex-col gap-4 px-4">
       <InviteDialog />
       <ul className="divide-y overflow-hidden rounded-2xl border bg-card shadow-card">
-        {users.map((u) => (
+        {/* 使っている人を上に、無効にした人は下にまとめる */}
+        {[...users].sort((a, b) => Number(b.is_active) - Number(a.is_active)).map((u) => (
           // 1行目: 名前とメール、2行目: 権限と有効（スマホでも名前がつぶれないように2段に分ける）
           <li key={u.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-3">
             <div className="min-w-0 flex-1">
@@ -55,8 +56,9 @@ export function UsersClient({ users, meId }: { users: User[]; meId: string }) {
                   <option value="manager">{USER_ROLE.manager}</option>
                   <option value="owner">{USER_ROLE.owner}</option>
                 </NativeSelect>
+                {/* スイッチの言葉は「何ができるか」で（「無効」の札と「有効」の文字が並んで矛盾して見えないように） */}
                 <label className="flex min-h-11 shrink-0 items-center gap-2 text-sm">
-                  有効
+                  ログインできる
                   <Switch
                     checked={u.is_active}
                     disabled={pending}

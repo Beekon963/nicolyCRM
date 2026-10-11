@@ -19,7 +19,7 @@ export default function NotFound() {
           </Button>
         }
       >
-        URL がまちがっているか、ページがなくなっています。スタッフの方は、LINE で届いたマイページの URL を開き直してください。
+        リンクがまちがっているか、ページがなくなっています。スタッフの方は、LINE で届いたマイページのリンクを開き直してください。
       </StatusScreen>
     </main>
   );

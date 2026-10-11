@@ -50,7 +50,8 @@ export function MoneyHeader({
           </Link>
         ))}
       </nav>
-      <div className="flex items-center justify-between px-4 pb-2">
+      {/* スマホは両端、PC は真ん中にまとめる（広い画面で「前の月」と「次の月」が離れすぎないように） */}
+      <div className="flex items-center justify-between px-4 pb-2 md:justify-center md:gap-8">
         <Button asChild variant="ghost" size="sm">
           <Link href={`${current}?month=${prev}`}>
             <ChevronLeftIcon />
@@ -92,5 +93,18 @@ export function MoneyHeader({
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * お金の画面の大きな数字（月次集計・請求・支払いで同じ形）。いちばん大事な数字を大きく、内わけは小さく
+ */
+export function StatTile({ label, value, sub, alert }: { label: string; value: React.ReactNode; sub?: React.ReactNode; alert?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-card">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className={cn("text-2xl font-bold tabular-nums", alert && "text-status-alert")}>{value}</p>
+      {sub && <div className="text-sm text-muted-foreground tabular-nums">{sub}</div>}
+    </div>
   );
 }

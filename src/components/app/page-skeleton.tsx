@@ -37,9 +37,11 @@ export function ListSkeleton({ rows = 7, filters = true }: { rows?: number; filt
       {filters && (
         <div className="flex flex-col gap-2 px-4 pb-3">
           <Bone className="h-11 w-full rounded-xl" />
-          <div className="flex gap-2">
-            <Bone className="h-11 w-32 rounded-xl" />
-            <Bone className="h-11 w-28 rounded-xl" />
+          {/* 絞り込み（スマホは2列、PC は横に並ぶ）。出来上がりと同じ形にして、開いたときに画面がずれないように */}
+          <div className="grid grid-cols-2 gap-2 md:flex">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Bone key={i} className="h-11 rounded-xl md:w-36" />
+            ))}
           </div>
         </div>
       )}

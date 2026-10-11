@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheckIcon, CalendarDaysIcon, ClipboardListIcon, HandIcon, HistoryIcon } from "lucide-react";
+import { CalendarCheckIcon, CalendarDaysIcon, ClipboardListIcon, HistoryIcon, MailIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ export function MypageTabs({ token, offers, reports }: { token: string; offers: 
   const pathname = usePathname();
   const base = `/m/${token}`;
   const tabs = [
-    { href: base, label: "お願い", icon: HandIcon, badge: offers },
+    { href: base, label: "お願い", icon: MailIcon, badge: offers },
     { href: `${base}/schedule`, label: "予定", icon: CalendarDaysIcon },
     { href: `${base}/report`, label: "報告", icon: ClipboardListIcon, badge: reports },
     { href: `${base}/availability`, label: "稼働可能日", icon: CalendarCheckIcon },

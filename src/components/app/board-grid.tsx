@@ -32,6 +32,8 @@ import {
 import { clampZoom, keepFocus, stepZoom, zoomLabel } from "@/lib/board/zoom";
 import { fillOf } from "@/lib/fill";
 import { cn } from "@/lib/utils";
+import { CompanyName } from "./company-name";
+import { StatusPill } from "./status-pill";
 import { VENUE_COLOR_KEYS, VENUE_COLORS, venueStyle } from "@/lib/venue-colors";
 
 const ZOOM_KEY = "nicoly.board.zoom";
@@ -574,6 +576,7 @@ export function BoardGrid({
           onClick={() => setLayout({ ...layout, density: nextDensity(layout.density) })}
         >
           <Rows3Icon />
+          <span className="max-md:hidden">行の高さ</span>
           {density.label}
         </Button>
         {sel && (
@@ -694,7 +697,9 @@ export function BoardGrid({
                     <tr key={c.id} data-r={r++}>
                       {/* 現場の多い日があって行が高くなっても、取引先名は行の上にそろえる（真ん中に浮かないように） */}
                       <th data-c={0} className="sticky left-0 z-10 border-r border-b bg-background shadow-[4px_0_6px_-4px_rgb(16_24_40/0.14)] px-2 py-1.5 text-left align-top font-medium">
-                        <span className="line-clamp-[var(--lines,2)] break-all">{c.name}</span>
+                        <span className="line-clamp-[var(--lines,2)]">
+                          <CompanyName name={c.name} />
+                        </span>
                       </th>
                       {board.days.map((d, i) => {
                         const chips = c.cells[d.date] ?? [];
@@ -757,9 +762,9 @@ export function BoardGrid({
  */
 const DAY_W =
   "w-[var(--day-w,7rem)] min-w-[var(--day-w,7rem)] max-w-[var(--day-w,7rem)] md:w-[var(--day-w,9rem)] md:min-w-[var(--day-w,9rem)] md:max-w-[var(--day-w,9rem)]";
-/** 名前の列の幅 */
+/** 名前の列の幅（スマホでは細くして、日付の列を少しでも多く見せる。取引先名は2行まで） */
 const NAME_W =
-  "w-[var(--name-w,7rem)] min-w-[var(--name-w,7rem)] max-w-[var(--name-w,7rem)] md:w-[var(--name-w,11rem)] md:min-w-[var(--name-w,11rem)] md:max-w-[var(--name-w,11rem)]";
+  "w-[var(--name-w,6rem)] min-w-[var(--name-w,6rem)] max-w-[var(--name-w,6rem)] md:w-[var(--name-w,11rem)] md:min-w-[var(--name-w,11rem)] md:max-w-[var(--name-w,11rem)]";
 
 function dayColor(d: BoardDay) {
   if (d.isToday) return undefined;
@@ -768,7 +773,7 @@ function dayColor(d: BoardDay) {
   return undefined;
 }
 
-/** 列の色: 今日は青、土曜は薄い青、日曜・祝日は薄い赤（シフト表のアプリと同じ見分け方） */
+/** 列の色: 今日はうすい青、土日・祝日はうすい灰色（日付の文字は土曜が青、日曜・祝日が赤） */
 function colTint(d: BoardDay) {
   if (d.isToday) return "bg-today";
   if (d.weekday === "日" || d.holiday) return "bg-day-sun";
@@ -792,21 +797,7 @@ function SectionRow({ label, days, extra = 0 }: { label: React.ReactNode; days: 
  * 小さな札（欠員・そろった・打診中の人数）。マスの地は薄く、札だけ色をはっきりさせて目に入るようにする。
  * 色だけでなく文字でも分かるように必ず文字を入れる
  */
-function Pill({ tone, children, title }: { tone: "alert" | "done" | "waiting"; children: React.ReactNode; title?: string }) {
-  return (
-    <span
-      title={title}
-      className={cn(
-        "inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs font-bold leading-none tabular-nums",
-        tone === "alert" && "bg-status-alert-solid text-white",
-        tone === "done" && "bg-status-done-solid text-white",
-        tone === "waiting" && "bg-status-waiting-solid text-status-waiting-on-solid",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
+const Pill = StatusPill;
 
 function Cell({ onClick, label, children }: { onClick?: () => void; label: string; children: React.ReactNode }) {
   const cls = "flex min-h-[var(--row-h,2.75rem)] w-full min-w-0 flex-col items-stretch gap-0.5 overflow-hidden p-0.5 text-left";
@@ -869,7 +860,7 @@ function EventChip({ e, rate }: { e: BoardEventChip; rate?: string }) {
       </span>
       <span className="flex min-w-0 items-center gap-1">
         {short && <VenueDot />}
-        <span className="line-clamp-[var(--lines,2)] font-bold break-all group-data-[density=small]/board:truncate">{e.venueName}</span>
+        <span className="line-clamp-[var(--lines,2)] font-bold group-data-[density=small]/board:truncate">{e.venueName}</span>
       </span>
       <RateLine text={rate} />
     </span>
@@ -916,7 +907,7 @@ function StaffCellView({ cell, daily }: { cell: BoardStaffCell | undefined; dail
           <span className="flex min-w-0 items-center gap-1">
             {(dropped || a.status === "waitlisted") && <VenueDot />}
             <span className="min-w-0">
-              <span className="line-clamp-[var(--lines,2)] break-all">{a.venueName}</span>
+              <span className="line-clamp-[var(--lines,2)]">{a.venueName}</span>
               {a.status === "confirmed" && daily?.[a.id] ? <RateLine text={daily[a.id].toLocaleString("ja-JP")} /> : null}
             </span>
           </span>

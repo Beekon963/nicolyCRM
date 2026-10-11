@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 export const metadata = { title: "ホーム | NICOLY CRM" };
 
 
-function Row({ href, children, alert }: { href: string; children: React.ReactNode; alert?: boolean }) {
+function Row({ href, children, alert, bar = alert }: { href: string; children: React.ReactNode; alert?: boolean; bar?: boolean }) {
   return (
     <li>
       <Link
@@ -27,14 +27,26 @@ function Row({ href, children, alert }: { href: string; children: React.ReactNod
         data-alert={alert || undefined}
         className={cn(
           "relative -mx-2 flex min-h-12 items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-accent",
-          // 要対応は文字を赤くせず、左の赤い縦線で知らせる（赤は札と線だけにして落ち着かせる）
-          alert && "pl-4 before:absolute before:inset-y-2.5 before:left-1 before:w-[3px] before:rounded-full before:bg-status-alert-solid",
+          // 要対応は文字を赤くせず、左の赤い縦線で知らせる（赤は札と線だけにして落ち着かせる）。「欠2」の札がある行は札だけ
+          bar && "pl-4 before:absolute before:inset-y-2.5 before:left-1 before:w-[3px] before:rounded-full before:bg-status-alert-solid",
         )}
       >
         <span className="min-w-0 flex-1">{children}</span>
         <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground" />
       </Link>
     </li>
+  );
+}
+
+/** 要対応の中の見出し。文字は濃いグレー、件数だけ状態の色の小さな札にする（赤い文字を並べない） */
+function SubHead({ tone, children, count }: { tone: "alert" | "waiting"; children: React.ReactNode; count: string }) {
+  return (
+    <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-[#344054]">
+      {children}
+      <Badge tone={tone} className="tabular-nums">
+        {count}
+      </Badge>
+    </p>
   );
 }
 
@@ -79,7 +91,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       {/* 左の列（PC）: 要対応。スマホでは display: contents で並び順（order）に従う */}
       <div className="contents lg:col-start-1 lg:row-start-3 lg:flex lg:flex-col lg:gap-4 [&>*]:mx-4 lg:[&>*]:mx-0">
       {/* 2. 要対応（スマホでは今日・明日の下） */}
-      <Card className={cn("order-3", todo > 0 && "border-status-alert/50")}>
+      <Card className="order-3">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             要対応
@@ -94,15 +106,17 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         <CardContent className="flex flex-col gap-4">
           {d.shortages.length > 0 && (
             <div>
-              <p className="text-sm font-bold text-status-alert">7日以内で欠員のある現場（{d.shortages.length}件）</p>
+              <SubHead tone="alert" count={`${d.shortages.length}件`}>
+                7日以内で欠員のある現場
+              </SubHead>
               <ul className="divide-y">
                 {d.shortages.slice(0, 15).map((e) => (
-                  <Row key={e.id} href={`/events/${e.id}/candidates`} alert>
-                    <span className="flex items-center gap-1.5">
+                  <Row key={e.id} href={`/events/${e.id}/candidates`} alert bar={false}>
+                    {/* 日付は幅をそろえ、会場名は1行（どの行も同じ高さにする） */}
+                    <span className="flex items-center gap-2">
+                      <span className="w-[5.5rem] shrink-0 tabular-nums">{formatShortJa(e.date!)}</span>
                       <VenueColorDot color={e.venue?.color} />
-                      <span className="min-w-0 flex-1">
-                        {formatShortJa(e.date!)} {e.venue?.name}
-                      </span>
+                      <span className="min-w-0 flex-1 truncate">{e.venue?.name}</span>
                       <span className="shrink-0 rounded-full bg-status-alert-solid px-2 py-0.5 text-sm font-bold text-white tabular-nums">欠{e.shortage_total}</span>
                     </span>
                   </Row>
@@ -117,12 +131,12 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           )}
           {d.offers.length > 0 && (
             <div>
-              <p className={cn("text-sm font-bold", overdueOffers.length ? "text-status-alert" : "text-status-waiting")}>
-                未回答の打診（{d.offers.length}件{overdueOffers.length > 0 && `、うち24時間以上 ${overdueOffers.length}件`}）
-              </p>
+              <SubHead tone={overdueOffers.length ? "alert" : "waiting"} count={overdueOffers.length > 0 ? `${d.offers.length}件（24時間以上 ${overdueOffers.length}件）` : `${d.offers.length}件`}>
+                未回答の打診
+              </SubHead>
               <ul className="divide-y">
                 {d.offers.slice(0, 6).map((o) => (
-                  <Row key={o.id} href={`/events/${o.event.id}`} alert={o.overdue}>
+                  <Row key={o.id} href={`/events/${o.event.id}`} alert={o.overdue} bar={false}>
                     {o.staff?.name} — {formatShortJa(o.event.date)} {o.event.venue?.name}
                     {o.overdue && <Badge tone="alert" className="ml-2">24時間以上</Badge>}
                   </Row>
@@ -132,7 +146,9 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           )}
           {d.reminderPending.length > 0 && (
             <div>
-              <p className="text-sm font-bold text-status-alert">明日の現場で前日リマインドを送っていない（{d.reminderPending.length}件）</p>
+              <SubHead tone="alert" count={`${d.reminderPending.length}件`}>
+                明日の現場で前日リマインドを送っていない
+              </SubHead>
               <ul className="divide-y">
                 {d.reminderPending.map((e) => (
                   <Row key={e.id} href={`/events/${e.id}`} alert>
@@ -144,7 +160,9 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           )}
           {d.unreported.length > 0 && (
             <div>
-              <p className="text-sm font-bold text-status-alert">実績の未報告（{d.unreported.length}人）</p>
+              <SubHead tone="alert" count={`${d.unreported.length}人`}>
+                実績の未報告
+              </SubHead>
               <ul className="divide-y">
                 {d.unreported.slice(0, 6).map((a) => (
                   <Row key={a.id} href={`/events/${a.event.id}`} alert>
@@ -162,17 +180,28 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           {d.pendingExpenses > 0 && (
             <ul>
               <Row href="/expenses">
-                <span className="font-bold text-status-waiting">未承認の交通費・経費 {d.pendingExpenses}件</span>
+                <span className="flex flex-wrap items-center gap-2 font-semibold text-[#344054]">
+                  未承認の交通費・経費
+                  <Badge tone="waiting" className="tabular-nums">
+                    {d.pendingExpenses}件
+                  </Badge>
+                </span>
               </Row>
             </ul>
           )}
           {d.availability.missing > 0 && (
             <ul>
               <Row href={`/availability?month=${d.availability.month}`} alert={d.availability.late}>
-                <span className={cn("font-bold", d.availability.late ? "text-status-alert" : "text-status-waiting")}>
-                  {parse(`${d.availability.month}-01`).m}月分の稼働可能日 未提出 {d.availability.missing}人
+                <span className="flex flex-wrap items-center gap-2 font-semibold text-[#344054]">
+                  {parse(`${d.availability.month}-01`).m}月分の稼働可能日 未提出
+                  <Badge tone={d.availability.late ? "alert" : "waiting"} className="tabular-nums">
+                    {d.availability.missing}人
+                  </Badge>
                 </span>
-                <span className="ml-2 text-sm">（締切 {formatShortJa(d.availability.deadline)}{d.availability.late && " を過ぎています"}）</span>
+                <span className="block text-sm text-muted-foreground">
+                  締切 {formatShortJa(d.availability.deadline)}
+                  {d.availability.late && "（過ぎています）"}
+                </span>
               </Row>
             </ul>
           )}
@@ -219,7 +248,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </Card>
 
       {/* 3. 今日やること（営業）: 次回アクション日が今日以前の会社。期限切れは赤 */}
-      <Card className={cn("order-4", due.some((c) => c.next_action_date! < d.today) && "border-status-alert/50")}>
+      <Card className="order-4">
         <CardHeader>
           <CardTitle>今日やること（営業）</CardTitle>
           <Link href="/sales?next=due" className="text-sm text-primary">
@@ -235,11 +264,17 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 const overdue = c.next_action_date! < d.today;
                 return (
                   <li key={c.id} className="flex items-center gap-1">
-                    <Link href={`/sales/${c.id}`} className={cn("flex min-h-12 min-w-0 flex-1 flex-col justify-center py-2 hover:bg-accent", overdue && "text-status-alert")}>
+                    <Link href={`/sales/${c.id}`} className="flex min-h-12 min-w-0 flex-1 flex-col justify-center gap-0.5 py-2 hover:bg-accent">
                       <span className="truncate font-medium">{c.name}</span>
-                      <span className={cn("truncate text-sm", !overdue && "text-muted-foreground")}>
-                        {overdue ? `期限切れ ${formatShortJa(c.next_action_date!)}` : "今日"} {c.next_action}
-                        {c.owner && `（担当 ${c.owner.name}）`}
+                      {/* 会社名は赤くせず、期限切れ（赤）・今日（黄）は小さな札で */}
+                      <span className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                        <Badge tone={overdue ? "alert" : "waiting"} className="shrink-0">
+                          {overdue ? `期限切れ ${formatShortJa(c.next_action_date!)}` : "今日"}
+                        </Badge>
+                        <span className="truncate">
+                          {c.next_action}
+                          {c.owner && `（担当 ${c.owner.name}）`}
+                        </span>
                       </span>
                     </Link>
                     <RecordActivityButton company={c} variant="outline" size="sm" label="記録" />

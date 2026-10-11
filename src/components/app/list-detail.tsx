@@ -42,7 +42,8 @@ export function Section({
 /** 「項目名: 値」の並び */
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[6.5rem_1fr] gap-3 py-1.5">
+    // 項目名の幅はスマホで細め（値が「クローザー・/ディレクター」のように折り返さないように）。メモの表と同じ幅
+    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-1.5 sm:grid-cols-[7rem_1fr]">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 break-words">{children || <span className="text-muted-foreground">−</span>}</dd>
     </div>

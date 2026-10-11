@@ -38,7 +38,7 @@ export function PaidBar({ month, staffIds, defaultDate }: { month: string; staff
     ...(today !== defaultDate ? [{ label: "今日", value: today }] : []),
   ];
   return (
-    <div className="mx-4 flex flex-col gap-2 rounded-lg border p-3">
+    <div className="mx-4 flex flex-col gap-2 rounded-2xl border bg-card p-3 shadow-card">
       <p className="font-bold">支払済みにする</p>
       <div className="flex flex-wrap items-center gap-2">
         {options.map((o) => (

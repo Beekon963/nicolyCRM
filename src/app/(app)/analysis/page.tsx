@@ -43,13 +43,13 @@ export default async function AnalysisPage({ searchParams }: PageProps<"/analysi
     return q ? `/analysis?${q}` : "/analysis";
   };
   const seg = <T extends string>(label: string, options: [T, string][], current: T, key: "range" | "basis" | "by" | "sort", def: T) => (
-    <div role="group" aria-label={label} className="flex w-full gap-1 overflow-x-auto rounded-xl bg-muted p-1 text-sm sm:w-fit">
+    <div role="group" aria-label={label} className="flex w-full gap-1 overflow-x-auto rounded-xl bg-muted p-1 text-[15px] sm:w-fit">
       {options.map(([v, l]) => (
         <Link
           key={v}
           href={href({ [key]: v === def ? null : v })}
           aria-current={current === v ? "page" : undefined}
-          className={cn("flex h-10 flex-1 items-center justify-center rounded-md px-3 whitespace-nowrap sm:flex-none", current === v ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
+          className={cn("flex h-10 flex-1 items-center justify-center rounded-md px-2.5 whitespace-nowrap sm:flex-none sm:px-3", current === v ? "bg-background font-semibold text-foreground shadow-[0_1px_3px_rgb(16_24_40/0.1),0_1px_2px_rgb(16_24_40/0.06)]" : "text-muted-foreground")}
         >
           {l}
         </Link>
@@ -62,12 +62,7 @@ export default async function AnalysisPage({ searchParams }: PageProps<"/analysi
     <div className="flex flex-col gap-3 pb-8">
       <PageHeader title="実績の分析" description={`${formatShortJa(start)}〜${formatShortJa(end)}・獲得件数 ${sum}件（${basis === "confirmed" ? "確定" : "速報"}）`} />
       <div className="flex flex-col gap-2 px-4">
-        {seg("期間", (Object.keys(RANGE_LABEL) as RangeKey[]).map((k) => [k, RANGE_LABEL[k]]), range, "range", "month")}
-        {/* 確定/速報と並び順は1行に（スマホで結果を少しでも上に出すため） */}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 sm:flex sm:flex-wrap">
-          {seg("集計のもと", [["confirmed", "確定"], ["reported", "速報"]] as [Basis, string][], basis, "basis", "confirmed")}
-          {seg("並び", [["total", "件数の順"], ["avg", "1稼働あたり"]] as ["total" | "avg", string][], sort, "sort", "total")}
-        </div>
+        {/* いちばん大きな切り替え（だれ・どこ・どの会社ごとか）を先に */}
         <div className="flex gap-1 rounded-xl bg-muted p-1">
           {(Object.keys(BY_LABEL) as GroupBy[]).map((k) => (
             <Link
@@ -79,6 +74,12 @@ export default async function AnalysisPage({ searchParams }: PageProps<"/analysi
               {BY_LABEL[k]}
             </Link>
           ))}
+        </div>
+        {seg("期間", (Object.keys(RANGE_LABEL) as RangeKey[]).map((k) => [k, RANGE_LABEL[k]]), range, "range", "month")}
+        {/* 確定/速報と並び順は1行に（スマホで結果を少しでも上に出すため） */}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 sm:flex sm:flex-wrap">
+          {seg("集計のもと", [["confirmed", "確定"], ["reported", "速報"]] as [Basis, string][], basis, "basis", "confirmed")}
+          {seg("並び", [["total", "件数順"], ["avg", "1稼働あたり順"]] as ["total" | "avg", string][], sort, "sort", "total")}
         </div>
       </div>
 

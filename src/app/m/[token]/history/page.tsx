@@ -19,15 +19,15 @@ export default async function MypageHistory({ params }: PageProps<"/m/[token]/hi
             <li key={i} className="flex items-center gap-3 p-3">
               <span className="w-24 shrink-0 font-bold whitespace-nowrap tabular-nums">{formatShortJa(h.date)}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate">{h.venue}</span>
+                <span className="line-clamp-2">{h.venue}</span>
                 <span className="text-sm text-muted-foreground">{h.role}</span>
               </span>
               {h.status === "no_show" ? (
                 <Badge tone="muted">不稼働</Badge>
               ) : (
-                <span className="shrink-0 text-right text-sm whitespace-nowrap">
-                  <span className="block">確定 {h.confirmed ?? "−"}件</span>
-                  <span className="block text-muted-foreground">速報 {h.reported ?? "−"}件</span>
+                <span className="flex shrink-0 flex-col items-end gap-0.5 text-right text-sm whitespace-nowrap">
+                  {h.confirmed == null ? <Badge tone="waiting">確定待ち</Badge> : <span>確定 {h.confirmed}件</span>}
+                  <span className="text-muted-foreground">{h.reported == null ? "報告なし" : `速報 ${h.reported}件`}</span>
                 </span>
               )}
             </li>

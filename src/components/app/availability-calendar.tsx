@@ -15,7 +15,8 @@ export function nextStatus(s: AvailabilityStatus | null | undefined): Availabili
 const TONE: Record<AvailabilityStatus, string> = {
   ok: "bg-status-done-bg text-status-done border-status-done/40",
   maybe: "bg-status-waiting-bg text-status-waiting border-status-waiting/40",
-  ng: "bg-muted text-muted-foreground border-border",
+  // × は白地にうすい灰色（○・△ が埋もれないように。× の日がほとんどの月でも、出られる日がすぐ分かる）
+  ng: "bg-background text-[#98a2b3] border-border",
 };
 
 /**
@@ -49,7 +50,13 @@ export function AvailabilityCalendar({
 
   return (
     <div className="w-full max-w-md">
-      <p className="mb-1 font-bold">{m}月</p>
+      <p className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="font-bold">{m}月</span>
+        {/* 印の意味（いつも見えるところに） */}
+        <span className="text-sm text-muted-foreground">
+          <b className="text-status-done">○</b> {AVAILABILITY.ok.label}　<b className="text-status-waiting">△</b> {AVAILABILITY.maybe.label}　× {AVAILABILITY.ng.label}
+        </span>
+      </p>
       <div className="grid grid-cols-7 gap-1 text-center">
         {["日", "月", "火", "水", "木", "金", "土"].map((w, i) => (
           <div key={w} className={cn("text-sm", i === 0 && "text-status-alert", i === 6 && "text-primary")}>
@@ -68,7 +75,7 @@ export function AvailabilityCalendar({
               <span className={cn("text-xs", (wd === 0 || holiday) && "text-status-alert", wd === 6 && !holiday && "text-primary")}>
                 {dayNum}
               </span>
-              <span className="text-lg leading-none font-bold">{v ? AVAILABILITY[v].mark : ""}</span>
+              <span className={cn("text-lg leading-none", v === "ng" ? "font-normal" : "font-bold")}>{v ? AVAILABILITY[v].mark : ""}</span>
               {marks[d] && <span className="w-full truncate text-[10px] leading-tight text-primary">{marks[d]}</span>}
             </>
           );

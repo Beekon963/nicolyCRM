@@ -11,7 +11,7 @@ export default async function TrainingBookingPage({ params }: PageProps<"/t/[tok
   if (!r.ok) return <Message title="予約のページを開けません" text={r.error} />;
   return (
     <Shell>
-      <p className="text-muted-foreground">ご都合のよい日時を選んで、お名前を入れてください。</p>
+      {r.slots.length > 0 && <p className="text-muted-foreground">ご都合のよい日時を選んで、お名前を入れてください。</p>}
       {r.slots.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">いま予約できる日時はありません。担当者にご連絡ください。</p>
       ) : (

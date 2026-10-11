@@ -16,7 +16,8 @@ test("来週の土日2日分の現場（クローザー2名・キャッチャー
   await expect(page.getByRole("heading", { name: /^グループ:/ })).toBeVisible();
   const rows = page.getByRole("main").locator("li a:visible");
   await expect(rows).toHaveCount(2);
-  await expect(rows.first()).toContainText("0/3人 欠員3");
+  await expect(rows.first()).toContainText("0/3人");
+  await expect(rows.first()).toContainText("欠3");
   expect(Date.now() - started).toBeLessThan(60_000);
 });
 

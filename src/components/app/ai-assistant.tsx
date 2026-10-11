@@ -214,7 +214,7 @@ function AiPanel({ role, ready, open, onClose }: { role: "owner" | "manager"; re
         ) : items.length === 0 ? (
           <div className="flex flex-col gap-4">
             <p className="text-muted-foreground">
-              CRM のデータの質問、LINE の文面の下書き、使い方の案内ができます。LINE のスクショを付けて送ると、内容を読み取って登録の確認カードを出します（「登録する」を押すまで登録しません）。
+              このアプリのデータの質問、LINE の文面の下書き、使い方の案内ができます。LINE の画面の写真（スクリーンショット）を付けて送ると、読み取って登録の確認を出します（「登録する」を押すまで登録しません）。
               {role === "manager" && "金額は答えません。"}
             </p>
             <div className="flex flex-col gap-2">

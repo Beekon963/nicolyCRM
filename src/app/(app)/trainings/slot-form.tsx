@@ -18,7 +18,18 @@ const LENGTHS = [30, 45, 60, 90, 120];
 const STARTS = ["10:00", "13:00", "15:00", "19:00"];
 
 /** 研修の枠を作る。日付（複数）→ 始まる時刻 → 長さ → 続けていくつ、だけ選べば作れる */
-export function SlotForm({ defaults, today, days }: { defaults: { title: string; meetingUrl: string }; today: string; days: string[] }) {
+export function SlotForm({
+  defaults,
+  today,
+  days,
+  extra,
+}: {
+  defaults: { title: string; meetingUrl: string };
+  today: string;
+  days: string[];
+  /** 「研修の枠を作る」の横に並べるボタン（予約用リンク・設定） */
+  extra?: React.ReactNode;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [dates, setDates] = useState<string[]>([]);
@@ -41,17 +52,23 @@ export function SlotForm({ defaults, today, days }: { defaults: { title: string;
   };
   const total = dates.length * count;
 
+  // いちばん使う「研修の枠を作る」を先頭（スマホは全幅）。予約用リンク・設定はその横に白いボタンで
   if (!open)
     return (
-      <Button className="self-start" onClick={() => setOpen(true)}>
-        <PlusIcon />
-        研修の枠を作る
-      </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <Button className="w-full sm:w-auto" onClick={() => setOpen(true)}>
+          <PlusIcon />
+          研修の枠を作る
+        </Button>
+        {extra && <div className="flex flex-wrap gap-2">{extra}</div>}
+      </div>
     );
 
   return (
-    <form
-      className="flex flex-col gap-4 rounded-lg border p-4"
+    <>
+      {extra && <div className="flex flex-wrap gap-2">{extra}</div>}
+      <form
+      className="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-card"
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
@@ -181,6 +198,7 @@ export function SlotForm({ defaults, today, days }: { defaults: { title: string;
           やめる
         </Button>
       </div>
-    </form>
+      </form>
+    </>
   );
 }

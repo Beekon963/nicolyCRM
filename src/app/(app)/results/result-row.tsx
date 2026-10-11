@@ -72,7 +72,7 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
         {a.confirmed ? <Badge tone="done">確定済み</Badge> : a.submitted ? <Badge tone="waiting">報告済み・未確定</Badge> : <Badge tone="alert">未報告</Badge>}
         {a.source === "admin" && <span className="text-xs text-muted-foreground">入力: {INPUT_SOURCE.admin}</span>}
         </span>
-        {/* 履歴は同じ行の右端に（スマホでは文字を隠してアイコンだけ） */}
+        {/* 履歴は同じ行の右端に（アイコンだけだと何か分からないので文字も出す） */}
         <Button
           variant="ghost"
           size="sm"
@@ -80,14 +80,14 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
           onClick={() => start(async () => setHistory(await getReportHistory(a.id)))}
         >
           <HistoryIcon />
-          <span className="max-sm:sr-only">履歴</span>
+          履歴
         </Button>
       </div>
       {a.comment && <p className="rounded bg-muted px-2 py-1 text-sm">「{a.comment}」</p>}
       {proxy && editing && <p className="text-sm text-muted-foreground">未報告です。LINE などで聞いた件数を入れて確定できます（代理入力）。</p>}
 
-      {/* 項目ごとに1行（左に項目名と速報、右に件数）。カードを重ねず1つの枠にまとめる */}
-      <ul className="divide-y rounded-xl border bg-card">
+      {/* 項目ごとに1行（左に項目名と速報、右に件数）。枠を重ねず、うすい灰色の地でまとめる */}
+      <ul className="divide-y rounded-xl bg-[#f9fafb] px-1">
         {items.map((i) => {
           const differs = !proxy && i.reported != null && i.reported !== i.value;
           return (
@@ -95,7 +95,7 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
               <div className="flex items-center gap-3">
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{i.name}</span>
-                  {!proxy && <span className="block text-sm text-muted-foreground tabular-nums">速報 {i.reported ?? "−"}</span>}
+                  {!proxy && <span className="block text-sm text-muted-foreground tabular-nums">{i.reported == null ? "速報なし" : `速報 ${i.reported}`}</span>}
                 </span>
                 {editing ? (
                   <CountStepper label={`${a.name}の${i.name}の確定件数`} value={i.value} onChange={(v) => set(i.item_id, { value: v })} />

@@ -62,8 +62,9 @@
   --status-done-edge: #065f46;
   /* 稼働表の今日・土曜・日曜祝日の列（ごく薄く） */
   --today-bg: #eef4ff;
-  --day-sat-bg: #f5f9ff;
-  --day-sun-bg: #fff5f5;
+  /* 土日・祝日の列は色味のないうすい灰色（赤い地は「欠員」と、青い地は「今日」とまぎれるため）。土・日の区別は日付の文字の色で */
+  --day-sat-bg: #f7f8fa;
+  --day-sun-bg: #f7f8fa;
 }
 
 @theme inline {

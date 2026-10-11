@@ -16,7 +16,8 @@ export const ASSIGNMENT_STATUS: Record<Enums["assignment_status"], { label: stri
 };
 
 export const EVENT_STATUS: Record<string, { label: string; tone: Tone }> = {
-  planned: { label: "予定", tone: "waiting" },
+  // 「予定」はふつうの状態なので灰色（人が足りないことは赤い「欠」の札で出す。黄は打診中・未提出だけ）
+  planned: { label: "予定", tone: "muted" },
   staffed: { label: "人員確定", tone: "done" },
   done: { label: "実施済", tone: "brand" },
   results_confirmed: { label: "実績確定", tone: "done" },

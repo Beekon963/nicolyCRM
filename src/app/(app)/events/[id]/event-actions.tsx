@@ -49,7 +49,8 @@ export function EventActions({ id, date, cancelled }: { id: string; date: string
           中止を取り消す
         </Button>
       ) : (
-        <Button variant="ghost" size="sm" className="text-status-alert" onClick={() => setCancelOpen(true)}>
+        // 毎日使う「編集・複製」から離して右端に置く（押しまちがいを防ぐ。押しても確認が出る）
+        <Button variant="ghost" size="sm" className="ml-auto text-status-alert" onClick={() => setCancelOpen(true)}>
           <BanIcon />
           中止
         </Button>

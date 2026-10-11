@@ -70,7 +70,7 @@ export default async function ResultsPage({ searchParams }: PageProps<"/results"
     <>
       <PageHeader
         title="実績確認"
-        description="速報を確かめて確定件数を決めます（請求・支払いは確定件数で計算）"
+        description="速報を確かめて、確定件数を決めます"
         back={eventId ? `/events/${eventId}` : undefined}
         actions={
           <Button asChild variant="outline" size="sm">

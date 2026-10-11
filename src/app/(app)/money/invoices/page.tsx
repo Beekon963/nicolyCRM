@@ -6,7 +6,7 @@ import { formatShortJa } from "@/lib/date";
 import { getMonthMoney } from "@/lib/data/money";
 import { getMasters } from "@/lib/data/masters";
 import { formatYen, type InvoiceLine } from "@/lib/money";
-import { MoneyHeader, monthParam } from "../money-header";
+import { MoneyHeader, monthParam, StatTile } from "../money-header";
 
 export const metadata = { title: "請求 | お金 | NICOLY CRM" };
 
@@ -24,26 +24,39 @@ export default async function InvoicesPage({ searchParams }: PageProps<"/money/i
           ? "現場固定"
           : "交通費";
 
+  const allEstimate = money.clients.length > 0 && money.clients.every((c) => c.estimateSubtotal > 0);
+
   return (
-    <div className="flex flex-col gap-3 pb-8">
+    <div className="flex flex-col gap-4 pb-8">
       <MoneyHeader month={month} current="/money/invoices" closing={money.closing} />
       {money.clients.length === 0 ? (
         <EmptyState title="この月の現場はありません">現場ができると、取引先ごとの請求額がここに出ます。</EmptyState>
       ) : (
         <>
-          <p className="px-4 text-sm text-muted-foreground">
-            合計 税抜 {formatYen(money.clients.reduce((a, c) => a + c.subtotal, 0))} ・ 税込 {formatYen(money.clients.reduce((a, c) => a + c.total, 0))}
-          </p>
+          <div className="grid gap-3 px-4 sm:grid-cols-2">
+            <StatTile
+              label={`請求の合計（税込・${money.clients.length}社）`}
+              value={formatYen(money.clients.reduce((a, c) => a + c.total, 0))}
+              sub={<>税抜 {formatYen(money.clients.reduce((a, c) => a + c.subtotal, 0))}</>}
+            />
+            {/* 見込みを含むかは、全部のときはここで1回だけ言う（行ごとに同じ札を並べない） */}
+            {allEstimate && (
+              <p className="flex items-center gap-2 self-center text-sm text-muted-foreground">
+                <Badge tone="waiting">見込みを含む</Badge>
+                実績がまだ確定していない現場があります
+              </p>
+            )}
+          </div>
           <ul className="flex flex-col gap-3 px-4">
             {money.clients.map((c) => (
-              <li key={c.id} id={`c-${c.id}`} className="rounded-lg border">
+              <li key={c.id} id={`c-${c.id}`} className="rounded-2xl border bg-card shadow-card">
                 <details className="group">
                   <summary className="flex min-h-16 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 p-3">
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold">{c.name}</span>
                       <span className="block text-sm text-muted-foreground">
                         {c.events.filter((e) => !e.cancelled).length}現場
-                        {c.estimateSubtotal > 0 && <Badge tone="waiting" className="ml-2">見込みを含む</Badge>}
+                        {c.estimateSubtotal > 0 && !allEstimate && <Badge tone="waiting" className="ml-2">見込みを含む</Badge>}
                         {c.missingRoles.length > 0 && <Badge tone="alert" className="ml-2">単価が未設定</Badge>}
                       </span>
                     </span>

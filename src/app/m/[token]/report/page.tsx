@@ -24,11 +24,14 @@ export default async function MypageReports({ params }: PageProps<"/m/[token]/re
                 <span className="min-w-0 flex-1">
                   <span className="block text-lg font-bold">{formatShortJa(i.event.date)}</span>
                   <span className="block truncate">{i.event.venue.name}</span>
-                  <span className="mt-1 flex gap-1">
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                     {i.confirmed ? (
                       <Badge tone="done">確定済み</Badge>
                     ) : i.submitted_at ? (
-                      <Badge tone="done">送信済み（{formatShortJa(i.deadline)}まで修正可）</Badge>
+                      <>
+                        <Badge tone="done">送信済み</Badge>
+                        <span className="text-sm text-muted-foreground">{formatShortJa(i.deadline)}まで直せます</span>
+                      </>
                     ) : (
                       <Badge tone="alert">未報告</Badge>
                     )}

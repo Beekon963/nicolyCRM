@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { CompanyName } from "@/components/app/company-name";
 import { PageHeader } from "@/components/app/page-header";
 import { VenueColorDot } from "@/components/app/venue-color";
 import { requireMember } from "@/lib/auth";
@@ -45,9 +46,16 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
       <PageHeader
         title="候補を探す"
         description={
-          <span className="flex items-center gap-1.5">
-            <VenueColorDot color={ev.venue?.color} />
-            {`${formatShortJa(ev.date)} ${ev.venue?.name ?? ""}（${ev.client?.name ?? ""}）`}
+          <span className="flex flex-col">
+            <span className="flex items-center gap-1.5 font-medium text-[#344054]">
+              <VenueColorDot color={ev.venue?.color} />
+              {`${formatShortJa(ev.date)} ${ev.venue?.name ?? ""}`}
+            </span>
+            {ev.client?.name && (
+              <span>
+                <CompanyName name={ev.client.name} />
+              </span>
+            )}
           </span>
         }
         back={`/events/${id}`}

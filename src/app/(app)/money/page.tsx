@@ -7,9 +7,9 @@ import { requireOwner } from "@/lib/auth";
 import { parse } from "@/lib/date";
 import { byVenue, getMonthMoney, getTarget, getTrend } from "@/lib/data/money";
 import { getMasters } from "@/lib/data/masters";
-import { formatYen, type Split } from "@/lib/money";
+import { formatYen, type Split, targetProgress } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { MoneyHeader, monthParam } from "./money-header";
+import { MoneyHeader, monthParam, StatTile } from "./money-header";
 
 export const metadata = { title: "お金 | NICOLY CRM" };
 
@@ -18,35 +18,51 @@ const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : null)
 
 function Tile({ label, split, note }: { label: string; split: Split; note?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border p-3">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={cn("text-2xl font-bold tabular-nums", total(split) < 0 && "text-status-alert")}>{formatYen(total(split))}</p>
-      <p className="text-sm text-muted-foreground tabular-nums">
-        確定 {formatYen(split.confirmed)}
-        {split.estimate !== 0 && <> ・ 見込み {formatYen(split.estimate)}</>}
-      </p>
-      {note}
-    </div>
+    <StatTile
+      label={label}
+      value={formatYen(total(split))}
+      alert={total(split) < 0}
+      sub={
+        <>
+          確定 {formatYen(split.confirmed)}
+          {split.estimate !== 0 && <> ・ 見込み {formatYen(split.estimate)}</>}
+          {note}
+        </>
+      }
+    />
   );
 }
 
-/** 目標との比較（確定分の上に見込み分を重ねた横棒） */
+/**
+ * 目標との比較（確定分の上に見込み分を重ねた横棒）。
+ * 目標を超えたら、棒は実績の長さまで伸ばし、目標の位置に縦の線を引く。赤字のときは % ではなく「赤字」
+ */
 function TargetMeter({ label, split, target }: { label: string; split: Split; target: number }) {
   const t = total(split);
-  const w = (v: number) => `${Math.max(0, Math.min(100, (v / target) * 100))}%`;
-  const reached = t >= target;
+  const p = targetProgress(t, target);
+  // 棒の長さは見た目だけの割合（金額の計算ではない）
+  const scale = Math.max(target, t, 1);
+  const w = (v: number) => `${Math.max(0, Math.min(100, (v / scale) * 100))}%`;
+  const tick = (target / scale) * 100;
   return (
-    <div className="flex flex-col gap-1">
-      <p className="flex flex-wrap items-baseline justify-between gap-2">
+    <div className="flex flex-col gap-1.5">
+      <p className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium">{label}</span>
-        <span className="text-sm tabular-nums">
-          目標 {formatYen(target)} ・ {pct(t, target)}%{reached && <Badge tone="done" className="ml-2">達成</Badge>}
+        <span className="flex items-center gap-2 text-sm tabular-nums">
+          目標 {formatYen(target)}
+          {p.reached ? <Badge tone="done">✓ 達成 {p.pct}%</Badge> : p.pct == null ? <Badge tone="alert">赤字</Badge> : <b className="font-semibold">{p.pct}%</b>}
         </span>
       </p>
-      <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${label} 目標の${pct(t, target)}%（確定${pct(split.confirmed, target)}%）`}>
+      <div
+        className="relative flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted"
+        role="img"
+        aria-label={`${label} ${p.pct == null ? "赤字" : `目標の${p.pct}%`}${p.reached ? "（達成）" : `（あと${formatYen(p.remaining)}）`}`}
+      >
         <span className="h-full rounded-l-full bg-[#2a78d6]" style={{ width: w(Math.max(0, split.confirmed)) }} />
         <span className="h-full bg-[repeating-linear-gradient(45deg,#2a78d6_0_2px,transparent_2px_5px)]" style={{ width: w(Math.max(0, split.estimate)) }} />
+        {tick < 100 && <span aria-hidden className="absolute inset-y-0 w-0.5 bg-foreground" style={{ left: `${tick}%` }} />}
       </div>
+      {!p.reached && <p className="text-sm text-muted-foreground tabular-nums">目標まで あと {formatYen(p.remaining)}</p>}
     </div>
   );
 }
@@ -70,7 +86,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
       <div className="grid gap-3 px-4 sm:grid-cols-3">
         <Tile label="売上（税抜）" split={summary.revenue} />
         <Tile label="支払（報酬＋交通費・経費）" split={summary.pay} />
-        <Tile label="粗利" split={summary.gross} note={margin != null && <p className="text-sm text-muted-foreground">粗利率 {margin}%</p>} />
+        <Tile label="粗利" split={summary.gross} note={margin != null && <span className="block">粗利率 {margin}%</span>} />
       </div>
       <p className="px-4 text-sm text-muted-foreground">
         「確定」は実績が確定した現場、「見込み」はまだの現場（確定人数 × 人日単価 ＋ 現場固定 ＋ 速報件数 × 成果単価）です。
@@ -139,7 +155,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
 
 function Breakdown({ title, rows }: { title: string; rows: { id: string; name: string; revenue: number; gross: number; href: string; estimate?: boolean }[] }) {
   return (
-    <section className="rounded-lg border">
+    <section className="rounded-2xl border bg-card shadow-card">
       <h2 className="border-b px-4 py-2 font-bold">{title}</h2>
       {rows.length === 0 ? (
         <p className="p-4 text-sm text-muted-foreground">この月の現場はまだありません。</p>

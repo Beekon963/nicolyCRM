@@ -3,6 +3,7 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { StickySubmitBar } from "@/components/app/sticky-submit";
 import { VenueColorPicker } from "@/components/app/venue-color";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,9 +105,11 @@ export function VenueForm({ initial, areas }: { initial?: VenueInput; areas: { i
           )}
         </div>
       </details>
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "保存中…" : isNew ? "登録する" : "保存する"}
-      </Button>
+      <StickySubmitBar>
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? "保存中…" : isNew ? "登録する" : "保存する"}
+        </Button>
+      </StickySubmitBar>
     </form>
   );
 }

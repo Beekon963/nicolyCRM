@@ -1,6 +1,7 @@
 import { ExternalLinkIcon, PencilIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AddressText } from "@/components/app/address-text";
 import { Field, ListDetail, Section } from "@/components/app/list-detail";
 import { PageHeader } from "@/components/app/page-header";
 import { VenueColorDot } from "@/components/app/venue-color";
@@ -46,7 +47,7 @@ export default async function VenueDetailPage({ params, searchParams }: PageProp
               <Field label="住所">
                 {venue.address && (
                   <a href={mapUrl(venue)} target="_blank" rel="noreferrer" className="text-primary [&>svg]:ml-1 [&>svg]:inline [&>svg]:align-[-3px]">
-                    {venue.address}
+                    <AddressText address={venue.address} />
                     <ExternalLinkIcon className="size-4" />
                   </a>
                 )}

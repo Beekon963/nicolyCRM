@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
 import { formatShortJa } from "@/lib/date";
-import { EXPENSE_KIND, EXPENSE_STATUS, INPUT_SOURCE } from "@/lib/labels";
+import { EXPENSE_KIND, EXPENSE_STATUS } from "@/lib/labels";
 import { reviewExpenses } from "./actions";
 
 export type ExpenseRow = {
@@ -57,8 +57,8 @@ export function ExpenseList({ rows }: { rows: ExpenseRow[] }) {
             />
             すべて選ぶ
           </label>
-          <Button size="sm" disabled={!selected.length || pending} onClick={() => review(selected, "approved")}>
-            選んだ{selected.length}件を承認
+          <Button size="sm" variant={selected.length ? "default" : "secondary"} disabled={!selected.length || pending} onClick={() => review(selected, "approved")}>
+            {selected.length ? `選んだ${selected.length}件を承認` : "選んで承認"}
           </Button>
         </div>
       )}
@@ -88,13 +88,14 @@ export function ExpenseList({ rows }: { rows: ExpenseRow[] }) {
                 {EXPENSE_KIND[r.kind]}
                 {r.memo && `: ${r.memo}`}
               </p>
-              <p className="text-sm text-muted-foreground">
+              {/* 本人の申請がふつうなので、管理者が代わりに入れたときだけ札を出す */}
+              <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
                 {r.event && (
                   <Link href={`/events/${r.event.id}`} className="hover:underline">
                     {formatShortJa(r.event.date)} {r.event.venue}
                   </Link>
                 )}
-                （入力: {INPUT_SOURCE[r.source]}）
+                {r.source === "admin" && <Badge tone="muted">代理入力</Badge>}
               </p>
               {r.status === "rejected" && r.reject_reason && <p className="text-sm text-muted-foreground">却下理由: {r.reject_reason}</p>}
             </div>

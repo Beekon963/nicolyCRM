@@ -1,5 +1,6 @@
-import { CheckCircle2Icon, CircleAlertIcon, LockIcon, LockOpenIcon } from "lucide-react";
+import { CheckCircle2Icon, ChevronRightIcon, CircleAlertIcon, LockIcon, LockOpenIcon } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { requireOwner } from "@/lib/auth";
 import { formatShortJa, formatTimeJst, monthOf, nextMonth, parse, todayJst, toJstDateString } from "@/lib/date";
 import { getClosingChecklist, getClosingInfo, getMonthMoney } from "@/lib/data/money";
@@ -48,7 +49,7 @@ export default async function ClosingPage({ searchParams }: PageProps<"/money/cl
 
       <section
         className={cn(
-          "mx-4 flex flex-col gap-3 rounded-lg border p-4",
+          "mx-4 flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-card",
           closed && "border-status-done bg-status-done-bg",
           info.status === "unlocked" && "border-status-alert bg-status-alert-bg",
         )}
@@ -99,20 +100,28 @@ export default async function ClosingPage({ searchParams }: PageProps<"/money/cl
       </section>
 
       {!closed && (
-        <section className="mx-4 rounded-lg border">
+        <section className="mx-4 rounded-2xl border bg-card shadow-card">
           <h2 className="border-b px-4 py-2 font-bold">締める前のチェック</h2>
           <ul>
             {items.map((i) => (
-              <li key={i.label} className="flex min-h-12 items-center gap-3 border-b px-4 py-2 last:border-b-0">
-                {i.n > 0 ? <CircleAlertIcon className="size-5 shrink-0 text-status-alert" aria-hidden /> : <CheckCircle2Icon className="size-5 shrink-0 text-status-done" aria-hidden />}
-                <span className="min-w-0 flex-1">{i.label}</span>
+              <li key={i.label} className="border-b last:border-b-0">
+                {/* 未処理があるものは行ぜんたいを押せる（右の小さな数字だけでなく） */}
                 {i.n > 0 ? (
-                  <Link href={i.href} className="font-bold whitespace-nowrap text-status-alert underline underline-offset-2">
-                    {i.n}
-                    {i.unit}
+                  <Link href={i.href} className="flex min-h-12 items-center gap-3 px-4 py-2 transition-colors hover:bg-accent">
+                    <CircleAlertIcon className="size-5 shrink-0 text-status-alert" aria-hidden />
+                    <span className="min-w-0 flex-1">{i.label}</span>
+                    <Badge tone="alert" className="tabular-nums">
+                      {i.n}
+                      {i.unit}
+                    </Badge>
+                    <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
                   </Link>
                 ) : (
-                  <span className="whitespace-nowrap text-status-done">なし</span>
+                  <span className="flex min-h-12 items-center gap-3 px-4 py-2">
+                    <CheckCircle2Icon className="size-5 shrink-0 text-status-done" aria-hidden />
+                    <span className="min-w-0 flex-1">{i.label}</span>
+                    <span className="whitespace-nowrap text-status-done">なし</span>
+                  </span>
                 )}
               </li>
             ))}
@@ -121,7 +130,7 @@ export default async function ClosingPage({ searchParams }: PageProps<"/money/cl
         </section>
       )}
 
-      <section className="mx-4 rounded-lg border">
+      <section className="mx-4 rounded-2xl border bg-card shadow-card">
         <h2 className="border-b px-4 py-2 font-bold">締めの履歴</h2>
         {info.logs.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">まだありません。月が終わったら、上のチェックを確かめて締めてください。</p>

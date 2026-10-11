@@ -34,7 +34,8 @@ export function FilterBar({
   }
 
   return (
-    <div className={cn("flex flex-col gap-2 px-4 pb-3", pending && "opacity-70", className)}>
+    // 置かれた幅で並べ方を変える（PC で一覧と詳細を左右に並べたときの細い一覧でも、2列できれいにそろう）
+    <div className={cn("@container flex flex-col gap-2 px-4 pb-3", pending && "opacity-70", className)}>
       {searchPlaceholder && (
         <form
           className="relative"
@@ -50,17 +51,17 @@ export function FilterBar({
             defaultValue={params.get("q") ?? ""}
             placeholder={searchPlaceholder}
             aria-label="絞り込み検索"
-            className="h-11 w-full rounded-md border border-input bg-background pr-3 pl-10 text-base outline-none focus-visible:border-ring"
+            className="h-11 w-full rounded-xl border border-input bg-background pr-3 pl-10 text-base shadow-[0_1px_2px_rgb(16_24_40/0.05)] outline-none focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/15"
           />
         </form>
       )}
       {filters.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-2 @2xl:flex @2xl:flex-wrap">
           {filters.map((f) => (
             <NativeSelect
               key={f.name}
               aria-label={f.label}
-              className="sm:w-auto sm:min-w-32"
+              className="@2xl:w-auto @2xl:min-w-32"
               value={params.get(f.name) ?? f.defaultValue ?? ""}
               onChange={(e) => apply(f.name, e.target.value)}
             >

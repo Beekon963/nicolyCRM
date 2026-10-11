@@ -33,7 +33,7 @@ export function StaffList({
         actions={
           <>
             <Button asChild variant="outline" size="sm">
-              <Link href="/availability">提出状況</Link>
+              <Link href="/availability">稼働可能日の提出</Link>
             </Button>
             <Button asChild size="sm">
               <Link href="/staff/new">＋ 登録</Link>

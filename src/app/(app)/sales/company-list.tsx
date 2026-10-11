@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { RecordActivityButton } from "@/components/app/activity-sheet";
 import { FilterBar } from "@/components/app/filter-bar";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
+import { CompanyName } from "@/components/app/company-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatShortJa } from "@/lib/date";
@@ -12,13 +13,24 @@ import { type CompanyStatus, isNextActionMissing } from "@/lib/sales";
 import { cn } from "@/lib/utils";
 
 /** 次回アクションの1行（期限切れは赤、今日は太字、未設定は赤のバッジ。要件 §4.8） */
-function NextAction({ c, today }: { c: CompanyListRow; today: string }) {
+/**
+ * 次回アクション。期限切れは赤、今日は黄の小さな札を前に付ける（ヘッダーの「今日までの予定 〇社」と同じ数だけ札が並ぶ）。
+ * 文は濃いグレー（担当の行だけ薄く）。カンバンの細い列では2行まで折り返す
+ */
+function NextAction({ c, today, wrap }: { c: CompanyListRow; today: string; wrap?: boolean }) {
   if (c.next_action_date) {
     const overdue = c.next_action_date < today;
+    const isToday = c.next_action_date === today;
     return (
-      <span className={cn("block truncate text-sm", overdue ? "font-bold text-status-alert" : c.next_action_date === today ? "font-bold" : "text-muted-foreground")}>
-        {overdue ? "期限切れ " : c.next_action_date === today ? "今日 " : ""}
-        {formatShortJa(c.next_action_date)} {c.next_action}
+      <span className="flex min-w-0 items-start gap-1.5 text-[15px] text-[#344054]">
+        {(overdue || isToday) && (
+          <Badge tone={overdue ? "alert" : "waiting"} className="mt-px shrink-0">
+            {overdue ? "期限切れ" : "今日"}
+          </Badge>
+        )}
+        <span className={wrap ? "line-clamp-2" : "truncate"}>
+          {formatShortJa(c.next_action_date)} {c.next_action}
+        </span>
       </span>
     );
   }
@@ -153,7 +165,9 @@ export function CompanyList({
               <Link href={detailHref(c.id)} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2 pl-4 hover:bg-accent">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="truncate font-medium">{c.name}</span>
+                    <span className="truncate font-medium">
+                      <CompanyName name={c.name} />
+                    </span>
                     <Badge tone={COMPANY_STATUS[c.status].tone}>{COMPANY_STATUS[c.status].label}</Badge>
                     {c.priority === "high" && <Badge tone="brand">優先度 高</Badge>}
                   </span>
@@ -182,7 +196,7 @@ function Kanban({ companies, today, detailHref }: { companies: CompanyListRow[];
             <section
               key={s}
               aria-label={COMPANY_STATUS[s].label}
-              className={cn("flex shrink-0 flex-col gap-2 self-start rounded-2xl border bg-[#f9fafb] p-2", list.length ? "w-64" : "w-40")}
+              className={cn("flex shrink-0 flex-col gap-2 self-start rounded-2xl border bg-[#f9fafb] p-2", list.length ? "w-72" : "w-40")}
             >
               <h2 className="flex items-center justify-between gap-1 px-1 font-bold">
                 <Badge tone={COMPANY_STATUS[s].tone}>{COMPANY_STATUS[s].label}</Badge>
@@ -191,11 +205,14 @@ function Kanban({ companies, today, detailHref }: { companies: CompanyListRow[];
               {list.length === 0 && <p className="px-1 pb-1 text-sm text-muted-foreground">なし</p>}
               {list.map((c) => (
                 <Link key={c.id} href={detailHref(c.id)} className="flex min-h-14 flex-col gap-0.5 rounded-xl border bg-card p-2.5 shadow-card transition-colors hover:bg-accent">
-                  <span className="flex items-center gap-1">
-                    <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+                  {/* 会社名は2行まで（細い列でも「株式会社ミライセー…」と切れないように） */}
+                  <span className="flex items-start gap-1">
+                    <span className="line-clamp-2 min-w-0 flex-1 font-medium">
+                      <CompanyName name={c.name} />
+                    </span>
                     {c.priority === "high" && <Badge tone="brand">高</Badge>}
                   </span>
-                  <NextAction c={c} today={today} />
+                  <NextAction c={c} today={today} wrap />
                   {c.owner && <span className="truncate text-sm text-muted-foreground">担当 {c.owner.name}</span>}
                 </Link>
               ))}
