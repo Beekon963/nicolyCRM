@@ -22,12 +22,14 @@ const PAGES = [
   "/events/bulk",
   "/availability",
   "/results",
+  "/results/daily",
   "/analysis",
   "/analysis?by=client&range=12m",
   "/results?show=all",
   "/expenses",
   "/expenses?status=approved",
   "/search?q=サンプル",
+  "/trainings",
   "/more",
 ];
 

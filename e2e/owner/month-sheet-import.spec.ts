@@ -138,3 +138,12 @@ test("月のシートから、現場・アサイン・稼働可能日・単価�
     await sql(`delete from venues where name = $1`, [newVenue]);
   }
 });
+
+test("Google スプレッドシートから直接読む: URL を入れて月のタブを探す（サービスアカウントが未設定なら直し方を出す）", async ({ page }) => {
+  await page.goto("/import");
+  await page.getByRole("button", { name: /月の稼働表/ }).click();
+  await expect(page.getByText("Google スプレッドシートから直接読む")).toBeVisible();
+  await page.getByLabel("スプレッドシートの URL").fill("https://docs.google.com/spreadsheets/d/TEST_SHEET_ID_0123456789abcdef/edit");
+  await page.getByRole("button", { name: "月のタブを探す" }).click();
+  await expect(page.getByText(/Google のサービスアカウントが未設定です/)).toBeVisible();
+});

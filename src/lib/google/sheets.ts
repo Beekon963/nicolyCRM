@@ -35,10 +35,13 @@ export function spreadsheetIdFrom(input: string): string | null {
   return /^[\w-]{20,}$/.test(s) ? s : null;
 }
 
-export async function getAccessToken(sa: ServiceAccount, fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<string> {
+export const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+
+export async function getAccessToken(sa: ServiceAccount, fetchImpl: typeof fetch = fetch, now = Date.now(), scope = SHEETS_SCOPE): Promise<string> {
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
   const iat = Math.floor(now / 1000);
-  const unsigned = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ iss: sa.client_email, scope: "https://www.googleapis.com/auth/spreadsheets", aud: TOKEN_URL, iat, exp: iat + 3600 })}`;
+  const unsigned = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ iss: sa.client_email, scope, aud: TOKEN_URL, iat, exp: iat + 3600 })}`;
   let sig: string;
   try {
     sig = createSign("RSA-SHA256").update(unsigned).sign(sa.private_key, "base64url");
@@ -78,6 +81,15 @@ export class SheetsClient {
   async sheetTitles(): Promise<string[]> {
     const j = (await this.call("?fields=sheets.properties.title")) as { sheets?: { properties: { title: string } }[] };
     return (j.sheets ?? []).map((s) => s.properties.title);
+  }
+
+  /** タブの中身を、画面に見えている文字のまま読む（右端の空のマスは省かれるので、行の長さはそろえる） */
+  async readValues(title: string): Promise<string[][]> {
+    const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'`);
+    const j = (await this.call(`/values/${range}?valueRenderOption=FORMATTED_VALUE`)) as { values?: string[][] };
+    const rows = (j.values ?? []).map((r) => r.map((v) => String(v ?? "")));
+    const width = Math.max(0, ...rows.map((r) => r.length));
+    return rows.map((r) => [...r, ...Array<string>(width - r.length).fill("")]);
   }
 
   /** タブの左上（A1）の文字（空なら ""） */

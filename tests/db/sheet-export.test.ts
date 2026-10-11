@@ -68,13 +68,15 @@ describe("スプレッドシートへの書き出し", () => {
     expect(written).toHaveLength(2);
     expect(written[0][1].slice(0, 4)).toEqual(["ランク", "名前", "最寄り駅", "曜日"]);
     // スタッフの行には名前が入る
-    const staffRows = written[0].filter((r) => r[3] === "場所");
+    const staffRows = written[0].filter((r) => r[3] === "単価" && r[1] !== "");
     expect(staffRows.length).toBeGreaterThan(0);
-    expect(staffRows.every((r) => r[1] !== "")).toBe(true);
+    expect(staffRows.length).toBe(written[0].filter((r) => r[3] === "シフト").length);
     expect(written[0].length).toBeGreaterThan(10);
     const all = JSON.stringify(written);
     for (const s of Object.values(SENTINELS)) expect(all).not.toContain(String(s));
-    expect(all).not.toMatch(/090-0000-|¥|単価/);
+    expect(all).not.toMatch(/090-0000-|¥|円/);
+    // 「単価」の行は並びをそろえるためだけで、中は空
+    expect(written.flat().filter((r) => r[3] === "単価").every((r) => r.slice(4, -1).every((v) => v === ""))).toBe(true);
 
     const log = (await getPool().query(`select ok, message, source from public.sheet_exports order by ran_at desc limit 1`)).rows[0];
     expect(log).toEqual({ ok: true, message: r.message, source: "button" });

@@ -60,13 +60,13 @@ describe("RLS の付け忘れがない", () => {
 
 describe("ログインしていない利用者（マイページ以外）", () => {
   it("どのテーブルも読めない", async () => {
-    for (const t of ["staff", "events", "assignments", "staff_private", "app_users", "settings"]) {
+    for (const t of ["staff", "events", "assignments", "staff_private", "app_users", "settings", "training_slots", "training_bookings", "share_links"]) {
       const r = await asRole("anon", (c) => tryQuery(c, `select * from public.${t} limit 1`));
       expect(r.ok, t).toBe(false);
     }
   });
 
-  it("マイページ用・見るだけリンク用以外の関数を実行できない", async () => {
+  it("マイページ用・見るだけリンク用・研修の予約用以外の関数を実行できない", async () => {
     const rows = await asAdmin(async (c) =>
       (
         await c.query(`
@@ -75,7 +75,7 @@ describe("ログインしていない利用者（マイページ以外）", () =
            order by 1`)
       ).rows.map((r) => r.proname as string),
     );
-    expect(rows.filter((name) => !name.startsWith("mypage_") && name !== "share_board")).toEqual([]);
+    expect(rows.filter((name) => !name.startsWith("mypage_") && !name.startsWith("training_public_") && name !== "share_board")).toEqual([]);
   });
 });
 

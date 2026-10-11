@@ -17,3 +17,11 @@ test("管理者はデータ取り込み・変更履歴を開けない", async ({
     expect(res?.status(), path).toBe(404);
   }
 });
+
+test("管理者も研修の予約を使える（カレンダー連携の設定はオーナーだけ）", async ({ page }) => {
+  await page.goto("/trainings");
+  await expect(page.getByRole("button", { name: "研修の枠を作る" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "予約用リンク" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "カレンダー連携・設定" })).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
+});

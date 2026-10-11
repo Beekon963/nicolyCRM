@@ -9,6 +9,7 @@ import type { ParsedMonthSheet } from "@/lib/import/month-sheet";
 import { buildPlan, type PlanChoices, type PlanContext, type Ref } from "@/lib/import/month-sheet-plan";
 import { selectAll } from "@/lib/supabase/select-all";
 import { createClient } from "@/lib/supabase/server";
+import { getAccessToken, readServiceAccount, SheetError, SheetsClient, spreadsheetIdFrom } from "@/lib/google/sheets";
 
 const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "対象の月を選んでください");
 
@@ -198,4 +199,31 @@ export async function importMonthSheet(parsedInput: ParsedMonthSheet, choicesInp
 
   revalidatePath("/", "layout");
   return ok("取り込みました", report);
+}
+
+/**
+ * Google スプレッドシートの月のタブを直接読む（CSV を落とさなくてよい）。tab がなければタブの一覧だけ返す。
+ * シートへの書き出しと同じサービスアカウントで読む（シートを「リンクを知っている全員」か、サービスアカウントに共有しておく）。
+ */
+export async function readGoogleSheetTab(urlOrId: string, tab: string | null): Promise<ActionResult<{ tabs: string[]; rows?: string[][] }>> {
+  await assertOwner();
+  const id = spreadsheetIdFrom(urlOrId);
+  if (!id) return fail("スプレッドシートの URL を貼り付けてください（https://docs.google.com/spreadsheets/d/… の形）");
+  const sa = readServiceAccount();
+  if (!sa) return fail("Google のサービスアカウントが未設定です（シートへの書き出しと同じ設定です。docs/setup.md の「シートへの自動書き出し」）");
+  try {
+    const client = new SheetsClient(await getAccessToken(sa), id, sa.client_email);
+    const titles = await client.sheetTitles();
+    const tabs = titles.filter((t) => /^\d{6}$/.test(t)).sort((a, b) => b.localeCompare(a));
+    if (!tab) {
+      if (!tabs.length) return fail("このスプレッドシートには「202611」のような月のタブがありません");
+      return ok(undefined, { tabs });
+    }
+    if (!titles.includes(tab)) return fail(`「${tab}」タブが見つかりません`);
+    return ok(undefined, { tabs, rows: await client.readValues(tab) });
+  } catch (e) {
+    if (e instanceof SheetError)
+      return fail(e.message.includes("書き込めません") ? `スプレッドシートを開けません。共有に ${sa.client_email} を追加してください（読むだけなら「閲覧者」で足ります）` : e.message);
+    return fail("スプレッドシートを読めませんでした。時間をおいてもう一度試してください");
+  }
 }

@@ -64,6 +64,8 @@ test("稼働表: オーナーには右端に売上・報酬の列と、その月
   await expect(page.getByText(/^売上・報酬/)).toBeAttached();
   await expect(page.getByText("この月（オーナーのみ）:")).toBeVisible();
   await expect(page.getByRole("cell", { name: /^[\d,]+円$/ }).first()).toBeAttached();
+  // マスの中に単価（今のシートの「単価」の行と同じ情報）
+  await expect(page.getByText(/^¥[\d,]+(〜[\d,]+)?$/).first()).toBeAttached();
 });
 
 test("管理者はお金の画面を開けず、ホームにも今月の数字が出ない", async ({ browser }) => {
@@ -81,6 +83,7 @@ test("管理者はお金の画面を開けず、ホームにも今月の数字�
   await expect(page.getByRole("region", { name: /稼働表/ })).toBeVisible();
   await expect(page.getByText("売上・報酬")).toHaveCount(0);
   await expect(page.getByText("この月（オーナーのみ）")).toHaveCount(0);
+  await expect(page.getByText(/^¥[\d,]+/)).toHaveCount(0);
   await ctx.close();
 });
 

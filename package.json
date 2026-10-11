@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:e2e": "ANTHROPIC_API_KEY=e2e-test ANTHROPIC_BASE_URL=http://127.0.0.1:4010 ANTHROPIC_MODEL=e2e-mock next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --project unit",
@@ -22,6 +23,7 @@
     "create-owner": "node --env-file=.env.local scripts/create-owner.mts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
     "@holiday-jp/holiday_jp": "^2.5.2",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",

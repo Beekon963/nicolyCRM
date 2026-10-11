@@ -13,11 +13,11 @@ import { decodeCsv, parseCsv } from "@/lib/csv";
 import { todayJst } from "@/lib/date";
 import { guessMonth, parseMonthSheet, type ParsedMonthSheet } from "@/lib/import/month-sheet";
 import { buildPlan, defaultChoices, NEW, SKIP, type PlanChoices, type PlanContext } from "@/lib/import/month-sheet-plan";
-import { getMonthSheetContext, importMonthSheet, type MonthSheetReport } from "./month-sheet-actions";
+import { getMonthSheetContext, importMonthSheet, type MonthSheetReport, readGoogleSheetTab } from "./month-sheet-actions";
 
 type Opt = { id: string; name: string };
 
-export function MonthSheetImport({ roles, onBack }: { roles: Opt[]; onBack: () => void }) {
+export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { roles: Opt[]; onBack: () => void; defaultSheetUrl?: string }) {
   const [parsed, setParsed] = useState<ParsedMonthSheet | null>(null);
   const [fileName, setFileName] = useState("");
   const [month, setMonth] = useState("");
@@ -26,6 +26,8 @@ export function MonthSheetImport({ roles, onBack }: { roles: Opt[]; onBack: () =
   const [choices, setChoices] = useState<PlanChoices | null>(null);
   const [report, setReport] = useState<MonthSheetReport | null>(null);
   const [pending, start] = useTransition();
+  const [sheetUrl, setSheetUrl] = useState(defaultSheetUrl);
+  const [tabs, setTabs] = useState<string[] | null>(null);
 
   const plan = useMemo(() => (parsed && ctx && choices ? buildPlan(parsed, ctx, choices) : null), [parsed, ctx, choices]);
 
@@ -42,15 +44,33 @@ export function MonthSheetImport({ roles, onBack }: { roles: Opt[]; onBack: () =
     });
   }
 
-  async function onFile(file: File) {
-    const p = parseMonthSheet(parseCsv(decodeCsv(await file.arrayBuffer())));
+  function takeRows(rows: string[][], name: string) {
+    const p = parseMonthSheet(rows);
     if (!p.days.length) return void toast.error(p.warnings[0] ?? "月のシートとして読めませんでした");
     const m = guessMonth(p.month, todayJst());
-    setFileName(file.name);
+    setFileName(name);
     setParsed(p);
     setMonth(m);
     load(p, m);
   }
+
+  async function onFile(file: File) {
+    takeRows(parseCsv(decodeCsv(await file.arrayBuffer())), file.name);
+  }
+
+  /** Google スプレッドシートのタブの一覧 → 選んだタブを直接読む */
+  const listTabs = () =>
+    start(async () => {
+      const r = await readGoogleSheetTab(sheetUrl, null);
+      if (!r.ok) return void toast.error(r.message);
+      setTabs(r.data!.tabs);
+    });
+  const readTab = (tab: string) =>
+    start(async () => {
+      const r = await readGoogleSheetTab(sheetUrl, tab);
+      if (!r.ok) return void toast.error(r.message);
+      takeRows(r.data!.rows ?? [], `${tab}（スプレッドシート）`);
+    });
 
   if (report) {
     return (
@@ -108,6 +128,25 @@ export function MonthSheetImport({ roles, onBack }: { roles: Opt[]; onBack: () =
             ))}
           </NativeSelect>
         </div>
+        <div className="flex flex-col gap-2 rounded-lg border p-4">
+          <p className="font-bold">Google スプレッドシートから直接読む</p>
+          <p className="text-sm text-muted-foreground">管理用スプレッドシートの URL を貼って「月のタブを探す」→ 取り込みたい月を押します（CSV を保存しなくて済みます）。</p>
+          <Label htmlFor="ms-sheet-url">スプレッドシートの URL</Label>
+          <Input id="ms-sheet-url" value={sheetUrl} placeholder="https://docs.google.com/spreadsheets/d/…" onChange={(e) => (setSheetUrl(e.target.value), setTabs(null))} />
+          <Button variant="outline" className="self-start" disabled={pending || !sheetUrl.trim()} onClick={listTabs}>
+            {pending && !tabs ? "読み込み中…" : "月のタブを探す"}
+          </Button>
+          {tabs && (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="取り込む月のタブ">
+              {tabs.map((t) => (
+                <Button key={t} variant="outline" disabled={pending} onClick={() => readTab(t)}>
+                  {t}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">または、CSV ファイルを選ぶ</p>
         <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 hover:bg-accent">
           <FileUpIcon className="size-8 text-muted-foreground" />
           <span className="font-medium">{pending ? "読み込み中…" : "月のシートの CSV を選ぶ"}</span>

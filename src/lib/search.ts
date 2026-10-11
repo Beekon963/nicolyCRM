@@ -37,3 +37,9 @@ export function matchesQuery(q: string, fields: { text?: (string | null | undefi
 export function likePattern(text: string): string {
   return `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
+
+/** PostgREST の or() に入れる部分一致（値はダブルクォートで囲んでカンマなどを無害にする） */
+export function orLike(cols: string[], value: string) {
+  const v = `%${value.replace(/[\\%_]/g, (c) => `\\${c}`).replace(/"/g, "")}%`;
+  return cols.map((c) => `${c}.ilike."${v}"`).join(",");
+}

@@ -165,6 +165,10 @@ test("書き出し: 支払明細・freee・振込データ（全銀）・全デ�
     expect(staffCsv).toContain(staff.name);
     expect(staffCsv).not.toContain("mypage_token");
     expect(Object.keys(files)).toContain("はじめにお読みください.txt");
+    // 研修の予約の控えの鍵も入らない
+    const bookings = Object.entries(files).find(([n]) => n.endsWith("_研修の予約.csv"));
+    expect(bookings).toBeTruthy();
+    expect(strFromU8(bookings![1])).not.toContain("cancel_token");
   } finally {
     await sql(`delete from owner_settings where key = 'zengin'`);
     if (before[0]) await sql(`insert into owner_settings (key, value) values ('zengin', $1)`, [JSON.stringify(before[0].value)]);

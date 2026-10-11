@@ -8,9 +8,10 @@ import { useState } from "react";
 import type { AppUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { RecordActivityPicker } from "./activity-sheet";
+import { AiAssistant } from "./ai-assistant";
 import { MORE_TAB, NAV_ITEMS, isActive, visibleItems } from "./nav-items";
 
-export function AppShell({ user, children }: { user: AppUser; children: React.ReactNode }) {
+export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
   const items = visibleItems(user.role);
   const tabs = [...items.filter((i) => i.tab), MORE_TAB];
@@ -69,6 +70,7 @@ export function AppShell({ user, children }: { user: AppUser; children: React.Re
               className="h-11 w-full rounded-full border border-input bg-muted/50 pr-3 pl-10 text-base outline-none focus-visible:border-ring focus-visible:bg-background"
             />
           </form>
+          <AiAssistant role={user.role} ready={aiReady} />
         </header>
 
         <main className="flex w-full min-w-0 flex-1 flex-col pb-24 md:pb-8">{children}</main>

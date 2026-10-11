@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/settings/masters/ranks", label: "ランク", description: "ランクの並びと基準日当" },
   { href: "/settings/masters/areas", label: "エリア", description: "スタッフの対応エリア・会場のエリア" },
   { href: "/settings/templates", label: "文面テンプレート", description: "打診・確定連絡・前日リマインドなどの文面" },
+  { href: "/settings/report-formats", label: "日報のフォーマット", description: "取引先ごとの日報の書式（LINE にコピー）" },
   { href: "/settings/general", label: "締切・会社情報", description: "稼働可能日の締切日、実績報告の期限、会社情報" },
   { href: "/settings/money", label: "お金の設定", description: "インセンティブ単価、消費税、源泉徴収、支払日" },
   { href: "/settings/targets", label: "月次目標", description: "月ごとの売上・粗利の目標" },

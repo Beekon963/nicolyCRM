@@ -8,13 +8,13 @@ import { NextResponse, type NextRequest } from "next/server";
  * - マイページ・見るだけリンクは URL の鍵が漏れないよう Referrer を送らない・キャッシュしない
  */
 // /api/cron/ は Cron 用（中で CRON_SECRET を確かめる）
-const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/s/", "/api/cron/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
+const PUBLIC_PATHS = ["/login", "/auth/", "/m/", "/s/", "/t/", "/api/cron/", "/manifest.webmanifest", "/robots.txt", "/icons/", "/logo.png"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // マイページと稼働表の見るだけリンク（ログイン不要。鍵が漏れないよう Referrer を送らない・キャッシュしない）
-  if (pathname.startsWith("/m/") || pathname.startsWith("/s/")) {
+  // マイページ・稼働表の見るだけリンク・研修の予約（ログイン不要。鍵が漏れないよう Referrer を送らない・キャッシュしない）
+  if (pathname.startsWith("/m/") || pathname.startsWith("/s/") || pathname.startsWith("/t/")) {
     const res = NextResponse.next();
     res.headers.set("Referrer-Policy", "no-referrer");
     res.headers.set("Cache-Control", "private, no-store");
