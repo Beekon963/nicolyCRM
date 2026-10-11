@@ -4,7 +4,7 @@
  *
  * マスの番地: 行 r は gridRows() の順（0 = 日付の行）、列 c は 0 = 名前、1〜日数 = 各日、最後 = 稼働日数。
  */
-import { AVAILABILITY_MARK, type AvailabilityStatus, type Board } from "./index";
+import { AVAILABILITY_MARK, type AvailabilityStatus, type Board, type BoardStaffAssignment } from "./index";
 
 export type GridRow = { kind: "header" } | { kind: "shortage" } | { kind: "client"; id: string } | { kind: "staff"; id: string };
 export type Pos = { r: number; c: number };
@@ -117,12 +117,15 @@ export function cellText(board: Board, row: GridRow, c: number): string {
       const cell = s.cells[day.date];
       if (!cell) return "";
       if (cell.assignments.length) {
-        return cell.assignments.map((a) => `${a.status === "offered" ? "打 " : a.status === "waitlisted" ? "補 " : ""}${a.venueName}`).join(" / ");
+        return cell.assignments.map((a) => `${ASSIGNMENT_PREFIX[a.status]}${a.venueName}`).join(" / ");
       }
       return cell.availability ? AVAILABILITY_MARK[cell.availability] : "";
     }
   }
 }
+
+/** コピーするときの頭の文字（画面のマスと同じ） */
+const ASSIGNMENT_PREFIX: Record<BoardStaffAssignment["status"], string> = { confirmed: "", offered: "打 ", waitlisted: "補 ", cancelled: "キャンセル ", no_show: "不稼働 " };
 
 function tsvCell(text: string) {
   return /[\t\n\r"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;

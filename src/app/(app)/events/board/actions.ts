@@ -43,7 +43,7 @@ export async function assignFromBoard(
     const r = await setAssignmentStatus(cur.id, "confirmed");
     if (!r.ok) return r;
     revalidate(eventId);
-    return ok("確定にしました", { id: cur.id, previous: cur.status as LiveStatus });
+    return ok(await confirmedMessage(eventId), { id: cur.id, previous: cur.status as LiveStatus });
   }
 
   const now = new Date().toISOString();
@@ -61,7 +61,14 @@ export async function assignFromBoard(
   if (error || !data) return fail(dbErrorMessage(error));
   if (status === "confirmed") await enqueueConfirmed([data.id], me.id);
   revalidate(eventId);
-  return ok(status === "confirmed" ? "確定にしました" : "打診しました", { id: data.id, previous: null });
+  return ok(status === "confirmed" ? await confirmedMessage(eventId) : "打診しました", { id: data.id, previous: null });
+}
+
+/** 確定したあとの文。この確定で現場の欠員がなくなったら、そう伝える */
+async function confirmedMessage(eventId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.from("event_overview").select("shortage_total").eq("id", eventId).maybeSingle();
+  return data?.shortage_total === 0 ? "確定にしました。この現場は全員そろいました！" : "確定にしました";
 }
 
 /** assignFromBoard を元に戻す */

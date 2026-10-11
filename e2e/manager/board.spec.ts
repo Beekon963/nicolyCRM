@@ -8,12 +8,16 @@ import { expectNoHorizontalScroll } from "../helpers/layout";
 test.describe("稼働表", () => {
   let date = "";
   let eventId = "";
+  let venue = "";
+  let roleId = "";
   let staff: { id: string; name: string };
 
   test.beforeEach(async () => {
     date = await freeFutureDate();
     const ev = await makeEvent(`'${date}'::date`, { required: 1 });
     eventId = ev.id;
+    venue = ev.venue;
+    roleId = ev.roleId;
     staff = await one(
       `select s.id, s.name from staff s join staff_roles sr on sr.staff_id = s.id
         where s.status = 'active' and sr.role_id = $1
@@ -54,6 +58,34 @@ test.describe("稼働表", () => {
     await expect(dialog.getByRole("status")).toContainText("元に戻しました");
     await expect(row.getByRole("button", { name: "確定にする" })).toBeVisible();
     expect(await sql(`select 1 from assignments where event_id = $1 and staff_id = $2`, [eventId, staff.id])).toHaveLength(0);
+  });
+
+  test("キャンセルになった人のマスと、欠員のある現場はマスごと赤。そろった現場は会場の色", async ({ page }) => {
+    // 確定 → キャンセルの「変更」はお知らせ（ポップアップ）が出てほかのテストの邪魔になるので、最初からキャンセルで入れる
+    await sql(`insert into assignments (event_id, staff_id, role_id, status, cancel_reason_code) values ($1, $2, $3, 'cancelled', 'self')`, [eventId, staff.id, roleId]);
+    await page.goto(`/events/board?month=${date.slice(0, 7)}`);
+    const day = Number(date.slice(8));
+    const staffCell = page.getByRole("button", { name: `${staff.name} ${day}日`, exact: true });
+    const dropped = staffCell.locator('[data-tile="cancelled"]');
+    await expect(dropped).toContainText("キャンセル");
+    await expect(dropped).toHaveCSS("background-color", "rgb(220, 38, 38)");
+    const client = await one<{ name: string }>(`select c.name from events e join companies c on c.id = e.client_id where e.id = $1`, [eventId]);
+    const clientCell = page.getByRole("button", { name: `${client.name} ${day}日`, exact: true });
+    const shortage = clientCell.locator('[data-tile="shortage"]', { hasText: venue });
+    await expect(shortage).toHaveCSS("background-color", "rgb(220, 38, 38)");
+    await expect(shortage).toContainText("欠1");
+    await expect(page.getByTestId("board-gauge")).toBeVisible();
+
+    // 別の人を確定にすると、現場のマスは会場の色に変わる
+    const other = await one<{ id: string }>(
+      `select id from staff where status = 'active' and id <> $1 and not exists (select 1 from assignments a where a.staff_id = staff.id and a.event_id = $2) order by random() limit 1`,
+      [staff.id, eventId],
+    );
+    await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [eventId, other.id, roleId]);
+    await page.reload();
+    const filled = clientCell.locator('[data-tile="filled"]', { hasText: venue });
+    await expect(filled).toBeVisible();
+    await expect(filled).not.toHaveCSS("background-color", "rgb(220, 38, 38)");
   });
 
   test("マスから打診すると、その人のマイページURL入りの文面が出る（PC はコピーだけ）", async ({ page, isMobile }) => {

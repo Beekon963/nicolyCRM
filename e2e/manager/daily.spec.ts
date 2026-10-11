@@ -10,8 +10,12 @@ test("欠員がホームに赤で出て、埋まると消える", async ({ page 
     await page.goto("/");
     await expectNoHorizontalScroll(page);
     const row = page.locator(`a[href="/events/${ev.id}/candidates"]`);
-    await expect(row).toContainText(`${ev.venue} — 欠員 1人`);
+    await expect(row).toContainText(ev.venue);
+    await expect(row).toContainText("欠1");
     await expect(row).toHaveClass(/text-status-alert/);
+    // 埋まり具合のゲージ: 今日の欠員があるので「あと〇人」が赤で出る
+    await expect(page.getByTestId("home-fill").getByRole("meter", { name: "今日の埋まり具合" })).toBeVisible();
+    await expect(page.getByTestId("home-fill")).toContainText("あと");
     const staff = await one<{ id: string }>(`select id from staff where status = 'active' order by random() limit 1`);
     await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [ev.id, staff.id, ev.roleId]);
     await page.reload();

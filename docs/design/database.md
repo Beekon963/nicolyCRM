@@ -482,3 +482,13 @@ erDiagram
 | `line_outbox` | 送るお知らせと送った記録（種類: confirm / reminder / admin_confirm / admin_events、状態: pending / sent / skipped / failed、理由、再送の鍵）。アサインが消えたら一緒に消える。前日のお知らせは1人1回 |
 | `settings`（`line`） | 送るお知らせ: スタッフに確定・前日（時刻）・社内に知らせる（初めはすべてオフ） |
 | 関数 | `mypage_line_link` / `mypage_line_status` / `mypage_line_unlink`（ログインなし、マイページの鍵）、`line_link_code_for_me` / `line_unlink_me`（ログイン）、`line_link_consume` / `line_unlink_user` / `line_enqueue_reminders`（秘密キーだけ） |
+
+## Phase 6 で足したもの
+
+| 対象 | 内容 |
+|---|---|
+| `venues.color` | 会場の色（blue / navy / sky / purple / lavender / pink / brown のどれか）。入れるときに空なら、使っている会場が一番少ない色をトリガーで付ける。色の値と名前は `src/lib/venue-colors.ts` |
+| `board_json` | 現場に `venue_color` を足した（見るだけリンク・書き出しで使う。金額・電話番号は今までどおり出さない） |
+| `assignment_alerts` | キャンセル・当日不稼働のお知らせ（アサイン・状態・操作した人・時刻）。確定 → キャンセル・当日不稼働（今日以降の中止でない現場）のときにトリガーが入れる。アサインが消えたら一緒に消える。メンバーは読めるだけ |
+| `alert_seen` | お知らせをどこまで見たか（1人1行。自分の行だけ読み書き） |
+| `line_outbox` | 種類に admin_cancel（社内に【キャンセル】【当日不稼働】）を足した |

@@ -32,6 +32,7 @@ export async function cleanupEvent(eventId: string) {
       await c.query(`delete from ${t} where assignment_id in ${a}`, [eventId]);
     }
     await c.query(`delete from line_outbox where assignment_id in ${a}`, [eventId]);
+    await c.query(`delete from assignment_alerts where assignment_id in ${a}`, [eventId]);
     await c.query(`delete from assignments where event_id = $1`, [eventId]);
     await c.query(`delete from event_requirements where event_id = $1`, [eventId]);
     await c.query(`delete from events where id = $1`, [eventId]);

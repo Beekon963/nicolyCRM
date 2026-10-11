@@ -26,6 +26,26 @@ export function adminConfirmText(a: AdminConfirm): string {
   ].join("\n");
 }
 
+export type AdminDrop = {
+  date: string;
+  venue: string;
+  client: string;
+  role: string;
+  staffName: string;
+  status: "cancelled" | "no_show";
+  /** その現場の今の欠員（人） */
+  shortage: number;
+};
+
+/** キャンセル・当日不稼働（Phase 6） */
+export function adminDropText(a: AdminDrop): string {
+  return [
+    `【${a.status === "cancelled" ? "キャンセル" : "当日不稼働"}】${formatShortJa(a.date)} ${a.venue}（${a.client}）`,
+    `${a.staffName}さん（${a.role}）`,
+    a.shortage > 0 ? `欠員${a.shortage}名。代わりの人を探してください` : "欠員はありません",
+  ].join("\n");
+}
+
 export type AdminEvent = { date: string; venue: string; client: string; requirements: { role: string; count: number }[] };
 
 const MAX_LINES = 10;

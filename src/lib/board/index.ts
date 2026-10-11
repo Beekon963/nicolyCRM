@@ -1,7 +1,8 @@
 /**
  * 稼働表（今の月のスプレッドシートと同じ形の一覧。Phase 1.5）。
  * - 上の段: 取引先 × 日付（その日の現場と、確定/必要人数・欠員）
- * - 下の段: スタッフ × 日付（確定・打診中の現場、稼働可能日の ○△×）
+ * - 下の段: スタッフ × 日付（確定・打診中の現場、キャンセル・当日不稼働になった現場、稼働可能日の ○△×）
+ * - 現場のマスとスタッフのマスは、会場の色でそろえる（Phase 6）
  *
  * DB から取った行を、画面・見るだけリンク・スプレッドシートへの書き出しで共通に使う形に組み立てる。
  * 金額は扱わない（共有にも使うため）。
@@ -9,7 +10,7 @@
 import { eachDay, monthRange, weekdayJa, type DateString } from "@/lib/date";
 
 export type AvailabilityStatus = "ok" | "maybe" | "ng";
-export type BoardAssignmentStatus = "offered" | "confirmed" | "waitlisted";
+export type BoardAssignmentStatus = "offered" | "confirmed" | "waitlisted" | "cancelled" | "no_show";
 
 export type BoardEvent = {
   id: string;
@@ -18,6 +19,8 @@ export type BoardEvent = {
   client_name: string;
   venue_id: string;
   venue_name: string;
+  /** 会場の色（src/lib/venue-colors.ts のキー） */
+  venue_color?: string;
   required_total: number;
   confirmed_total: number;
   shortage_total: number;
@@ -71,6 +74,7 @@ export type BoardDay = {
 export type BoardEventChip = {
   id: string;
   venueName: string;
+  venueColor: string;
   required: number;
   confirmed: number;
   shortage: number;
@@ -85,6 +89,7 @@ export type BoardStaffAssignment = {
   eventId: string;
   roleId: string;
   venueName: string;
+  venueColor: string;
   clientName: string;
   status: BoardAssignmentStatus;
 };
@@ -112,7 +117,12 @@ export type Board = {
 
 const ja = (a: string, b: string) => a.localeCompare(b, "ja");
 
-const STATUS_ORDER: Record<BoardAssignmentStatus, number> = { confirmed: 0, offered: 1, waitlisted: 2 };
+const STATUS_ORDER: Record<BoardAssignmentStatus, number> = { confirmed: 0, offered: 1, waitlisted: 2, no_show: 3, cancelled: 4 };
+
+/** 確定していた人が来られなくなった（マスを赤くする） */
+export function isDropped(status: BoardAssignmentStatus) {
+  return status === "cancelled" || status === "no_show";
+}
 
 export function buildBoard(input: BoardInput): Board {
   const { start, end } = monthRange(input.month);
@@ -141,6 +151,7 @@ export function buildBoard(input: BoardInput): Board {
     (row.cells[e.date] ??= []).push({
       id: e.id,
       venueName: e.venue_name,
+      venueColor: e.venue_color ?? "",
       required: e.required_total,
       confirmed: e.confirmed_total,
       shortage: e.cancelled ? 0 : e.shortage_total,
@@ -160,7 +171,7 @@ export function buildBoard(input: BoardInput): Board {
     const key = `${a.staff_id}|${e.date}`;
     asgByStaffDate.set(key, [
       ...(asgByStaffDate.get(key) ?? []),
-      { id: a.id, eventId: e.id, roleId: a.role_id, venueName: e.venue_name, clientName: e.client_name, status: a.status },
+      { id: a.id, eventId: e.id, roleId: a.role_id, venueName: e.venue_name, venueColor: e.venue_color ?? "", clientName: e.client_name, status: a.status },
     ]);
   }
   const staff = [...input.staff]

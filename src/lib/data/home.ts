@@ -2,11 +2,12 @@ import "server-only";
 import { analyze, type Basis, type GroupBy, rangeOf } from "@/lib/analysis";
 import { addDays, nextMonth, monthOf, todayJst } from "@/lib/date";
 import { loadResultRows } from "@/lib/data/analysis";
+import { fillOf } from "@/lib/fill";
 import { createClient } from "@/lib/supabase/server";
 import { getGeneralSettings } from "@/lib/settings";
 
 const EVENT_SELECT =
-  "id, date, start_time, end_time, status, required_total, confirmed_total, shortage_total, offered_count, unreported_count, reminder_pending, cancelled_at, venue:venues(name), client:companies(name)";
+  "id, date, start_time, end_time, status, required_total, confirmed_total, shortage_total, offered_count, unreported_count, reminder_pending, cancelled_at, venue:venues(name, color), client:companies(name)";
 
 /** ホームの「今日・明日の現場」「要対応」（お金以外。要件 §4.1） */
 export async function getHomeData() {
@@ -17,7 +18,7 @@ export async function getHomeData() {
   const next = nextMonth(monthOf(today));
   const deadline = `${monthOf(today)}-${String(settings.availabilityDeadlineDay).padStart(2, "0")}`;
 
-  const [todayTomorrow, shortages, offers, unreported, expenses, activeStaff, submitted] = await Promise.all([
+  const [todayTomorrow, shortages, offers, unreported, expenses, activeStaff, submitted, week] = await Promise.all([
     supabase.from("event_overview").select(EVENT_SELECT).in("date", [today, tomorrow]).is("cancelled_at", null).order("date").order("start_time"),
     supabase
       .from("event_overview")
@@ -45,7 +46,10 @@ export async function getHomeData() {
     supabase.from("expenses").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("staff").select("id", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("availability_submissions").select("staff_id, staff:staff!inner(status)").eq("month", `${next}-01`).not("submitted_at", "is", null).eq("staff.status", "active"),
+    // 埋まり具合のゲージ（今日・今日から7日間）
+    supabase.from("event_overview").select("date, required_total, shortage_total").gte("date", today).lte("date", addDays(today, 6)).is("cancelled_at", null),
   ]);
+  const weekRows = (week.data ?? []).map((e) => ({ date: e.date, required: e.required_total ?? 0, shortage: e.shortage_total ?? 0 }));
 
   // 直近の稼働から（要件 §9-8: 直近・要対応が上）
   const unreportedRows = (unreported.data ?? []).filter((a) => !a.report?.submitted_at).sort((a, b) => b.event.date.localeCompare(a.event.date));
@@ -55,6 +59,7 @@ export async function getHomeData() {
     today,
     tomorrow,
     todayTomorrow: todayTomorrow.data ?? [],
+    fill: { today: fillOf(weekRows.filter((e) => e.date === today)), week: fillOf(weekRows) },
     shortages: shortages.data ?? [],
     offers: offerRows.map((o) => ({ ...o, overdue: now - new Date(o.offered_at).getTime() > 24 * 3600_000 })),
     unreported: unreportedRows,

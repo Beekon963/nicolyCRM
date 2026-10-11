@@ -4,11 +4,11 @@ import { buildMessage } from "@/lib/messages";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/supabase/env";
 import { LineApiError, LineClient, lineConfig, text } from "./client";
-import { adminConfirmText, adminEventsText } from "./messages";
+import { adminConfirmText, adminDropText, adminEventsText } from "./messages";
 
 /**
  * LINE 公式アカウントからの自動のお知らせ（Phase 5）。
- * - 画面で確定したとき・現場を作ったときに line_outbox に入れ、1分ごとの定期実行（/api/cron/line）で送る
+ * - 画面で確定したとき・現場を作ったとき・確定していた人がキャンセル・当日不稼働になったときに line_outbox に入れ、1分ごとの定期実行（/api/cron/line）で送る
  *   入れてから1分たったものだけ送る（間違えて確定して「元に戻す」を押したときに、お知らせが届かないように）
  * - 前日のお知らせも定期実行で入れる
  * - 送るのはサーバー（秘密キー）。スタッフへの文は文面テンプレート（確定連絡・前日リマインド）で作る。金額は入れない
@@ -43,6 +43,14 @@ export async function enqueueConfirmed(assignmentIds: string[], actorUserId: str
   ]);
   if (!rows.length) return;
   await admin.from("line_outbox").insert(rows);
+}
+
+/** 確定していた人がキャンセル・当日不稼働になったとき（社内向け。Phase 6） */
+export async function enqueueDropped(assignmentId: string, actorUserId: string | null): Promise<void> {
+  if (!lineConfig()) return;
+  const admin = createAdminClient();
+  if (!(await getLineSettings(admin)).adminNotify) return;
+  await admin.from("line_outbox").insert({ kind: "admin_cancel", assignment_id: assignmentId, actor_user_id: actorUserId });
 }
 
 /** 現場を作ったとき（1件でも、まとめて作っても、1つのお知らせにする） */
@@ -163,6 +171,25 @@ export async function flushLineOutbox(limit = 50): Promise<{ sent: number; skipp
         confirmed: count ?? 0,
         required: req?.required_count ?? 0,
         bySelf: row.actor_user_id == null,
+      });
+      await client.multicast(to, [text(body)], row.retry_key);
+      return { status: "sent", note: `社内 ${to.length}人` };
+    }
+
+    if (row.kind === "admin_cancel") {
+      const a = await loadAssignment(row.assignment_id!);
+      const ev = a?.event;
+      if (!a || !ev || (a.status !== "cancelled" && a.status !== "no_show") || ev.cancelled_at) return { status: "skipped", note: "キャンセル・当日不稼働ではなくなりました" };
+      if (ev.date < today) return { status: "skipped", note: "過ぎた現場です" };
+      const { data: overview } = await admin.from("event_overview").select("shortage_total").eq("id", a.event_id).maybeSingle();
+      const body = adminDropText({
+        date: ev.date,
+        venue: ev.venue?.name ?? "",
+        client: ev.client?.name ?? "",
+        role: a.role?.name ?? "",
+        staffName: a.staff?.name ?? "",
+        status: a.status,
+        shortage: overview?.shortage_total ?? 0,
       });
       await client.multicast(to, [text(body)], row.retry_key);
       return { status: "sent", note: `社内 ${to.length}人` };

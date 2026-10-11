@@ -5,6 +5,7 @@ import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { VENUE_COLOR_KEYS } from "@/lib/venue-colors";
 
 const schema = z.object({
   id: z.uuid().optional(),
@@ -19,6 +20,8 @@ const schema = z.object({
   parking: z.string().trim(),
   memo: z.string().trim(),
   is_active: z.boolean(),
+  // "" = おまかせ（新しい会場は空いている色が自動で付く。編集のときは変えない）
+  color: z.union([z.enum(VENUE_COLOR_KEYS), z.literal("")]).default(""),
 });
 
 export type VenueInput = z.input<typeof schema>;
@@ -27,7 +30,8 @@ export async function saveVenue(input: VenueInput): Promise<ActionResult<{ id: s
   await assertMember();
   const parsed = schema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
-  const { id, ...values } = parsed.data;
+  const { id, color, ...rest } = parsed.data;
+  const values = color ? { ...rest, color } : rest;
   const supabase = await createClient();
   const { data, error } = id
     ? await supabase.from("venues").update(values).eq("id", id).select("id").single()

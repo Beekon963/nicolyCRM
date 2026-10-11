@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Field, ListDetail, Section } from "@/components/app/list-detail";
 import { PageHeader } from "@/components/app/page-header";
+import { VenueColorDot } from "@/components/app/venue-color";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireMember } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { formatShortJa } from "@/lib/date";
 import { getMasters } from "@/lib/data/masters";
 import { getVenueDetail, listVenues, mapUrl } from "@/lib/data/venues";
 import { pickParams } from "@/lib/params";
+import { venueColor } from "@/lib/venue-colors";
 import { VenueList } from "../venue-list";
 
 export default async function VenueDetailPage({ params, searchParams }: PageProps<"/venues/[id]">) {
@@ -50,6 +52,12 @@ export default async function VenueDetailPage({ params, searchParams }: PageProp
                 )}
               </Field>
               <Field label="最寄り駅">{venue.nearest_station}</Field>
+              <Field label="色">
+                <span className="inline-flex items-center gap-2">
+                  <VenueColorDot color={venue.color} />
+                  {venueColor(venue.color).label}
+                </span>
+              </Field>
               <Field label="入館方法">{venue.access_notes && <span className="whitespace-pre-wrap">{venue.access_notes}</span>}</Field>
               <Field label="控室">{venue.green_room}</Field>
               <Field label="駐車場">{venue.parking}</Field>

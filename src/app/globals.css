@@ -36,6 +36,8 @@
   --status-alert: #b91c1c;
   --status-alert-bg: #fee2e2;
   --status-alert-solid: #dc2626;
+  /* 赤いタイルの下の縁（ゲームのタイルのように少し浮いて見せる） */
+  --status-alert-edge: #991b1b;
   --status-waiting: #b45309;
   --status-waiting-bg: #fef3c7;
   --status-waiting-solid: #f59e0b;
@@ -43,6 +45,7 @@
   --status-done: #047857;
   --status-done-bg: #d1fae5;
   --status-done-solid: #047857;
+  --status-done-edge: #064e3b;
   /* 稼働表の土日・祝日の列 */
   --day-sat-bg: #eff6ff;
   --day-sun-bg: #fff1f2;
@@ -76,9 +79,11 @@
   --color-status-done: var(--status-done);
   --color-status-done-bg: var(--status-done-bg);
   --color-status-alert-solid: var(--status-alert-solid);
+  --color-status-alert-edge: var(--status-alert-edge);
   --color-status-waiting-solid: var(--status-waiting-solid);
   --color-status-waiting-on-solid: var(--status-waiting-on-solid);
   --color-status-done-solid: var(--status-done-solid);
+  --color-status-done-edge: var(--status-done-edge);
   --color-day-sat: var(--day-sat-bg);
   --color-day-sun: var(--day-sun-bg);
   --radius-sm: calc(var(--radius) - 4px);
@@ -86,6 +91,19 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   /* 日本語は端末標準フォントを使う（Webフォントを読み込まず表示を速くする） */
+  /* ゲームのような動き（Phase 6）。動きを減らす設定の端末では motion-safe: で止める */
+  --animate-pop: pop 0.35s ease-out;
+  --animate-shake: shake 0.5s ease-in-out;
+  @keyframes pop {
+    0% { transform: scale(0.9); opacity: 0; }
+    60% { transform: scale(1.04); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
   --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
     "Yu Gothic UI", Meiryo, system-ui, sans-serif;
 }
