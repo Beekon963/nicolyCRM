@@ -19,7 +19,17 @@ export function withProvisional(lines: string[]): string[] {
   const out: string[] = [];
   for (const l of lines) {
     out.push(l);
-    if (/光|カード/.test(l) && !/[（(]仮[)）]/.test(l) && !lines.includes(`${l}（仮）`)) out.push(`${l}（仮）`);
+    if (/光|カード/.test(l) && !/[（(](仮|後日)[)）]/.test(l) && !lines.includes(`${l}（仮）`)) out.push(`${l}（仮）`);
+  }
+  return out;
+}
+
+/** 「（後日）」の項目も足す（後日の獲得を当日と分けて数えるため）。（仮）の項目には足さない。すぐ下に足す */
+export function withLater(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const l of lines) {
+    out.push(l);
+    if (!/[（(](仮|後日)[)）]/.test(l) && !lines.includes(`${l}（後日）`)) out.push(`${l}（後日）`);
   }
   return out;
 }

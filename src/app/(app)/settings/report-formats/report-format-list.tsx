@@ -11,11 +11,22 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { REPORT_BLOCK_LABEL, REPORT_PRESETS, REPORT_VARIABLE_HINT, REPORT_VARIABLES, renderReport, type ReportDay, type ReportFormatBlocks, SAMPLE_DAY } from "@/lib/report-format";
+import {
+  REPORT_BLOCK_LABEL,
+  REPORT_PRESETS,
+  REPORT_VARIABLE_HINT,
+  REPORT_VARIABLES,
+  renderReport,
+  renderStart,
+  type ReportDay,
+  type ReportFormatBlocks,
+  SAMPLE_DAY,
+  START_VARIABLES,
+} from "@/lib/report-format";
 import { cn } from "@/lib/utils";
 import { saveReportFormat } from "./actions";
 
-export type FormatRow = ReportFormatBlocks & { id: string | null; name: string; companyId: string | null; forStaff: boolean; isActive: boolean };
+export type FormatRow = ReportFormatBlocks & { id: string | null; name: string; companyId: string | null; forStaff: boolean; isActive: boolean; startBlock: string };
 
 const BLOCKS = ["header", "eventBlock", "personBlock", "footer"] as const;
 
@@ -80,6 +91,7 @@ export function ReportFormatList({ formats, clients, itemNames }: { formats: For
               eventBlock: base?.eventBlock ?? "■{会場}",
               personBlock: base?.personBlock ?? "{名前}（{役割}）\n{件数一覧}\n{コメント}",
               footer: base?.footer ?? "",
+              startBlock: "",
             },
           ])
         }
@@ -105,6 +117,7 @@ export function ReportFormatList({ formats, clients, itemNames }: { formats: For
                 forStaff: true,
                 isActive: true,
                 ...p.blocks,
+                startBlock: p.start,
               },
             ])
           }
@@ -143,9 +156,9 @@ function FormatEditor({
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [saved, setSaved] = useState(initial);
-  const [focus, setFocus] = useState<(typeof BLOCKS)[number]>("personBlock");
+  const [focus, setFocus] = useState<(typeof BLOCKS)[number] | "startBlock">("personBlock");
   const [pending, start] = useTransition();
-  const refs = useRef<Partial<Record<(typeof BLOCKS)[number], HTMLTextAreaElement | null>>>({});
+  const refs = useRef<Partial<Record<(typeof BLOCKS)[number] | "startBlock", HTMLTextAreaElement | null>>>({});
   const dirty = JSON.stringify(f) !== JSON.stringify(saved);
 
   const update = (next: FormatRow) => {
@@ -153,7 +166,7 @@ function FormatEditor({
     onDirty(JSON.stringify(next) !== JSON.stringify(saved));
   };
 
-  function insert(block: (typeof BLOCKS)[number], v: string) {
+  function insert(block: (typeof BLOCKS)[number] | "startBlock", v: string) {
     const el = refs.current[block];
     const token = `{${v}}`;
     const body = f[block];
@@ -168,6 +181,7 @@ function FormatEditor({
 
   const clientName = clients.find((c) => c.id === f.companyId)?.name;
   const preview = renderReport(f, { ...sampleDay(itemNames), clientName: clientName ?? SAMPLE_DAY.clientName });
+  const startPreview = renderStart(f.startBlock, { ...SAMPLE_DAY, clientName: clientName ?? SAMPLE_DAY.clientName });
   const save = () =>
     start(async () => {
       const r = await saveReportFormat(f.id, f);
@@ -250,10 +264,47 @@ function FormatEditor({
                 )}
               </div>
             ))}
+            {/* 現場に着いたときの「稼働します」の報告（空なら、スタッフのマイページに出さない） */}
+            <div className="flex flex-col gap-1 border-t pt-3">
+              <Label htmlFor={`fmt-start-${f.id ?? "new"}`}>稼働開始の報告（任意）</Label>
+              <p className="-mt-1 text-sm text-muted-foreground">現場に着いたとき、スタッフがマイページからコピーして送る文（例: 現場名・稼働者・稼働します）。空ならマイページに出しません</p>
+              <Textarea
+                id={`fmt-start-${f.id ?? "new"}`}
+                ref={(el) => {
+                  refs.current.startBlock = el;
+                }}
+                rows={3}
+                value={f.startBlock}
+                onFocus={() => setFocus("startBlock")}
+                onChange={(e) => update({ ...f, startBlock: e.target.value })}
+              />
+              {focus === "startBlock" && (
+                <div className="flex flex-wrap gap-1">
+                  {START_VARIABLES.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => insert("startBlock", v)}
+                      title={REPORT_VARIABLE_HINT[v]}
+                      className="h-9 rounded-full border px-3 text-sm text-muted-foreground hover:bg-accent"
+                    >
+                      {`{${v}}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-muted-foreground">プレビュー（見本の値。1現場・2人）</p>
             <pre className="min-h-40 rounded-md bg-[#8cabd8]/20 p-3 font-sans text-base whitespace-pre-wrap">{preview || "（文面がありません）"}</pre>
+            {startPreview && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground">稼働開始の報告のプレビュー</p>
+                <pre className="rounded-md bg-[#8cabd8]/20 p-3 font-sans text-base whitespace-pre-wrap">{startPreview}</pre>
+              </>
+            )}
             <Button className="self-end" disabled={!dirty || pending} onClick={save}>
               {pending ? "保存中…" : f.id ? "保存する" : "このフォーマットを作る"}
             </Button>

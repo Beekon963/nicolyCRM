@@ -16,6 +16,7 @@ const schema = z.object({
   eventBlock: block,
   personBlock: block,
   footer: block,
+  startBlock: block.optional(),
 });
 export type ReportFormatInput = z.input<typeof schema>;
 
@@ -35,6 +36,7 @@ export async function saveReportFormat(id: string | null, input: ReportFormatInp
     event_block: v.eventBlock,
     person_block: v.personBlock,
     footer: v.footer,
+    start_block: v.startBlock ?? "",
   };
   const supabase = await createClient();
   const res = id

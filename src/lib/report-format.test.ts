@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REPORT_PRESETS, renderReport, type ReportDay } from "./report-format";
+import { REPORT_PRESETS, renderReport, renderStart, type ReportDay } from "./report-format";
 
 const day: ReportDay = {
   date: "10/10",
@@ -140,5 +140,96 @@ describe("書式の見本: NextWave", () => {
     const second = lines.indexOf("DSテスト西");
     expect(lines.slice(second - 4, second)).toEqual(["", "【ネクストウェーブ報告フォーマット】", "", "日付：10/11"]);
     expect(lines.at(-3)).toBe("なし");
+  });
+});
+
+describe("稼働開始の報告", () => {
+  const start = REPORT_PRESETS.find((p) => p.key === "nextwave")!.start;
+  const day = (names: string[]): ReportDay => ({
+    date: "10/12",
+    weekday: "月",
+    clientName: "ネクストウェーブ",
+    events: [{ venueName: "DSテスト東", time: "10:00〜19:00", people: names.map((name) => ({ name, role: "", items: [], comment: "" })) }],
+  });
+
+  it("NextWave の見本: 現場名・稼働者名・「稼働します」", () => {
+    expect(renderStart(start, day(["山田 太郎"]))).toBe("DSテスト東\n稼働者：山田 太郎\n稼働します");
+  });
+
+  it("2人以上の現場は全員の名前を書く", () => {
+    expect(renderStart(start, day(["山田 太郎", "佐藤 花子"]))).toBe("DSテスト東\n稼働者：山田 太郎、佐藤 花子\n稼働します");
+  });
+
+  it("文面が空なら何も作らない", () => {
+    expect(renderStart("  ", day(["山田"]))).toBe("");
+  });
+});
+
+describe("書式の見本: NICOLY", () => {
+  const nicoly = REPORT_PRESETS.find((p) => p.key === "nicoly")!.blocks;
+  const day = (people: ReportDay["events"][number]["people"], extra: Partial<ReportDay["events"][number]> = {}): ReportDay => ({
+    date: "10/11",
+    weekday: "土",
+    clientName: "〇〇モバイル",
+    events: [{ venueName: "〇〇モバイル△△モール", time: "", people, ...extra }],
+  });
+
+  it("いただいた見本と同じ形（日付と現場が1行、「当日」の下に「新規1(山田)」、項目の下にメモ、項目の間は1行あける）", () => {
+    const text = renderReport(
+      nicoly,
+      day([
+        {
+          name: "山田",
+          role: "",
+          items: [
+            { name: "新規", count: 1 },
+            { name: "RMsimのみMNP", count: 1, notes: ["ワイモバイルから楽天"] },
+            { name: "RMMNP", count: 2, notes: ["ソフトバンクから楽天", "iPhone17×2"] },
+            { name: "カード", count: 1 },
+            { name: "Pixel", count: 0 },
+          ],
+          comment: "",
+        },
+      ]),
+    );
+    expect(text).toBe(
+      [
+        "【NICOLY フォーマット】",
+        "",
+        "10/11 〇〇モバイル△△モール",
+        "山田",
+        "",
+        "【実績】",
+        "当日",
+        "新規1(山田)",
+        "",
+        "RMsimのみMNP1(山田)",
+        "ワイモバイルから楽天",
+        "",
+        "RMMNP2(山田)",
+        "ソフトバンクから楽天",
+        "iPhone17×2",
+        "",
+        "カード1(山田)",
+      ].join("\n"),
+    );
+  });
+
+  it("「（後日）」の項目は「後日」の下に（後日）を外して出す。2人の現場は1人ずつ、所感は最後", () => {
+    const text = renderReport(
+      nicoly,
+      day(
+        [
+          { name: "山田", role: "", items: [{ name: "新規", count: 1 }, { name: "新規（後日）", count: 1 }], comment: "" },
+          { name: "佐藤", role: "", items: [{ name: "新規", count: 2 }], comment: "" },
+        ],
+        { remark: "午後から好調でした" },
+      ),
+    );
+    expect(text.split("\n").slice(3)).toEqual(["山田、佐藤", "", "【実績】", "当日", "新規1(山田)", "新規2(佐藤)", "", "後日", "新規1(山田)", "", "午後から好調でした"]);
+  });
+
+  it("1件もなければ「なし」", () => {
+    expect(renderReport(nicoly, day([{ name: "山田", role: "", items: [{ name: "新規", count: 0 }], comment: "" }]))).toContain("【実績】\nなし");
   });
 });

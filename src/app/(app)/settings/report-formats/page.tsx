@@ -13,7 +13,7 @@ export default async function ReportFormatsPage() {
   await requireOwner();
   const supabase = await createClient();
   const [formats, clients, masters, aliases] = await Promise.all([
-    supabase.from("report_formats").select("id, name, company_id, for_staff, is_active, header, event_block, person_block, footer").order("sort_order").order("created_at"),
+    supabase.from("report_formats").select("id, name, company_id, for_staff, is_active, header, event_block, person_block, footer, start_block").order("sort_order").order("created_at"),
     supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name"),
     getMasters(),
     loadAliases(),
@@ -36,6 +36,7 @@ export default async function ReportFormatsPage() {
           eventBlock: f.event_block,
           personBlock: f.person_block,
           footer: f.footer,
+          startBlock: f.start_block,
         }))}
         clients={clients.data ?? []}
         itemNames={masters.items.filter((i) => i.is_active).map((i) => i.name)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, StarIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -32,11 +32,14 @@ export function EventForm({
   venues,
   roles,
   holidays,
+  pickDates,
 }: {
-  mode: "single" | "bulk" | "edit";
+  mode: "single" | "bulk" | "edit" | "dates";
   initial?: EventFormInitial;
-  /** 稼働表の空いたマスから作るときの初期値 */
-  defaults?: { date?: string; client_id?: string };
+  /** 初期値（稼働表の空いたマスから作るとき・募集の文から作るとき） */
+  defaults?: { date?: string } & Partial<Pick<EventInput, "client_id" | "venue_id" | "start_time" | "end_time" | "meeting_time" | "requirements">>;
+  /** mode = "dates": 作る日（募集の文から読んだ日。starred は優遇日） */
+  pickDates?: { dates: string[]; starred: string[] };
   clients: Opt[];
   venues: Opt[];
   roles: Opt[];
@@ -47,14 +50,14 @@ export function EventForm({
   const [form, setForm] = useState<EventInput>(
     initial ?? {
       client_id: defaults?.client_id ?? "",
-      venue_id: "",
-      start_time: "10:00",
-      end_time: "19:00",
-      meeting_time: "09:30",
+      venue_id: defaults?.venue_id ?? "",
+      start_time: defaults?.start_time ?? "10:00",
+      end_time: defaults?.end_time ?? "19:00",
+      meeting_time: defaults?.meeting_time ?? "09:30",
       meeting_place: "",
       belongings: "",
       notes: "",
-      requirements: roles.map((r, i) => ({ role_id: r.id, required_count: i === 0 ? 1 : 0 })),
+      requirements: defaults?.requirements ?? roles.map((r, i) => ({ role_id: r.id, required_count: i === 0 ? 1 : 0 })),
     },
   );
   const [date, setDate] = useState(initial?.date ?? defaults?.date ?? addDays(today, 1));
@@ -66,7 +69,8 @@ export function EventForm({
   const [pending, start] = useTransition();
   useUnsavedChanges(dirty);
 
-  const bulkDates = useMemo(() => datesFor(range.from, range.to, range.weekdays), [range]);
+  const bulkDates = useMemo(() => (mode === "dates" ? (pickDates?.dates ?? []) : datesFor(range.from, range.to, range.weekdays)), [mode, pickDates, range]);
+  const starred = new Set(pickDates?.starred ?? []);
   const selectedDates = bulkDates.filter((d) => !excluded.includes(d));
   const set = <K extends keyof EventInput>(k: K, v: EventInput[K]) => {
     setForm({ ...form, [k]: v });
@@ -81,6 +85,30 @@ export function EventForm({
     );
   const venueName = venues.find((v) => v.id === form.venue_id)?.name ?? "";
 
+  const dateChips = (
+    <div>
+      <p className="mb-1 text-sm text-muted-foreground">作成する日（{selectedDates.length}件）。タップで除外できます</p>
+      <div className="flex flex-wrap gap-1">
+        {bulkDates.map((d) => {
+          const off = excluded.includes(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={!off}
+              onClick={() => (setExcluded(off ? excluded.filter((x) => x !== d) : [...excluded, d]), setDirty(true))}
+              className={cn("h-10 rounded-md border px-2 text-sm", off ? "border-dashed text-muted-foreground line-through" : "border-primary/40 bg-primary/5")}
+            >
+              {starred.has(d) && <StarIcon aria-label="優遇日" className="mr-0.5 inline size-3.5 fill-current align-[-2px] text-primary" />}
+              {formatShortJa(d)}
+              {holidays[d] && <span className="ml-1 text-status-alert">祝</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   function submit() {
     start(async () => {
       if (mode === "edit" && initial?.id) {
@@ -92,7 +120,7 @@ export function EventForm({
         return;
       }
       const r =
-        mode === "bulk"
+        mode === "bulk" || mode === "dates"
           ? await createEventsBulk(form, selectedDates, groupName || `${venueName} ${formatShortJa(selectedDates[0] ?? today)}〜`)
           : await createEvent(form, date);
       if (!r.ok) return void toast.error(r.message);
@@ -178,25 +206,18 @@ export function EventForm({
               );
             })}
           </div>
-          <div>
-            <p className="mb-1 text-sm text-muted-foreground">作成する日（{selectedDates.length}件）。タップで除外できます</p>
-            <div className="flex flex-wrap gap-1">
-              {bulkDates.map((d) => {
-                const off = excluded.includes(d);
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setExcluded(off ? excluded.filter((x) => x !== d) : [...excluded, d])}
-                    className={cn("h-10 rounded-md border px-2 text-sm", off ? "border-dashed text-muted-foreground line-through" : "border-primary/40 bg-primary/5")}
-                  >
-                    {formatShortJa(d)}
-                    {holidays[d] && <span className="ml-1 text-status-alert">祝</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {dateChips}
+        </fieldset>
+      ) : mode === "dates" ? (
+        <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+          <legend className="px-1 text-sm font-medium">日付</legend>
+          {dateChips}
+          {starred.size > 0 && (
+            <p className="flex items-center gap-1 text-sm text-muted-foreground">
+              <StarIcon aria-hidden className="size-4 fill-current text-primary" />
+              は優遇日（取引先が特に来てほしい日）
+            </p>
+          )}
         </fieldset>
       ) : (
         <div className="flex flex-col gap-1">
@@ -207,6 +228,11 @@ export function EventForm({
             {mode === "single" && (
               <Button asChild variant="link" size="sm">
                 <Link href="/events/bulk">期間でまとめて作る</Link>
+              </Button>
+            )}
+            {mode === "single" && (
+              <Button asChild variant="link" size="sm">
+                <Link href="/events/from-text">募集の文から作る</Link>
               </Button>
             )}
           </div>
@@ -257,7 +283,7 @@ export function EventForm({
 
       <details className="group rounded-md border" open={mode === "edit"}>
         <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-3 font-medium">
-          詳細（集合場所・服装・持ち物・注意事項{mode === "bulk" ? "・グループ名" : ""}）
+          詳細（集合場所・服装・持ち物・注意事項{mode === "bulk" || mode === "dates" ? "・グループ名" : ""}）
           <ChevronDownIcon className="size-5 transition-transform group-open:rotate-180" />
         </summary>
         <div className="flex flex-col gap-3 border-t p-3">
@@ -273,7 +299,7 @@ export function EventForm({
             <Label htmlFor="ev-notes">注意事項</Label>
             <Textarea id="ev-notes" rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
           </div>
-          {mode === "bulk" && (
+          {(mode === "bulk" || mode === "dates") && (
             <div className="flex flex-col gap-1">
               <Label htmlFor="ev-group">グループ名（空なら「会場名 開始日〜」）</Label>
               <Input id="ev-group" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
@@ -283,8 +309,8 @@ export function EventForm({
       </details>
 
       <StickySubmitBar>
-        <Button type="submit" size="lg" disabled={pending || (mode === "bulk" && selectedDates.length === 0)}>
-          {pending ? "保存中…" : mode === "edit" ? "保存する" : mode === "bulk" ? `${selectedDates.length}件の現場を作る` : "現場を作る"}
+        <Button type="submit" size="lg" disabled={pending || ((mode === "bulk" || mode === "dates") && selectedDates.length === 0)}>
+          {pending ? "保存中…" : mode === "edit" ? "保存する" : mode === "bulk" || mode === "dates" ? `${selectedDates.length}件の現場を作る` : "現場を作る"}
         </Button>
       </StickySubmitBar>
     </form>

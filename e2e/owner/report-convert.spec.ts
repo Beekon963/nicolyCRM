@@ -69,13 +69,16 @@ test("オーナー: 書式の見本（NextWave）から作れる", async ({ page
   const card = page.locator("details[open]").last();
   await card.getByLabel("名前", { exact: true }).fill(FORMAT_UI);
   await card.getByLabel("使う取引先").selectOption(client.id);
-  const preview = card.locator("pre");
+  const preview = card.locator("pre").first();
   await expect(preview).toContainText("【ネクストウェーブ報告フォーマット】");
   await expect(preview).toContainText("稼働者：山田、佐藤");
+  // 見本には「稼働開始の報告」も入る
+  await expect(card.getByLabel("稼働開始の報告（任意）")).toHaveValue("{会場}\n稼働者：{稼働者}\n稼働します");
   await card.getByRole("button", { name: "このフォーマットを作る" }).click();
   await expect(page.getByText("フォーマットを作りました")).toBeVisible();
-  const saved = await one<{ event_block: string }>(`select event_block from report_formats where name = $1`, [FORMAT_UI]);
+  const saved = await one<{ event_block: string; start_block: string }>(`select event_block, start_block from report_formats where name = $1`, [FORMAT_UI]);
   expect(saved.event_block).toContain("{獲得した項目}");
+  expect(saved.start_block).toContain("稼働します");
 });
 
 test("オーナー: 獲得項目を一覧の貼り付けでまとめて登録でき、光・カードには（仮）も作れる", async ({ page, isMobile }) => {

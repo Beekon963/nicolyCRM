@@ -1,10 +1,12 @@
 /**
- * LINE に書いた報告（NICOLY のいつもの書き方）を、取引先の公認名称・書式に直す（Phase 8）。
+ * LINE に書いた報告（NICOLY のいつもの書き方）を、取引先の公認名称・書式に直す（Phase 8・9）。
  *
  * - 項目名は「取引先で使う獲得項目の名前」に合わせる。合わせ方は
  *   ①そのまま同じ名前 → ②言いかえ表（設定で登録。例: キヘン → 機種変更）→ ③よくある言いかえ（下の SYNONYMS）と部分一致で推測 → ④わからない
  * - 推測（黄）とわからない（赤）は、画面で人が選び直せる。オーナーはその言いかえを覚えさせられる
  * - 「（仮）」が付いた項目は、同じ名前に「（仮）」が付いた項目に入れる（光・カードの仮申し込み）
+ * - 「後日」の見出しの下の項目は、同じ名前に「（後日）」が付いた項目に入れる（当日の獲得と分けて数える）
+ * - NICOLY フォーマット: 「新規1(山田)」のように件数のあとに獲得した人の名前、項目の下の行（乗り換え元・端末など）はメモ
  * - 金額は扱わない
  */
 
@@ -27,8 +29,10 @@ export function normalizeName(s: string): string {
     .replace(/[\s・/\\_\-‐−]/g, "");
 }
 
-const PROVISIONAL = /\(仮\)/;
-const stripProvisional = (n: string) => n.replace(/\(仮\)/g, "");
+/** 項目名に付ける印（比べる形では半角のかっこ）。「（仮）」= 仮申し込み、「（後日）」= 後日の獲得 */
+const TAG = /\((仮|後日)\)/g;
+const HAS_TAG = /\((仮|後日)\)/;
+const tagsOf = (n: string) => [...n.matchAll(TAG)].map((m) => m[1]);
 
 /**
  * よくある言いかえ（取引先によらない一般的な略し方）。比べる前に置きかえてから部分一致で推測する。
@@ -68,22 +72,23 @@ function guessScore(cand: string, raw: string): number {
 /** 1つの項目名を、取引先の項目の名前に合わせる */
 export function resolveItemName(raw: string, dict: NameDict): Resolved {
   const n = normalizeName(raw);
-  const provisional = PROVISIONAL.test(n);
-  const base = stripProvisional(n);
+  const tags = tagsOf(n);
+  const base = n.replace(TAG, "");
   const byKey = new Map(dict.items.map((name) => [normalizeName(name), name]));
   const aliasKey = new Map(dict.aliases.map((a) => [normalizeName(a.alias), a.name]));
 
-  // 「（仮）」つきの名前そのものが言いかえ表・項目にあれば、それを使う
-  if (provisional) {
+  // 「（仮）」「（後日）」つきの名前そのものが言いかえ表・項目にあれば、それを使う
+  if (tags.length) {
     const direct = byKey.get(n) ?? aliasKey.get(n);
     if (direct) return { name: direct, how: byKey.has(n) ? "exact" : "alias", candidates: [] };
   }
 
+  // 印つきなら、当てた項目に同じ印が付いた項目にする（なければ「選んでください」）
   const toProvisional = (r: Resolved): Resolved => {
-    if (!provisional || !r.name) return r;
-    const key = normalizeName(r.name) + "(仮)";
+    if (!tags.length || !r.name) return r;
+    const key = normalizeName(r.name).replace(TAG, "") + tags.map((t) => `(${t})`).join("");
     const hit = byKey.get(key);
-    return hit ? { ...r, name: hit } : { name: null, how: "unknown", candidates: [`${r.name}（仮）`] };
+    return hit ? { ...r, name: hit } : { name: null, how: "unknown", candidates: [`${r.name.replace(/[（(](仮|後日)[)）]/g, "")}${tags.map((t) => `（${t}）`).join("")}`] };
   };
 
   const exact = byKey.get(base);
@@ -98,14 +103,21 @@ export function resolveItemName(raw: string, dict: NameDict): Resolved {
   if (!key) return { name: null, how: "unknown", candidates: [] };
   const cands = dict.items
     .map((name) => ({ name, k: normalizeName(name) }))
-    .filter((c) => !PROVISIONAL.test(c.k) && (c.k.includes(key) || (c.k.length >= 2 && key.includes(c.k))))
+    .filter((c) => !HAS_TAG.test(c.k) && (c.k.includes(key) || (c.k.length >= 2 && key.includes(c.k))))
     .sort((a, b) => guessScore(a.k, key) - guessScore(b.k, key) || a.k.length - b.k.length)
     .map((c) => c.name);
   if (cands.length) return toProvisional({ name: cands[0], how: "guess", candidates: cands });
   return { name: null, how: "unknown", candidates: [] };
 }
 
-export type ParsedLine = { raw: string; count: number };
+export type ParsedLine = {
+  raw: string;
+  count: number;
+  /** 件数のあとのかっこの名前（「新規1(山田)」の山田）。獲得した人 */
+  person?: string;
+  /** 項目の下の行（乗り換え元・端末など）。件数には入れない */
+  notes?: string[];
+};
 export type ParsedReport = {
   date: string;
   venue: string;
@@ -134,8 +146,29 @@ function soft(s: string): string {
   });
 }
 
-/** 「項目 件数」の1行を読む。読めなければ null */
+/** 区切りなしで読んだ行（「DS〇〇2」のような現場名と見分けるため） */
+const looseLines = new WeakSet<ParsedLine>();
+const isLoose = (l: ParsedLine) => looseLines.has(l);
+
+/**
+ * 「項目 件数」の1行を読む。読めなければ null。
+ * 最後のかっこは、獲得した人の名前（「新規1(山田)」）か印（「光1（仮）」）として読む
+ */
 export function parseItemLine(line: string): ParsedLine | null {
+  const tail = soft(line)
+    .trim()
+    .match(/^(.*\d\s*(?:件|台|本|枚|個|回)?)\s*[（(]\s*([^（）()]+?)\s*[)）]$/);
+  if (tail) {
+    const inner = parseCountLine(tail[1]);
+    if (!inner) return null;
+    const out = /^(仮|後日)$/.test(tail[2]) ? { ...inner, raw: `${inner.raw}（${tail[2]}）` } : { ...inner, person: tail[2] };
+    if (isLoose(inner)) looseLines.add(out);
+    return out;
+  }
+  return parseCountLine(line);
+}
+
+function parseCountLine(line: string): ParsedLine | null {
   const n = soft(line).trim();
   // 「ドコモ光 1G 1」「あんしんセキュリティ999 1」: 最後の空白のあとが件数
   let m = n.match(new RegExp(`^(.+?)\\s+(\\d+)\\s*${UNIT}$`));
@@ -143,12 +176,20 @@ export function parseItemLine(line: string): ParsedLine | null {
   if (!m) m = n.match(new RegExp(`^(.+?)\\s*(?:[:=×*]|\\s[xX])\\s*(\\d+)\\s*${UNIT}$`));
   // 「機種変更2件」（件などが付いているときだけ、区切りなしでも読む）
   if (!m) m = n.match(/^(.*[^\d\s])(\d+)\s*(?:件|台|本|枚|個|回)$/);
+  // 「カード1」「RMMNP2」（区切りなしの1〜2けた。「あんしんセキュリティ999」のような3けたは名前の一部とみなす）
+  let loose = false;
+  if (!m) {
+    m = n.match(/^(.*[^\d\s.,/:])(\d{1,2})$/);
+    loose = Boolean(m);
+  }
   if (!m) return null;
   const raw = m[1].trim().replace(/[:：]$/, "").trim();
   // 日付（10/11）だけの行は項目にしない
   if (/^\d{1,2}\/$/.test(raw)) return null;
   if (!raw) return null;
-  return { raw, count: Number(m[2]) };
+  const out = { raw, count: Number(m[2]) };
+  if (loose) looseLines.add(out);
+  return out;
 }
 
 const KEY_LINE = /^(日付|日にち|稼働日|現場|会場|店舗|場所|稼働者|名前|氏名|担当|スタッフ)\s*[:：]\s*(.*)$/;
@@ -168,23 +209,57 @@ export function normalizeDateLabel(s: string): string {
   return m ? `${Number(m[1])}/${Number(m[2])}` : "";
 }
 
+/** 「当日」「後日」の見出し（【当日】・当日分・後日獲得 なども） */
+const TIMING = /^[【\[［]?\s*(当日|後日)\s*(?:分|獲得|の獲得|の分)?\s*[】\]］]?\s*[:：]?$/;
+/** 日付で始まる行（「10/11 DS〇〇」の日付の部分） */
+const DATE_HEAD = /^\s*(?:\d{4}[/年.\-])?\d{1,2}\s*[/月.\-]\s*\d{1,2}日?\s*(?:[（(][^)）]*[)）])?\s*/;
+
 /**
  * LINE に書いた報告の文を読む。
  * - 【実績】【獲得】などの見出しのあとは「項目 件数」、【所感】【コメント】のあとはコメント
- * - 「日付：」「稼働者：」「現場：」の行、見出しより前の件数のない行（日付・現場名・名前）も読む
+ * - 「日付：」「稼働者：」「現場：」の行、見出しより前の件数のない行（日付・現場名・名前。「10/11 DS〇〇」のように日付と現場が1行でもよい）も読む
+ * - 「当日」「後日」の見出し: 後日の下の項目は「〇〇（後日）」として読む
+ * - 項目の下の、件数のない行や取引先の項目にない行（乗り換え元・端末など）は、その項目のメモにする（空行までで1つの項目）
  * - 【〇〇公認名称】のような項目の一覧は読まない
+ * dict（取引先の項目・言いかえ表）を渡すと、項目の名前だけの行（件数の書き忘れ）をメモにせず「件数が読めない」と知らせる
  */
-export function parseReportText(text: string): ParsedReport {
+export function parseReportText(text: string, dict?: NameDict): ParsedReport {
   const out: ParsedReport = { date: "", venue: "", workers: [], lines: [], comment: "", unreadable: [] };
   const comment: string[] = [];
   let section: "none" | "items" | "comment" | "ignore" = "none";
+  let later = false;
+  // 今の項目（空行まで）。その下の件数のない行はメモにする
+  let current: ParsedLine | null = null;
+  let noteMode = false;
+  const known = (raw: string, guess: boolean) => {
+    if (!dict) return false;
+    const r = resolveItemName(raw, dict);
+    return r.how === "exact" || r.how === "alias" || (guess && r.how === "guess");
+  };
+  const addNote = (line: string) => {
+    if (!current) return false;
+    current.notes = [...(current.notes ?? []), line];
+    noteMode = true;
+    return true;
+  };
+
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) {
       if (section === "comment" && comment.length) comment.push("");
+      current = null;
+      noteMode = false;
       continue;
     }
     const n = line.normalize("NFKC");
+    const timing = n.match(TIMING);
+    if (timing && section !== "comment") {
+      later = timing[1] === "後日";
+      section = "items";
+      current = null;
+      noteMode = false;
+      continue;
+    }
     const head = n.match(/^[【\[［]([^】\]］]+)[】\]］]\s*(.*)$/);
     if (head) {
       const title = head[1];
@@ -194,6 +269,9 @@ export function parseReportText(text: string): ParsedReport {
         if (head[2].trim()) comment.push(head[2].trim());
       } else if (/実績|獲得|結果|件数|成果/.test(title)) section = "items";
       else section = "none";
+      later = false;
+      current = null;
+      noteMode = false;
       continue;
     }
     if (section === "ignore") continue;
@@ -209,19 +287,42 @@ export function parseReportText(text: string): ParsedReport {
       else out.workers.push(...splitNames(value));
       continue;
     }
+    const header = section === "none" && out.lines.length === 0;
+    // 見出しより前の「10/11 DS〇〇」: 日付と現場
+    if (header && !out.date && /^\d/.test(soft(line)) && normalizeDateLabel(n)) {
+      out.date = normalizeDateLabel(n);
+      const rest = soft(line).replace(DATE_HEAD, "").trim();
+      if (rest && !out.venue) out.venue = rest;
+      continue;
+    }
+
     const item = parseItemLine(line);
+    // 見出しより前の「DS〇〇2」は、取引先の項目に当たらなければ現場名など
+    if (item && header && isLoose(item) && !known(item.raw, true)) {
+      if (!out.venue) out.venue = line;
+      else out.workers.push(...splitNames(line));
+      continue;
+    }
     if (item) {
+      if (later && !/[（(]後日[)）]/.test(item.raw)) item.raw = `${item.raw}（後日）`;
+      // メモの続き（「iPhone17×2」など）は、取引先の項目に当たらなければメモのまま
+      if (noteMode && !known(item.raw, true) && addNote(line)) continue;
       out.lines.push(item);
+      current = item;
+      noteMode = false;
       continue;
     }
     // 見出しより前で件数のない行: 日付 → 現場 → 名前 の順に読む
-    if (section === "none" && out.lines.length === 0) {
+    if (header) {
       const d = normalizeDateLabel(n);
       if (d && !out.date && /^\d/.test(n)) out.date = d;
       else if (!out.venue) out.venue = line;
       else out.workers.push(...splitNames(line));
       continue;
     }
+    // 項目の名前だけの行は件数の書き忘れ。それ以外は、すぐ上の項目のメモ
+    const bare = line.replace(/\s*[（(][^（）()]*[)）]\s*$/, "");
+    if (!known(bare, false) && addNote(line)) continue;
     out.unreadable.push(line);
   }
   out.comment = comment.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -235,14 +336,25 @@ export function resolveLines(lines: ParsedLine[], dict: NameDict): ConvertedLine
   return lines.map((l) => ({ ...l, ...resolveItemName(l.raw, dict) }));
 }
 
-/** 同じ項目は件数を足す（取引先の項目の並び順にそろえ、知らない名前は後ろに） */
-export function mergeCounts(lines: { name: string; count: number }[], order: string[]): { name: string; count: number }[] {
-  const sum = new Map<string, number>();
-  for (const l of lines) sum.set(l.name, (sum.get(l.name) ?? 0) + l.count);
+/** 同じ項目は件数を足す（取引先の項目の並び順にそろえ、知らない名前は後ろに）。メモはつなげる */
+export function mergeCounts(lines: { name: string; count: number; notes?: string[] }[], order: string[]): { name: string; count: number; notes?: string[] }[] {
+  const sum = new Map<string, { count: number; notes: string[] }>();
+  for (const l of lines) {
+    const cur = sum.get(l.name) ?? { count: 0, notes: [] };
+    sum.set(l.name, { count: cur.count + l.count, notes: [...cur.notes, ...(l.notes ?? [])] });
+  }
   const pos = new Map(order.map((n, i) => [n, i]));
   return [...sum.entries()]
-    .map(([name, count]) => ({ name, count }))
+    .map(([name, v]) => (v.notes.length ? { name, count: v.count, notes: v.notes } : { name, count: v.count }))
     .sort((a, b) => (pos.get(a.name) ?? Infinity) - (pos.get(b.name) ?? Infinity));
+}
+
+/** 「新規1(山田)」の山田を、稼働者の名前（山田 太郎）にそろえる。合う人がいなければそのまま */
+export function matchPerson(tag: string, names: string[]): string | null {
+  const k = normalizeName(tag);
+  if (!k) return null;
+  const keyed = names.map((n) => ({ n, nk: normalizeName(n) })).filter((x) => x.nk);
+  return (keyed.find((x) => x.nk === k) ?? keyed.find((x) => x.nk.startsWith(k) || k.startsWith(x.nk)))?.n ?? null;
 }
 
 /**

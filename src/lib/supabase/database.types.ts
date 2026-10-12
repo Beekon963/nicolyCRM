@@ -831,13 +831,13 @@ isOneToOne: true
                   ]
                 },"report_formats": {
                   Row: {
-                    "company_id": string | null,"created_at": string,"event_block": string,"footer": string,"for_staff": boolean,"header": string,"id": string,"is_active": boolean,"name": string,"person_block": string,"sort_order": number,"updated_at": string
+                    "company_id": string | null,"created_at": string,"event_block": string,"footer": string,"for_staff": boolean,"header": string,"id": string,"is_active": boolean,"name": string,"person_block": string,"sort_order": number,"start_block": string,"updated_at": string
                   }
                   Insert: {
-                    "company_id"?: string | null,"created_at"?: string,"event_block"?: string,"footer"?: string,"for_staff"?: boolean,"header"?: string,"id"?: string,"is_active"?: boolean,"name": string,"person_block"?: string,"sort_order"?: number,"updated_at"?: string
+                    "company_id"?: string | null,"created_at"?: string,"event_block"?: string,"footer"?: string,"for_staff"?: boolean,"header"?: string,"id"?: string,"is_active"?: boolean,"name": string,"person_block"?: string,"sort_order"?: number,"start_block"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "company_id"?: string | null,"created_at"?: string,"event_block"?: string,"footer"?: string,"for_staff"?: boolean,"header"?: string,"id"?: string,"is_active"?: boolean,"name"?: string,"person_block"?: string,"sort_order"?: number,"updated_at"?: string
+                    "company_id"?: string | null,"created_at"?: string,"event_block"?: string,"footer"?: string,"for_staff"?: boolean,"header"?: string,"id"?: string,"is_active"?: boolean,"name"?: string,"person_block"?: string,"sort_order"?: number,"start_block"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {

@@ -34,7 +34,7 @@ export default async function ConvertPage({ searchParams }: PageProps<"/results/
       <PageHeader
         title="LINEの報告を変換"
         back="/results/daily"
-        description="LINE にいつもの書き方で書いた報告を貼ると、取引先の公認名称と書式に直します。"
+        description="LINE にいつもの書き方で書いた報告を貼ると、取引先の公認名称と書式に直します。そのまま実績（速報）にも入れられます。"
       />
       <div className="px-4">
         <ConvertClient
@@ -42,10 +42,13 @@ export default async function ConvertPage({ searchParams }: PageProps<"/results/
           clientId={clientId ?? ""}
           dict={clientId ? dictFor(clientId, itemNames, aliases) : { items: [], aliases: [] }}
           formats={(formats ?? [])
-            .filter((f) => f.company_id === clientId)
+            // その取引先の書式を先に、全取引先で使う書式（NICOLY用など）をあとに
+            .filter((f) => f.company_id === clientId || f.company_id == null)
+            .sort((a, b) => Number(a.company_id == null) - Number(b.company_id == null))
             .map((f) => ({ id: f.id, name: f.name, blocks: { header: f.header, eventBlock: f.event_block, personBlock: f.person_block, footer: f.footer } }))}
           defaults={{ date: `${m}/${d}`, weekday: weekdayJa(today), venue: "", workers: [], clientName: client?.name ?? "" }}
           canLearn={me.role === "owner"}
+          today={today}
         />
       </div>
     </div>

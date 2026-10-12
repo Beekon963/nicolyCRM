@@ -1,16 +1,17 @@
 "use client";
 
-import { ChevronDownIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, ClipboardPasteIcon, SearchIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { CountStepper } from "@/components/app/count-stepper";
+import { type ConverterFormat, type ConverterResult, notesText, ReportConverter } from "@/components/app/report-converter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { normalizeName } from "@/lib/report-convert";
+import { matchPerson, type NameDict, normalizeName } from "@/lib/report-convert";
 import { saveReport } from "../../actions";
 
 type Item = { item_id: string; name: string; reported: number | null; confirmed: number | null };
@@ -23,6 +24,7 @@ export function ReportForm({
   comment,
   expenses,
   editable,
+  converter,
 }: {
   token: string;
   assignmentId: string;
@@ -30,6 +32,13 @@ export function ReportForm({
   comment: string;
   expenses: { transport?: Expense; other?: Expense };
   editable: boolean;
+  /** LINE に書いた報告を貼って件数を入れる（Phase 9）。書式があれば、取引先の形に直した文も出す */
+  converter?: {
+    dict: NameDict;
+    formats: ConverterFormat[];
+    defaults: { date: string; weekday: string; venue: string; workers: string[]; clientName: string };
+    myName: string;
+  };
 }) {
   const router = useRouter();
   const [counts, setCounts] = useState<Record<string, number>>(Object.fromEntries(items.map((i) => [i.item_id, i.reported ?? 0])));
@@ -47,6 +56,24 @@ export function ReportForm({
   // 開いたときに件数が入っていた項目を上に（入れている途中で並びが変わらないよう、最初の件数で決める）
   const [pinned] = useState(() => new Set(items.filter((i) => (i.reported ?? 0) > 0).map((i) => i.item_id)));
   const q = normalizeName(query);
+  const [pasteOpen, setPasteOpen] = useState(false);
+
+  /** 貼った報告のうち本人の分（名前のない行・本人の名前の行）の件数を入れる。メモと所感はコメントに */
+  function apply(r: ConverterResult, mine: ConverterResult["rows"]) {
+    const idByName = new Map(items.map((i) => [i.name, i.item_id]));
+    const next: Record<string, number> = Object.fromEntries(items.map((i) => [i.item_id, 0]));
+    for (const row of mine) {
+      const id = row.name ? idByName.get(row.name) : undefined;
+      if (id) next[id] += row.count;
+    }
+    setCounts(next);
+    const memo = [r.parsed.comment, notesText(mine)].filter(Boolean).join("\n");
+    if (memo && !text.includes(memo)) setText(text.trim() ? `${text.trim()}\n${memo}` : memo);
+    touch();
+    setPasteOpen(false);
+    toast.success("件数を入れました。確かめて「送信する」を押してください");
+  }
+
   const shown = (many ? [...items.filter((i) => pinned.has(i.item_id)), ...items.filter((i) => !pinned.has(i.item_id))] : items).filter(
     (i) => !q || normalizeName(i.name).includes(q) || (counts[i.item_id] ?? 0) > 0,
   );
@@ -72,6 +99,39 @@ export function ReportForm({
         });
       }}
     >
+      {editable && converter && (
+        <details className="group rounded-lg border" open={pasteOpen} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 font-medium">
+            <span className="flex items-center gap-2">
+              <ClipboardPasteIcon aria-hidden className="size-5 text-primary" />
+              LINE に書いた報告から入れる
+            </span>
+            <ChevronDownIcon className="size-5 shrink-0 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t p-3">
+            <ReportConverter
+              dict={converter.dict}
+              formats={converter.formats}
+              defaults={converter.defaults}
+              showOutput={converter.formats.length > 0}
+              footer={(r) => {
+                const mine = r.rows.filter((row) => !row.person || matchPerson(row.person, [converter.myName]) != null);
+                return (
+                  <div className="flex flex-col gap-2 rounded-xl border p-3">
+                    <p className="font-semibold">あなたの分</p>
+                    <p className="text-sm break-words">{mine.length ? mine.map((row) => `${row.name ?? row.raw} ${row.count}`).join("・") : "あなたの名前の行がありません"}</p>
+                    {r.unresolved > 0 && <p className="text-sm text-status-alert">「選んでください」の項目を選んでから入れてください。</p>}
+                    <Button type="button" className="self-start" disabled={r.unresolved > 0 || mine.length === 0} onClick={() => apply(r, mine)}>
+                      この件数を報告に入れる
+                    </Button>
+                  </div>
+                );
+              }}
+            />
+          </div>
+        </details>
+      )}
+
       <fieldset className="flex flex-col gap-3" disabled={!editable}>
         <legend className="mb-1 text-lg font-bold">獲得件数</legend>
         {/* 項目が多い取引先（公認名称が40以上など）は、さがして入れられるようにする。入れてある項目は上に */}
