@@ -76,6 +76,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
   const margin = pct(total(summary.gross), total(summary.revenue));
   const missingRates = money.clients.filter((c) => c.missingRoles.length);
   const missingDaily = money.staff.filter((s) => s.missingDailyRate);
+  const missingTravel = money.staff.some((s) => s.missingTravelRate);
   const venues = byVenue(money).slice(0, 10);
   const label = (m: string) => `${parse(`${m}-01`).m}月`;
 
@@ -92,7 +93,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
         「確定」は実績が確定した現場、「見込み」はまだの現場（確定人数 × 人日単価 ＋ 現場固定 ＋ 速報件数 × 成果単価）です。
       </p>
 
-      {(missingRates.length > 0 || missingDaily.length > 0) && (
+      {(missingRates.length > 0 || missingDaily.length > 0 || missingTravel) && (
         <Card className="mx-4 border-status-alert/40">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-status-alert">
@@ -108,9 +109,14 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
             ))}
             {missingDaily.map((s) => (
               <Link key={s.id} href={`/staff/${s.id}`} className="flex min-h-11 items-center text-status-alert underline-offset-2 hover:underline">
-                {s.name}: 日当が未設定
+                {s.name}: 日当が未設定（ランクの基準日当か、人ごとの日当を入れてください）
               </Link>
             ))}
+            {missingTravel && (
+              <Link href="/settings/money" className="flex min-h-11 items-center text-status-alert underline-offset-2 hover:underline">
+                遠方の上乗せの1回分の額が未設定（お金の設定で入れてください）
+              </Link>
+            )}
           </CardContent>
         </Card>
       )}

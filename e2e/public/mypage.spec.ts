@@ -71,7 +71,7 @@ test("翌月の稼働可能日を30秒程度で提出でき、候補一覧に反
   expect(cand.availability).toBe("ok");
 });
 
-test("稼働日の夜、件数・コメント・交通費を1分以内に報告できる", async ({ page }) => {
+test("稼働日の夜、件数・コメントを1分以内に報告できる（日当は交通費込みなので交通費の欄はない）", async ({ page }) => {
   const closer = await one<{ id: string }>(`select id from roles where name = 'クローザー'`);
   const staff = await one<{ id: string; mypage_token: string }>(`select id, mypage_token from staff where status = 'active' order by random() limit 1`);
   const ev = await one<{ id: string; venue: string }>(
@@ -90,8 +90,8 @@ test("稼働日の夜、件数・コメント・交通費を1分以内に報告�
   await page.getByRole("button", { name: "MNPを1増やす" }).click();
   await page.getByRole("button", { name: "新規を1増やす" }).click();
   await page.getByLabel("一言コメント（任意）").fill("午後から好調");
-  await page.getByLabel("交通費の金額").fill("640");
-  await page.getByLabel("交通費の区間").fill("大宮〜浦和 往復");
+  await expect(page.getByText("日当は交通費込みです（交通費の申請はありません）。")).toBeVisible();
+  await expect(page.getByLabel("交通費の金額")).toHaveCount(0);
   await page.getByRole("button", { name: "送信する" }).click();
   await expect(page.getByText("報告を送信しました")).toBeVisible();
   expect(Date.now() - started).toBeLessThan(60_000);
@@ -101,8 +101,7 @@ test("稼働日の夜、件数・コメント・交通費を1分以内に報告�
     [a.id],
   );
   expect(Object.fromEntries(items.map((i) => [i.name, i.reported_count]))).toEqual({ MNP: 2, 新規: 1 });
-  const exp = await one<{ amount: number; status: string }>(`select amount, status from expenses where assignment_id = $1 and kind = 'transport'`, [a.id]);
-  expect(exp).toEqual({ amount: 640, status: "pending" });
+  expect(await sql(`select 1 from expenses where assignment_id = $1 and kind = 'transport'`, [a.id])).toHaveLength(0);
   await cleanupEvent(ev.id);
 });
 

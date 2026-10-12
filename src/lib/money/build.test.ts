@@ -116,4 +116,41 @@ describe("月の請求・支払いをまとめる", () => {
     expect(r2.events.find((e) => e.id === "e1")!.bill.subtotal).toBe(0);
     expect(r2.staff.find((x) => x.id === "s3")!.totals).toMatchObject({ daily: 0, incentive: 0, expense: 500 });
   });
+
+  it("日当はランクで決まる: 人ごとの日当がなければランクの基準日当。現場ごとの日当・人ごとの日当が先（Phase 12）", () => {
+    const input = base();
+    input.staff[0] = { ...input.staff[0], baseDailyRate: null, rankDailyRate: 17500 };
+    input.staff[2] = { ...input.staff[2], baseDailyRate: 12000, rankDailyRate: 16000 };
+    const r2 = computeMoney(input);
+    const s1 = r2.staff.find((x) => x.id === "s1")!;
+    expect(s1.assignments.map((a) => a.pay.daily)).toEqual([17500, 17500]);
+    expect(s1.missingDailyRate).toBe(false);
+    // s3 は現場ごとの日当 13,000（人ごとの日当 12,000・ランク 16,000 より先）
+    expect(r2.staff.find((x) => x.id === "s3")!.assignments[0].pay.daily).toBe(13000);
+    // ランクにも額がなければ「日当が未設定」
+    input.staff[0] = { ...input.staff[0], rankDailyRate: null };
+    expect(computeMoney(input).staff.find((x) => x.id === "s1")!.missingDailyRate).toBe(true);
+  });
+
+  it("遠方の上乗せ: 回数 × 1回分を日当に足す。額が決まっていなければ知らせる（Phase 12）", () => {
+    const input = base();
+    input.travelSteps = [{ assignmentId: "a1", steps: 2 }];
+    input.settings.travelStepAmount = 1000;
+    const r2 = computeMoney(input);
+    const s1 = r2.staff.find((x) => x.id === "s1")!;
+    expect(s1.assignments[0].pay).toMatchObject({ daily: 17000, travel: 2000 });
+    expect(s1.totals.daily).toBe(17000 + 15000);
+    // 現場の報酬にも入る（請求には入らない）
+    const e1 = r2.events.find((e) => e.id === "e1")!;
+    expect(e1.reward).toBe(17000 + 6000 + 13000 + 3000);
+    expect(e1.bill.subtotal).toBe(25000 + 15000 + 15000 + 1000);
+    // 1回分の額がない
+    input.settings.travelStepAmount = null;
+    const r3 = computeMoney(input);
+    expect(r3.staff.find((x) => x.id === "s1")!).toMatchObject({ missingTravelRate: true });
+    // 当日不稼働の人には付かない
+    input.travelSteps = [{ assignmentId: "a2", steps: 1 }];
+    input.settings.travelStepAmount = 1000;
+    expect(computeMoney(input).staff.find((x) => x.id === "s2")!.totals.daily).toBe(0);
+  });
 });

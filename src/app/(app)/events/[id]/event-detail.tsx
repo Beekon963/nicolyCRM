@@ -58,6 +58,7 @@ export async function EventDetailView({ detail, masters, back, isOwner = false }
         offeredAt: a.offered_at,
         confirmNoticeSent: Boolean(a.confirm_notice_sent_at),
         reminderSent: Boolean(a.reminder_sent_at),
+        travelSteps: a.travel_steps,
         reported: Boolean(a.report?.submitted_at),
         messages: { offer: msg("offer"), confirm: msg("confirm"), reminder: msg("reminder"), report: msg("report_request") },
       };

@@ -10,16 +10,17 @@ export default async function NewStaffPage() {
   const user = await requireMember();
   const masters = await getMasters();
   let rankRates: Record<string, number> | undefined;
+  const supabase = await createClient();
   if (user.role === "owner") {
-    const supabase = await createClient();
     const { data } = await supabase.from("rank_rates").select("rank_id, base_daily_rate");
     rankRates = Object.fromEntries((data ?? []).map((r) => [r.rank_id, r.base_daily_rate]));
   }
+  const { data: others } = await supabase.from("staff").select("id, name").order("kana");
   const active = <T extends { is_active: boolean }>(xs: T[]) => xs.filter((x) => x.is_active);
   return (
     <>
       <PageHeader title="スタッフを登録" back="/staff" />
-      <StaffForm roles={active(masters.roles)} ranks={active(masters.ranks)} areas={active(masters.areas)} rankRates={rankRates} />
+      <StaffForm roles={active(masters.roles)} ranks={active(masters.ranks)} areas={active(masters.areas)} rankRates={rankRates} others={others ?? []} />
     </>
   );
 }

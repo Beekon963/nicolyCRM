@@ -43,7 +43,7 @@ export const TARGETS: Record<ImportTarget, { label: string; fields: FieldDef[]; 
         ],
         help: "複数の列を「列名: 値」の形で1行ずつまとめて入れます（スタッフの画面では表に分けて表示）",
       },
-      { key: "base_daily_rate", label: "基本日当", ownerOnly: true, aliases: ["基本日当", "日当", "単価"], help: "空ならランクの基準日当" },
+      { key: "base_daily_rate", label: "基本日当", ownerOnly: true, aliases: ["基本日当", "日当", "単価"], help: "ランクの額と違う人だけ（空ならランクの基準日当で計算）" },
       { key: "withholding_method", label: "源泉徴収の方式", ownerOnly: true, aliases: ["源泉", "源泉徴収"], help: "なし / 報酬・料金 / 外交員報酬" },
       { key: "invoice_number", label: "インボイス登録番号", ownerOnly: true, aliases: ["インボイス", "インボイス登録番号", "登録番号"] },
       { key: "bank_cell", label: "口座（1つのセル）", ownerOnly: true, aliases: ["口座情報", "口座", "振込口座"], help: "「銀行 支店 種別 番号」を分けて取り込みます" },

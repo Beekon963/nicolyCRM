@@ -23,6 +23,8 @@ type Report = {
   comment: string;
   items: { item_id: string; name: string; reported: number | null; confirmed: number | null }[];
   expenses: { transport?: { amount: number; memo: string; status: "pending" | "approved" | "rejected" }; other?: { amount: number; memo: string; status: "pending" | "approved" | "rejected" } };
+  /** 日当は交通費込み（交通費の欄を出さない。Phase 12。DB が古いときは返らない） */
+  transport_included?: boolean;
   /** この現場の取引先で使う日報のフォーマット（DB が古いときは返らないことがある） */
   formats?: { id: string; name: string; header: string; event_block: string; person_block: string; footer: string; start_block?: string }[];
   /** 言いかえ表（いつもの書き方 → 公認名称） */
@@ -61,6 +63,7 @@ export default async function MypageReport({ params }: PageProps<"/m/[token]/rep
         items={d.items}
         comment={d.comment}
         expenses={d.expenses}
+        transportIncluded={d.transport_included ?? false}
         editable={d.editable}
         converter={converterProps(d)}
       />

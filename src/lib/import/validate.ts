@@ -72,7 +72,7 @@ export function validateRows(target: ImportTarget, rows: Record<string, string>[
         if (!v.base_daily_rate && v.rank) {
           const rank = ctx.ranks.find((r) => nk(r.name) === nk(v.rank));
           const rate = rank && ctx.rankRates.get(rank.id);
-          if (rate != null) warnings.push(`基本日当は空なので、ランクの基準日当 ${rate.toLocaleString("ja-JP")}円 を入れます`);
+          if (rate != null) warnings.push(`日当は空なので、ランクの基準日当 ${rate.toLocaleString("ja-JP")}円 で計算します（ランクを上げると変わります）`);
         }
         if (v.withholding_method && !(v.withholding_method in WITHHOLDING)) errors.push(`源泉の方式「${v.withholding_method}」は なし / 報酬・料金 / 外交員報酬 のどれかにしてください`);
         const inv = (v.invoice_number ?? "").toUpperCase().replace(/[\s-]/g, "");

@@ -14,6 +14,7 @@ import {
   type PayAssignment,
   payStaffMonth,
   type RateTable,
+  travelAllowance,
   withholdingAmount,
 } from "./index";
 
@@ -240,5 +241,24 @@ describe("金額の表示と入力", async () => {
     expect(parseYen("")).toBeNull();
     expect(parseYen("abc")).toBeNaN();
     expect(parseYen("1.5")).toBeNaN();
+  });
+});
+
+describe("遠方の上乗せ（Phase 12）", () => {
+  it("1時間30分を超える30分ごとに1回分。回数が0なら0、1回分の額が決まっていなければ null", () => {
+    expect(travelAllowance(0, 1000)).toBe(0);
+    expect(travelAllowance(0, null)).toBe(0);
+    expect(travelAllowance(1, 1000)).toBe(1000);
+    expect(travelAllowance(3, 1000)).toBe(3000);
+    expect(travelAllowance(2, null)).toBeNull();
+  });
+
+  it("日当に足して、源泉の対象にも入る（当日不稼働なら付かない）", () => {
+    const a = payAssignment({ worked: true, dailyRate: 17500, travel: 1000, items: [], incentiveRate: () => null }, "confirmed");
+    expect(a).toMatchObject({ daily: 18500, travel: 1000, missingTravelRate: false });
+    const m = payStaffMonth({ method: "fee", assignments: [a], expenses: [], adjustments: [] }, { includeExpenses: true, taxInclusive: true, taxRatePercent: 10 });
+    expect(m.withholdingBase).toBe(18500);
+    expect(payAssignment({ worked: false, dailyRate: 17500, travel: 1000, items: [], incentiveRate: () => null }, "confirmed").daily).toBe(0);
+    expect(payAssignment({ worked: true, dailyRate: 17500, travel: null, items: [], incentiveRate: () => null }, "confirmed").missingTravelRate).toBe(true);
   });
 });

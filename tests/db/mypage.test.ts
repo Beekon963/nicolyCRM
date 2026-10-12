@@ -177,7 +177,7 @@ describe("実績報告", () => {
     return { aId: a.id as string, items: items.map((i) => i.id as string) };
   }
 
-  it("稼働日当日に件数・コメント・交通費を報告でき、期限内は修正できる", async () => {
+  it("稼働日当日に件数・コメントを報告でき、期限内は修正できる（交通費は rank-rules.test.ts）", async () => {
     const f = await fixture();
     await asRole("anon", async (c) => {
       const { aId, items } = await confirmedAssignment(c, f, 0);

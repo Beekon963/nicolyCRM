@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 const schema = z.object({
   availabilityDeadlineDay: z.coerce.number().int().min(1, "締切日は1〜28日にしてください").max(28, "締切日は1〜28日にしてください"),
   reportWindowDays: z.coerce.number().int().min(0, "期限は0〜31日にしてください").max(31, "期限は0〜31日にしてください"),
+  transportIncluded: z.boolean(),
   name: z.string().trim(),
   address: z.string().trim(),
   phone: z.string().trim(),
@@ -24,6 +25,7 @@ export async function saveGeneralSettings(input: z.input<typeof schema>): Promis
   const { error } = await supabase.from("settings").upsert([
     { key: "availability_deadline_day", value: d.availabilityDeadlineDay },
     { key: "report_window_days", value: d.reportWindowDays },
+    { key: "transport_included", value: d.transportIncluded },
     { key: "company_profile", value: { name: d.name, address: d.address, phone: d.phone, email: d.email } },
   ]);
   if (error) return fail(dbErrorMessage(error));

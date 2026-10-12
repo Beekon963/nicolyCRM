@@ -1,6 +1,7 @@
 /**
  * 支払い（スタッフへ。要件 §4.9）
- * - 日当: アサインごとの上書き → スタッフの基本日当。当日不稼働・キャンセル・中止の現場は 0
+ * - 日当: アサインごとの上書き → スタッフの人ごとの日当 → ランクの基準日当（Phase 12）。当日不稼働・キャンセル・中止の現場は 0
+ * - 遠方の上乗せ: 1時間30分を超える30分の回数 × 1回分の額。日当に足す（Phase 12）
  * - インセンティブ: 獲得項目ごとの単価（現場ごとの上書き → 全体の標準）× 件数
  * - 調整額（＋/−）、承認済みの交通費・経費
  * - 源泉徴収: 対象額 ＝ 日当 ＋ インセンティブ ＋ 調整額（＋ 設定で交通費・経費）。税抜で計算する設定なら税抜換算
@@ -14,22 +15,28 @@ import { withholdingAmount, type WithholdingMethod } from "./withholding";
 export type PayAssignment = {
   /** 実際に稼働した（確定のアサインで、現場が中止でない） */
   worked: boolean;
-  /** 日当（アサインの上書き ?? スタッフの基本日当）。決まっていなければ null */
+  /** 日当（アサインの上書き ?? 人ごとの日当 ?? ランクの基準日当）。決まっていなければ null */
   dailyRate: number | null;
+  /** 遠方の上乗せ（日当に足す額）。回数はあるのに1回分の額が決まっていなければ null */
+  travel?: number | null;
   items: ItemCount[];
   /** 獲得項目ごとのインセンティブ単価（現場の上書き ?? 全体の標準） */
   incentiveRate: (itemId: string) => number | null;
 };
 
 export type AssignmentPay = {
+  /** 日当（遠方の上乗せを含む） */
   daily: number;
+  /** うち遠方の上乗せ */
+  travel: number;
   incentive: number;
   lines: { itemId: string; unit: number; qty: number; amount: number }[];
   missingDailyRate: boolean;
+  missingTravelRate: boolean;
 };
 
 export function payAssignment(a: PayAssignment, basis: CountBasis): AssignmentPay {
-  if (!a.worked) return { daily: 0, incentive: 0, lines: [], missingDailyRate: false };
+  if (!a.worked) return { daily: 0, travel: 0, incentive: 0, lines: [], missingDailyRate: false, missingTravelRate: false };
   const lines = a.items
     .map((it) => {
       const qty = itemQty(it, basis);
@@ -37,7 +44,21 @@ export function payAssignment(a: PayAssignment, basis: CountBasis): AssignmentPa
       return { itemId: it.itemId, unit, qty, amount: itemAmount(unit, qty) };
     })
     .filter((l) => l.qty > 0);
-  return { daily: a.dailyRate ?? 0, incentive: sum(lines.map((l) => l.amount)), lines, missingDailyRate: a.dailyRate == null };
+  const travel = a.travel ?? 0;
+  return {
+    daily: (a.dailyRate ?? 0) + travel,
+    travel,
+    incentive: sum(lines.map((l) => l.amount)),
+    lines,
+    missingDailyRate: a.dailyRate == null,
+    missingTravelRate: a.travel === null,
+  };
+}
+
+/** 遠方の上乗せの額（回数 × 1回分の額）。回数が0なら0、1回分の額が決まっていなければ null */
+export function travelAllowance(steps: number, perStep: number | null): number | null {
+  if (steps <= 0) return 0;
+  return perStep == null ? null : steps * perStep;
 }
 
 export type WithholdingSettings = {

@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import { ASSIGNMENT_STATUS, CANCEL_REASONS, INPUT_SOURCE } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import { markSent, removeOffer, setAssignmentStatus } from "../actions";
+import { markSent, removeOffer, setAssignmentStatus, setTravelSteps } from "../actions";
 
 type Status = keyof typeof ASSIGNMENT_STATUS;
 
@@ -28,8 +29,17 @@ export type PanelAssignment = {
   confirmNoticeSent: boolean;
   reminderSent: boolean;
   reported: boolean;
+  /** 遠方の上乗せの回数（最寄り駅から1時間30分を超える30分ごと。Phase 12） */
+  travelSteps: number;
   messages: { offer: string; confirm: string; reminder: string; report: string };
 };
+
+/** 最寄り駅からの時間の選び方（0 = 1時間30分まで、1 = 2時間まで …） */
+export function travelLabel(steps: number): string {
+  const m = 90 + 30 * steps;
+  const t = `${Math.floor(m / 60)}時間${m % 60 ? `${m % 60}分` : ""}まで`;
+  return steps === 0 ? `${t}（なし）` : `${t}（遠方 ＋${steps}回分）`;
+}
 
 const ORDER: Status[] = ["confirmed", "offered", "waitlisted", "declined", "cancelled", "no_show"];
 
@@ -149,6 +159,7 @@ export function AssignmentPanel({
                       </>
                     )}
                     {a.status === "confirmed" && isPast && !recordOnly && <Badge tone={a.reported ? "done" : "alert"}>{a.reported ? "報告済み" : "未報告"}</Badge>}
+                    {a.status === "confirmed" && a.travelSteps > 0 && <Badge>遠方 ＋{a.travelSteps}回分</Badge>}
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" aria-label={`${a.name}の状態を変える`} onClick={() => setMenu(a)}>
@@ -184,6 +195,32 @@ export function AssignmentPanel({
                     当日不稼働
                   </Button>
                 </>
+              )}
+              {menu.status === "confirmed" && (
+                <div className="col-span-2 flex flex-col gap-1 border-t pt-3">
+                  <Label htmlFor="travel-steps">最寄り駅から現場までの時間（遠方の上乗せ）</Label>
+                  <NativeSelect
+                    id="travel-steps"
+                    value={String(menu.travelSteps)}
+                    disabled={pending}
+                    onChange={(e) => {
+                      const steps = Number(e.target.value);
+                      start(async () => {
+                        const r = await setTravelSteps(menu.id, steps);
+                        if (!r.ok) return void toast.error(r.message);
+                        toast.success(r.message);
+                        setMenu({ ...menu, travelSteps: steps });
+                      });
+                    }}
+                  >
+                    {Array.from({ length: 7 }, (_, n) => (
+                      <option key={n} value={n}>
+                        {travelLabel(n)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                  <p className="text-sm text-muted-foreground">1時間30分を超える30分ごとに、日当に上乗せします。</p>
+                </div>
               )}
               {menu.status === "offered" && !menu.respondedAt && (
                 <Button

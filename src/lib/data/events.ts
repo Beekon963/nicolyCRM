@@ -49,7 +49,7 @@ export async function getEventDetail(id: string) {
     supabase
       .from("assignments")
       .select(
-        "id, staff_id, role_id, status, offered_at, responded_at, response_source, confirm_notice_sent_at, reminder_sent_at, cancel_reason_code, cancel_reason, staff:staff(id, name, kana, phone, mypage_token, rank_id), report:reports(submitted_at, confirmed_at, comment, source)",
+        "id, staff_id, role_id, status, offered_at, responded_at, response_source, confirm_notice_sent_at, reminder_sent_at, cancel_reason_code, cancel_reason, travel_steps, staff:staff(id, name, kana, phone, mypage_token, rank_id), report:reports(submitted_at, confirmed_at, comment, source)",
       )
       .eq("event_id", id)
       .order("offered_at"),

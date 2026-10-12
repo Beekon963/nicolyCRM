@@ -22,15 +22,18 @@ const staffSchema = z.object({
   role_ids: z.array(z.uuid()),
   area_ids: z.array(z.uuid()),
   base_daily_rate: z.number().int().min(0).nullable().optional(),
+  // 紹介してくれた人（友達紹介。Phase 12）
+  referred_by: optionalId.optional(),
 });
 
-export type StaffInput = Omit<z.input<typeof staffSchema>, "rank_id"> & { rank_id?: string | null };
+export type StaffInput = Omit<z.input<typeof staffSchema>, "rank_id" | "referred_by"> & { rank_id?: string | null; referred_by?: string | null };
 
 export async function saveStaff(input: StaffInput): Promise<ActionResult<{ id: string }>> {
   const me = await assertMember();
   const parsed = staffSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
   const { id, role_ids, area_ids, base_daily_rate, ...values } = parsed.data;
+  if (id && values.referred_by === id) return fail("紹介してくれた人に本人は選べません");
   const supabase = await createClient();
 
   const { data, error } = id
@@ -52,7 +55,7 @@ export async function saveStaff(input: StaffInput): Promise<ActionResult<{ id: s
     }
   }
 
-  // 新規登録時の基本日当（オーナーのみ。ランクの基準日当が初期値）
+  // 新規登録時の人ごとの日当（オーナーのみ。空ならランクの基準日当で計算する。Phase 12）
   if (!id && me.role === "owner" && base_daily_rate != null) {
     await supabase.from("staff_private").upsert({ staff_id: staffId, base_daily_rate });
   }
