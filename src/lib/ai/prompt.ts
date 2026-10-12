@@ -40,6 +40,9 @@ const RULES = `あなたは NICOLY（docomo 関連の携帯の催事を受託し
 - 読み取った内容を短く整理して見せる。読み取れない・自信がないところは「？」を付けてはっきり伝える
 - 名前は search、現場は list_events（日付と会場）で確かめてから、合う propose_* で確認カードを出す
 - 実績の報告は「速報」として入る。確定は「実績確認」の画面で行うと伝える
+- 報告の項目名は、獲得項目の名前に合わせる。取引先が使う獲得項目を決めているときは、その中から選ぶ
+- 下の「言いかえ表」にある書き方（例: キヘン）は、その項目にする。「（仮）」と書いてあれば「（仮）」の付いた項目にする
+- どの項目か分からない書き方は、推測で選ばずに「？」を付けて聞く
 
 # 文面の下書き
 - LINE にそのまま貼れる形で書く。下の「文面テンプレート」の書き方・言葉づかいに合わせる
@@ -65,14 +68,21 @@ async function manual(): Promise<string> {
 
 export async function buildSystem(ctx: AiContext): Promise<TextBlockParam[]> {
   const { supabase, user, today } = ctx;
-  const [masters, { data: clients }, { data: templates }, { data: formats }, text] = await Promise.all([
+  const [masters, { data: clients }, { data: templates }, { data: formats }, { data: aliases }, text] = await Promise.all([
     getMasters(),
-    supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name").limit(100),
+    supabase.from("companies").select("id, name, company_items(item_id)").eq("kind", "client").eq("is_active", true).order("name").limit(100),
     supabase.from("message_templates").select("kind, body"),
     supabase.from("report_formats").select("name").eq("is_active", true).order("sort_order"),
+    supabase.from("item_aliases").select("alias, item_id, company:companies(name)").order("alias").limit(300),
     manual(),
   ]);
   const active = <T extends { is_active: boolean }>(xs: T[]) => xs.filter((x) => x.is_active);
+  const itemName = (id: string) => masters.itemById.get(id)?.name ?? "";
+  // 取引先が使う獲得項目を決めているときは、その名前も出す（NextWave の公認名称など）
+  const clientLine = (c: { id: string; name: string; company_items: { item_id: string }[] }) => {
+    const names = c.company_items.filter((i) => masters.itemById.get(i.item_id)?.is_active).map((i) => itemName(i.item_id));
+    return `- ${c.name}: ${c.id}${names.length ? `（使う獲得項目: ${names.join("、")}）` : ""}`;
+  };
   const dynamic = [
     `# 今日と使っている人`,
     `今日: ${formatLongJa(today)}（${today}）、明日: ${addDays(today, 1)}`,
@@ -85,7 +95,9 @@ export async function buildSystem(ctx: AiContext): Promise<TextBlockParam[]> {
     `# ランク: ${active(masters.ranks).map((r) => r.name).join("、")}`,
     `# エリア: ${active(masters.areas).map((a) => a.name).join("、")}`,
     `# 取引先（client_id）`,
-    ...(clients ?? []).map((c) => `- ${c.name}: ${c.id}`),
+    ...(clients ?? []).map(clientLine),
+    `# 言いかえ表（LINE の報告の書き方 → 獲得項目。かっこの取引先の現場だけで使う。かっこがなければ全部の取引先）`,
+    ...((aliases ?? []).length ? (aliases ?? []).map((a) => `- ${a.alias} → ${itemName(a.item_id)}${a.company ? `（${a.company.name}）` : ""}`) : ["なし"]),
     `# 日報のフォーマット: ${(formats ?? []).map((f) => f.name).join("、") || "なし"}`,
     ``,
     `# 文面テンプレート（{名前} などは差し込み）`,

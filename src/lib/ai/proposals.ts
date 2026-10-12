@@ -80,14 +80,14 @@ type ReportAsg = {
   status: keyof typeof ASSIGNMENT_STATUS;
   role_id: string;
   staff: { name: string } | null;
-  event: { date: string; cancelled_at: string | null; venue: { name: string } | null; client: { name: string } | null } | null;
+  event: { date: string; client_id: string; cancelled_at: string | null; venue: { name: string } | null; client: { name: string } | null } | null;
   report: { submitted_at: string | null; confirmed_at: string | null } | null;
 };
 
 async function loadReportTargets(ctx: AiContext, ids: string[]) {
   const { data } = await ctx.supabase
     .from("assignments")
-    .select("id, status, role_id, staff:staff(name), event:events(date, cancelled_at, venue:venues(name), client:companies(name)), report:reports(submitted_at, confirmed_at)")
+    .select("id, status, role_id, staff:staff(name), event:events(date, client_id, cancelled_at, venue:venues(name), client:companies(name)), report:reports(submitted_at, confirmed_at)")
     .in("id", ids);
   return new Map(
     (data ?? []).map((a) => {
@@ -107,6 +107,33 @@ function reportSkip(a: ReportAsg | undefined, today: string): string | null {
   if (a.report?.confirmed_at) return "実績はもう確定しています（実績確認の画面で直せます）";
   if (a.report?.submitted_at) return "本人がもう報告しています（実績確認の画面で確定してください）";
   return null;
+}
+
+/**
+ * 取引先が「使う獲得項目」を選んでいるのに、その中にない項目を入れようとしていたら知らせる
+ * （例: ネクストウェーブの現場に、公認名称でない「ドコモ光」を入れる）。止めはしない
+ */
+async function unusedItemWarnings(
+  ctx: AiContext,
+  entries: z.infer<typeof PAYLOAD.reports>["entries"],
+  targets: Map<string, ReportAsg>,
+  masters: Awaited<ReturnType<typeof getMasters>>,
+): Promise<string[]> {
+  const clientIds = [...new Set([...targets.values()].flatMap((a) => (a.event ? [a.event.client_id] : [])))];
+  if (!clientIds.length) return [];
+  const { data } = await ctx.supabase.from("company_items").select("company_id, item_id").in("company_id", clientIds);
+  const used = new Map<string, Set<string>>();
+  for (const r of data ?? []) used.set(r.company_id, (used.get(r.company_id) ?? new Set()).add(r.item_id));
+  const out = new Set<string>();
+  for (const e of entries) {
+    const a = targets.get(e.assignment_id);
+    const items = a?.event && used.get(a.event.client_id);
+    if (!items || reportSkip(a, ctx.today)) continue;
+    for (const c of e.counts) {
+      if (!items.has(c.item_id)) out.add(`「${masters.itemById.get(c.item_id)?.name}」は${a.event?.client?.name ?? "この取引先"}で使う獲得項目にありません。合っているか確かめてください。`);
+    }
+  }
+  return [...out];
 }
 
 const proposeReports: AiTool = {
@@ -129,7 +156,8 @@ const proposeReports: AiTool = {
       };
     });
     if (rows.every((r) => r.skip)) throw new ToolInputError(`入れられる報告がありません: ${rows.map((r) => `${r.label} → ${r.skip}`).join(" / ")}`);
-    return proposal("reports", `実績の報告を入れる（${rows.filter((r) => !r.skip).length}人分）`, rows, ["入るのは速報です。確定は「実績確認」の画面で行ってください。"], input);
+    const warnings = ["入るのは速報です。確定は「実績確認」の画面で行ってください。", ...(await unusedItemWarnings(ctx, input.entries, targets, masters))];
+    return proposal("reports", `実績の報告を入れる（${rows.filter((r) => !r.skip).length}人分）`, rows, warnings, input);
   },
 };
 

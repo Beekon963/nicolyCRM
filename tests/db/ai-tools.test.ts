@@ -15,6 +15,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => current, cre
 
 const { toolsFor, runTool } = await import("@/lib/ai/tools");
 const { executeProposal } = await import("@/lib/ai/proposals");
+const { buildSystem } = await import("@/lib/ai/prompt");
 const { todayJst, addDays } = await import("@/lib/date");
 
 async function signIn(role: "owner" | "manager") {
@@ -177,5 +178,49 @@ describe("AI の確認カードと登録", () => {
     const off = await runTool(ctx, tools, "propose_offers", { event_id: ids.event, role_id: ids.role, staff_ids: [free.id] });
     expect(off.isError, off.content).toBeFalsy();
     expect(off.proposal?.rows).toHaveLength(1);
+  });
+
+  it("実績の報告: 取引先が使う獲得項目にない項目は、カードで知らせる（入れるのは止めない）", async () => {
+    const ctx = ctxOf("manager");
+    const today = todayJst();
+    const tag = Math.random().toString(36).slice(2, 6);
+    const [client] = await q<{ id: string }>(`insert into companies (kind, name, status) values ('client', $1, 'active') returning id`, [`AI項目${tag}`]);
+    const [used, other] = await q<{ id: string; name: string }>(`select id, name from items where is_active order by sort_order limit 2`);
+    await q(`insert into company_items (company_id, item_id) values ($1, $2)`, [client.id, used.id]);
+    const [ev] = await q<{ id: string }>(`insert into events (client_id, venue_id, date) values ($1, $2, $3) returning id`, [client.id, ids.venue, today]);
+    try {
+      const [a] = await q<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [ev.id, ids.staff, ids.role]);
+      const ok = await runTool(ctx, toolsFor(ctx.user), "propose_reports", { entries: [{ assignment_id: a.id, counts: [{ item_id: used.id, count: 1 }] }] });
+      expect(ok.proposal?.warnings).toHaveLength(1);
+      const out = await runTool(ctx, toolsFor(ctx.user), "propose_reports", { entries: [{ assignment_id: a.id, counts: [{ item_id: used.id, count: 1 }, { item_id: other.id, count: 2 }] }] });
+      expect(out.proposal?.warnings).toContain(`「${other.name}」はAI項目${tag}で使う獲得項目にありません。合っているか確かめてください。`);
+      expect(out.proposal?.rows[0].skip).toBeUndefined();
+    } finally {
+      await q(`delete from assignments where event_id = $1`, [ev.id]);
+      await q(`delete from events where id = $1`, [ev.id]);
+      await q(`delete from company_items where company_id = $1`, [client.id]);
+      await q(`delete from companies where id = $1`, [client.id]);
+    }
+  });
+});
+
+describe("AI への指示", () => {
+  it("言いかえ表と、取引先が使う獲得項目が入る（LINE のスクショの書き方を正しい項目にするため）", async () => {
+    const ctx = ctxOf("manager");
+    const tag = Math.random().toString(36).slice(2, 6);
+    const [client] = await q<{ id: string }>(`insert into companies (kind, name, status) values ('client', $1, 'active') returning id`, [`AI言いかえ${tag}`]);
+    const [item] = await q<{ id: string; name: string }>(`select id, name from items where is_active order by sort_order limit 1`);
+    await q(`insert into company_items (company_id, item_id) values ($1, $2)`, [client.id, item.id]);
+    await q(`insert into item_aliases (company_id, alias, item_id) values ($1, $2, $3), (null, $4, $3)`, [client.id, `ほげ${tag}`, item.id, `ふが${tag}`]);
+    try {
+      const text = (await buildSystem(ctx)).map((b) => b.text).join("\n");
+      expect(text).toContain(`- ほげ${tag} → ${item.name}（AI言いかえ${tag}）`);
+      expect(text).toContain(`- ふが${tag} → ${item.name}\n`);
+      expect(text).toContain(`- AI言いかえ${tag}: ${client.id}（使う獲得項目: ${item.name}）`);
+    } finally {
+      await q(`delete from item_aliases where alias in ($1, $2)`, [`ほげ${tag}`, `ふが${tag}`]);
+      await q(`delete from company_items where company_id = $1`, [client.id]);
+      await q(`delete from companies where id = $1`, [client.id]);
+    }
   });
 });
