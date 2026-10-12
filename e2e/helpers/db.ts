@@ -1,5 +1,8 @@
 import pg from "pg";
 
+// 獲得件数（numeric。Phase 11 で小数第2位まで）を数として読む（そのままだと "2.00" の文字になる）
+pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
+
 /** 画面テストの準備用にローカル DB へ直接つなぐ（postgres 権限） */
 const pool = new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres", max: 2 });
 

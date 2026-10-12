@@ -158,6 +158,20 @@ const STATUSES = ["offered", "confirmed", "waitlisted", "declined", "cancelled",
 type Status = (typeof STATUSES)[number];
 
 /**
+ * 遠方の上乗せ（Phase 12）: 最寄り駅から現場まで1時間30分を超える30分の回数（0 = なし）。
+ * 回数は金額ではないので管理者も変えられる（額はオーナーの設定。締めた月は DB が止める）
+ */
+export async function setTravelSteps(id: string, steps: number): Promise<ActionResult> {
+  await assertMember();
+  if (!z.uuid().safeParse(id).success || !Number.isInteger(steps) || steps < 0 || steps > 10) return fail("不正な指定です");
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("assignments").update({ travel_steps: steps }).eq("id", id).select("event_id").single();
+  if (error || !data) return fail(dbErrorMessage(error));
+  revalidatePath(`/events/${data.event_id}`, "layout");
+  return ok(steps ? `遠方の上乗せを ${steps}回分にしました` : "遠方の上乗せをなしにしました");
+}
+
+/**
  * 状態を手動で変える（LINE で口頭回答が来たときなど。要件 §4.3-5）。
  * キャンセル・当日不稼働は理由が必須で、稼働履歴メモに自動で記録される（DB のトリガー）。
  * 打診中・補欠 → 確定 のときだけ、LINE の確定のお知らせを入れる（「元に戻す」で確定に戻したときは送らない）。

@@ -104,7 +104,7 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
                   {!proxy && <span className="block text-sm text-muted-foreground tabular-nums">{i.reported == null ? "速報なし" : `速報 ${i.reported}`}</span>}
                 </span>
                 {editing ? (
-                  <CountStepper label={`${a.name}の${i.name}の確定件数`} value={i.value} onChange={(v) => set(i.item_id, { value: v })} />
+                  <CountStepper decimal label={`${a.name}の${i.name}の確定件数`} value={i.value} onChange={(v) => set(i.item_id, { value: v })} />
                 ) : (
                   <span className="font-bold">確定 {i.confirmed ?? 0}</span>
                 )}

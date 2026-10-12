@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { matchesQuery } from "@/lib/search";
+import { sumCounts } from "@/lib/count";
 
 export function mapUrl(v: { address: string; name: string }) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.address || v.name)}`;
@@ -39,8 +40,8 @@ export async function getVenueDetail(id: string) {
       cancelled: Boolean(e.cancelled_at),
       client: e.client,
       worked: worked.length,
-      confirmed: items.some((i) => i.confirmed_count != null) ? items.reduce((s, i) => s + (i.confirmed_count ?? 0), 0) : null,
-      reported: items.some((i) => i.reported_count != null) ? items.reduce((s, i) => s + (i.reported_count ?? 0), 0) : null,
+      confirmed: items.some((i) => i.confirmed_count != null) ? sumCounts(items.map((i) => i.confirmed_count)) : null,
+      reported: items.some((i) => i.reported_count != null) ? sumCounts(items.map((i) => i.reported_count)) : null,
     };
   });
 

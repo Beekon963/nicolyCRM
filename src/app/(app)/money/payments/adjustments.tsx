@@ -3,7 +3,7 @@
 import { TrashIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { addAdjustment, removeAdjustment } from "@/app/(app)/money/actions";
+import { addAdjustment, addReferralBonus, removeAdjustment } from "@/app/(app)/money/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
@@ -62,6 +62,28 @@ export function RemoveAdjustment({ id }: { id: string }) {
       }
     >
       <TrashIcon />
+    </Button>
+  );
+}
+
+/** 友達紹介のボーナスを、この月の調整額に足す（Phase 12） */
+export function AddReferralBonus({ referredStaffId, month, label }: { referredStaffId: string; month: string; label: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <Button
+      variant="outline"
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const r = await addReferralBonus(referredStaffId, month);
+          if (r.ok) toast.success(r.message);
+          else toast.error(r.message);
+          router.refresh();
+        })
+      }
+    >
+      {pending ? "足しています…" : label}
     </Button>
   );
 }

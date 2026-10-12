@@ -5,7 +5,8 @@
  * - 中止の現場は請求しない
  * - 件数: 確定分は確定件数、見込み分は速報件数（速報がなければ 0）
  */
-import { applyRate, type Rounding, sum } from "./round";
+import { countHundredths } from "@/lib/count";
+import { applyRate, divide, type Rounding, sum } from "./round";
 import { findRate, type RateLayer, type RateTable } from "./rates";
 
 export type CountBasis = "confirmed" | "estimate";
@@ -42,6 +43,14 @@ export function itemQty(i: ItemCount, basis: CountBasis): number {
   return (basis === "confirmed" ? i.confirmed : i.reported) ?? 0;
 }
 
+/**
+ * 件数 × 単価（成果の請求・インセンティブ）。件数は小数第2位まであるので（2人で取った件数は0.5件。Phase 11）、
+ * 0.01件単位の整数にしてから掛け、1円未満は切り捨てる（浮動小数で掛けない）
+ */
+export function itemAmount(unit: number, qty: number): number {
+  return divide(unit * countHundredths(qty), 100, "floor");
+}
+
 export function billEvent(ev: BillingEvent, rates: RateTable, opts: { billTransport: boolean; basis: CountBasis }): EventBill {
   if (ev.cancelled) return { lines: [], subtotal: 0, billedTransport: 0, missingRoles: [] };
   const lines: InvoiceLine[] = [];
@@ -64,7 +73,7 @@ export function billEvent(ev: BillingEvent, rates: RateTable, opts: { billTransp
     const r = findRate(rates, "per_item", it.itemId);
     // 成果単価のない項目は請求しない（取引先に成果単価がないのはふつうなので、足りない扱いにはしない）
     if (!r) continue;
-    lines.push({ kind: "item", itemId: it.itemId, unit: r.amount, qty, amount: r.amount * qty, layer: r.layer });
+    lines.push({ kind: "item", itemId: it.itemId, unit: r.amount, qty, amount: itemAmount(r.amount, qty), layer: r.layer });
   }
 
   const billedTransport = opts.billTransport ? ev.transport : 0;

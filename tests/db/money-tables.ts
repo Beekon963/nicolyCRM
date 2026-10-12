@@ -19,5 +19,7 @@ export const MONEY_TABLES = [
   "invoices",
   "owner_settings",
   "monthly_targets",
+  // 友達紹介のボーナス（どの調整額がどの紹介の分か。Phase 12）
+  "referral_bonuses",
   "audit_logs",
 ] as const;

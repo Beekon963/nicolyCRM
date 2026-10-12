@@ -23,6 +23,7 @@ export function ReportForm({
   items,
   comment,
   expenses,
+  transportIncluded = false,
   editable,
   converter,
 }: {
@@ -31,6 +32,8 @@ export function ReportForm({
   items: Item[];
   comment: string;
   expenses: { transport?: Expense; other?: Expense };
+  /** 日当は交通費込み: 交通費の欄を出さない（前に出した交通費があれば、見るだけで出す） */
+  transportIncluded?: boolean;
   editable: boolean;
   /** LINE に書いた報告を貼って件数を入れる（Phase 9）。書式があれば、取引先の形に直した文も出す */
   converter?: {
@@ -163,8 +166,12 @@ export function ReportForm({
         <Textarea id="comment" rows={2} disabled={!editable} placeholder="例: 午後から好調でした" value={text} onChange={(e) => (setText(e.target.value), touch())} />
       </div>
 
-      <fieldset className="flex flex-col gap-2 rounded-lg border p-3" disabled={locked(expenses.transport)}>
+      {transportIncluded && !expenses.transport ? (
+        <p className="rounded-lg bg-muted p-3 text-sm">日当は交通費込みです（交通費の申請はありません）。</p>
+      ) : (
+      <fieldset className="flex flex-col gap-2 rounded-lg border p-3" disabled={transportIncluded || locked(expenses.transport)}>
         <legend className="px-1 font-bold">交通費</legend>
+        {transportIncluded && <p className="text-sm text-muted-foreground">日当は交通費込みになったため、変更できません</p>}
         {expenses.transport && expenses.transport.status !== "pending" && (
           <p className="text-sm text-muted-foreground">{expenses.transport.status === "approved" ? "承認済み" : "却下"}のため変更できません</p>
         )}
@@ -174,6 +181,7 @@ export function ReportForm({
         </div>
         <Input aria-label="交通費の区間" placeholder="区間（例: 大宮〜浦和 往復）" value={transport.memo} onChange={(e) => (setTransport({ ...transport, memo: e.target.value }), touch())} />
       </fieldset>
+      )}
 
       <details className="group rounded-lg border" open={Boolean(expenses.other)}>
         <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-3 font-medium">

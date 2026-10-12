@@ -49,6 +49,7 @@ erDiagram
     text belongings "服装・持ち物"
     text notes "注意事項"
     uuid group_id FK "グループ"
+    boolean counts_only "件数の記録だけ（お金に入れない）"
     timestamptz cancelled_at "中止"
   }
   event_requirements {
@@ -79,8 +80,8 @@ erDiagram
   report_items {
     uuid assignment_id PK
     uuid item_id PK
-    int reported_count "速報件数"
-    int confirmed_count "確定件数"
+    numeric reported_count "速報件数（0.01 件単位）"
+    numeric confirmed_count "確定件数（0.01 件単位）"
     enum diff_reason "キャンセル/否認/入力ミス/その他"
     text diff_note
   }
@@ -511,3 +512,26 @@ erDiagram
 | `report_formats`（データ） | 最初に入れておいた仮の「NICOLY用」を、いただいた NICOLY フォーマット（`{当日・後日の実績}` を使う形）に置きかえた。オーナーが直していないときだけ（`20261012000005_nicoly_format.sql`） |
 | 後日の獲得 | 「〇〇（後日）」という名前の獲得項目で数える（（仮）と同じ考え方。テーブルは変えない） |
 | 事務が報告を入れる | AI の確認カードと「LINEの報告を変換 → 実績に入れる」は同じ処理（`src/lib/data/report-entry.ts`）。入力元は「管理者」、本人がもう報告した・確定ずみ・中止・まだ先の現場には入れない |
+
+## Phase 11 で変えたもの（LINE のトーク履歴から過去の件数を取り込む）
+
+| 対象 | 内容 |
+|---|---|
+| `report_items.reported_count` / `confirmed_count` | `numeric(7, 2)` にした（2人で取った件数を 0.5 件ずつに分けるため。`20261012000006_decimal_counts.sql`）。合計は `src/lib/count.ts` の `sumCounts`（0.01 件単位の整数で足す）、金額は `itemAmount`（単価 × 0.01 件単位の整数 ÷ 100、1円未満切り捨て）で計算する。マイナスは今までどおり入らない |
+| `events.counts_only` | 件数の記録だけの現場（`20261012000007_counts_only_events.sql`）。LINE のトーク履歴の取り込みで、その日・その会場に現場がないときに作る。報告は求めない（`report_required = false`）。請求・報酬の計算（`src/lib/data/money.ts`）には入れない。平均獲得件数・実績の分析には入る |
+| 取り込み | `src/lib/import/line-history.ts`（読み取り。ブラウザの中だけ）→ `line-plan.ts`（人・会場・項目を当てる）→ `src/app/(app)/import/line-actions.ts`（オーナーだけ。現場・確定のアサイン・確定した実績を入れる。もう実績のある人は上書きしない）。トーク履歴そのものはサーバーに送らない |
+| `venues.memo`（データ） | 【案件詳細】の投稿を「【LINE の現場詳細（日付）】」として足す（同じ文がもうあれば足さない。電話番号の行は入れない） |
+
+## Phase 12 で変えたもの（ランク制度に合わせる）
+
+| 対象 | 内容 |
+|---|---|
+| 日当の決め方 | 現場ごとの日当（`assignment_private.daily_rate_override`）→ 人ごとの日当（`staff_private.base_daily_rate`。ランクの額と違う人だけ）→ ランクの基準日当（`rank_rates`）。計算は `src/lib/money/build.ts`、材料は `src/lib/data/money.ts`。テーブルは変えない |
+| `ranks`（データ） | 「P」（説明: パートナー）を足した。基準日当はなし（日当は人ごと） |
+| `assignments.travel_steps` | 遠方の上乗せの回数（最寄り駅から1時間30分を超える30分ごと。0〜10）。金額ではないので管理者も変えられる。締めた月は変えられない（`lock_check`）。日当に「回数 × 1回分の額」を足す |
+| `staff.referred_by` | 紹介してくれたスタッフ（本人は選べない） |
+| `referral_bonuses` | ★オーナーのみ。友達紹介のボーナスをどの調整額（`payment_adjustments`）で足したか（紹介された人ごとに1回）。調整額を消すと一緒に消える。監査ログあり |
+| `owner_settings`（データ） | `travel_allowance`（`per_step`: 遠方の1回分の額）、`referral_bonus`（`amount`: ボーナスの額、`after`: 何回稼働したら）。金額はオーナーが設定画面で入れる（マイグレーションには入れない） |
+| `settings`（データ） | `transport_included`（日当は交通費込み。初期値 true）。`availability_deadline_day` は 20 のままなら 10 にした |
+| `setting_bool(key, default)` | 設定の true / false を読む（DB 関数の中で使う。anon は実行できない） |
+| `mypage_report_get` / `mypage_report_save` | 交通費込みのあいだは `transport_included: true` を返し、交通費を受け取らない（その他の経費は今までどおり） |

@@ -2,8 +2,9 @@
  * DB から取った行をまとめて、月（または現場）の請求・支払い・粗利を計算する。
  * どの人を「稼働した」と数えるか、どの経費を入れるか、確定分か見込み分か、をここで決める。
  */
+import { sumCounts } from "@/lib/count";
 import { billEvent, type BillingEvent, type CountBasis, type EventBill, type ItemCount, invoiceTotals } from "./invoice";
-import { type AssignmentPay, excludeTax, payAssignment, payStaffMonth, type StaffMonthPay } from "./pay";
+import { type AssignmentPay, excludeTax, payAssignment, payStaffMonth, type StaffMonthPay, travelAllowance } from "./pay";
 import { findIncentive, type Rate, type RateKind, type RateTable } from "./rates";
 import type { Rounding } from "./round";
 import { sum } from "./round";
@@ -19,11 +20,21 @@ export type MoneyInput = {
   eventRates: { eventId: string; kind: RateKind; roleId: string | null; itemId: string | null; amount: number }[];
   incentiveRates: { itemId: string; amount: number }[];
   eventIncentiveRates: { eventId: string; itemId: string; amount: number }[];
-  staff: { id: string; name: string; baseDailyRate: number | null; method: WithholdingMethod; invoiceNumber: string | null }[];
+  /** baseDailyRate は人ごとの日当（決まった額と違う人だけ）、rankDailyRate はその人のランクの基準日当 */
+  staff: { id: string; name: string; baseDailyRate: number | null; rankDailyRate?: number | null; method: WithholdingMethod; invoiceNumber: string | null }[];
   dailyOverrides: { assignmentId: string; amount: number }[];
+  /** 遠方の上乗せの回数（1時間30分を超える30分ごと。0 は渡さなくてよい） */
+  travelSteps?: { assignmentId: string; steps: number }[];
   adjustments: { staffId: string; amount: number; reason: string; id?: string }[];
   billing: { companyId: string; billTransport: boolean }[];
-  settings: { taxRatePercent: number; taxRounding: Rounding; withholdingIncludeExpenses: boolean; withholdingTaxInclusive: boolean };
+  settings: {
+    taxRatePercent: number;
+    taxRounding: Rounding;
+    withholdingIncludeExpenses: boolean;
+    withholdingTaxInclusive: boolean;
+    /** 遠方の上乗せの1回分の額（決まっていなければ null） */
+    travelStepAmount?: number | null;
+  };
 };
 
 export type Status = "confirmed" | "estimate";
@@ -82,6 +93,7 @@ export type StaffMoney = {
   adjustments: { amount: number; reason: string; id?: string }[];
   totals: StaffMonthPay;
   missingDailyRate: boolean;
+  missingTravelRate: boolean;
 };
 
 export type Split = { confirmed: number; estimate: number };
@@ -105,6 +117,7 @@ export function computeMoney(input: MoneyInput): MoneyResult {
   const billTransport = new Map(input.billing.map((b) => [b.companyId, b.billTransport]));
   const staffById = new Map(input.staff.map((x) => [x.id, x]));
   const override = new Map(input.dailyOverrides.map((d) => [d.assignmentId, d.amount]));
+  const travelSteps = new Map((input.travelSteps ?? []).map((t) => [t.assignmentId, t.steps]));
   const globalIncentive = new Map(input.incentiveRates.map((r) => [r.itemId, r.amount]));
   const eventIncentive = new Map<string, Map<string, number>>();
   for (const r of input.eventIncentiveRates) {
@@ -139,7 +152,8 @@ export function computeMoney(input: MoneyInput): MoneyResult {
       payAssignment(
         {
           worked: a.status === WORKED && !ev.cancelled,
-          dailyRate: override.get(a.id) ?? staff?.baseDailyRate ?? null,
+          dailyRate: override.get(a.id) ?? staff?.baseDailyRate ?? staff?.rankDailyRate ?? null,
+          travel: travelAllowance(travelSteps.get(a.id) ?? 0, s.travelStepAmount ?? null),
           items: (itemsByAsg.get(a.id) ?? []).map(toCount),
           incentiveRate: (itemId) => findIncentive(inc, globalIncentive, itemId),
         },
@@ -228,6 +242,7 @@ export function computeMoney(input: MoneyInput): MoneyResult {
         adjustments,
         totals,
         missingDailyRate: asgs.some((a) => a.pay.missingDailyRate),
+        missingTravelRate: asgs.some((a) => a.pay.missingTravelRate),
       };
     })
     .filter((x) => x.assignments.length || x.adjustments.length)
@@ -272,8 +287,9 @@ function mergeItems(rows: { itemId: string; reported: number | null; confirmed: 
   const m = new Map<string, ItemCount>();
   for (const r of rows) {
     const cur = m.get(r.itemId) ?? { itemId: r.itemId, reported: null, confirmed: null };
-    if (r.reported != null) cur.reported = (cur.reported ?? 0) + r.reported;
-    if (r.confirmed != null) cur.confirmed = (cur.confirmed ?? 0) + r.confirmed;
+    // 件数は小数第2位まであるので、足し算の誤差が出ないようにそろえる（Phase 11）
+    if (r.reported != null) cur.reported = sumCounts([cur.reported, r.reported]);
+    if (r.confirmed != null) cur.confirmed = sumCounts([cur.confirmed, r.confirmed]);
     m.set(r.itemId, cur);
   }
   return [...m.values()];

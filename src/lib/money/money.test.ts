@@ -9,10 +9,12 @@ import {
   findRate,
   grossProfit,
   invoiceTotals,
+  itemAmount,
   payAssignment,
   type PayAssignment,
   payStaffMonth,
   type RateTable,
+  travelAllowance,
   withholdingAmount,
 } from "./index";
 
@@ -167,6 +169,15 @@ describe("請求の細かい決まり", () => {
     expect(b.missingRoles).toEqual([CATCHER]);
     expect(b.lines.find((l) => l.kind === "person_day")).toMatchObject({ unit: 0, qty: 1, amount: 0 });
   });
+  it("件数が小数（2人で取った0.5件など）でも、0.01件単位で掛けて1円未満は切り捨てる", () => {
+    const half = { ...base, items: [{ itemId: NEW_MNP, confirmed: 0.5, reported: 0.5 }] };
+    expect(billEvent(half, rates, { billTransport: false, basis: "confirmed" }).lines.find((l) => l.kind === "item")).toMatchObject({ qty: 0.5, amount: 2500 });
+    expect(itemAmount(3001, 0.5)).toBe(1500);
+    expect(itemAmount(5000, 0.33)).toBe(1650);
+    // 0.34 + 0.33 + 0.33 を足した 1 件（足し算の誤差があっても 1 件として掛ける）
+    expect(itemAmount(5000, 0.34 + 0.33 + 0.33)).toBe(5000);
+    expect(itemAmount(5000, 0)).toBe(0);
+  });
   it("消費税の端数処理は設定に従う", () => {
     expect(invoiceTotals(12345, TAX)).toEqual({ subtotal: 12345, tax: 1234, total: 13579 });
     expect(invoiceTotals(12345, { ratePercent: 10, rounding: "round" }).tax).toBe(1235);
@@ -176,6 +187,10 @@ describe("請求の細かい決まり", () => {
 
 describe("支払いの細かい決まり", () => {
   const a = (dailyRate: number | null): PayAssignment => ({ worked: true, dailyRate, items: [], incentiveRate: () => null });
+  it("インセンティブも小数の件数で計算し、1円未満は切り捨てる", () => {
+    const p = payAssignment({ worked: true, dailyRate: 10000, items: [{ itemId: NEW_MNP, confirmed: 0.33, reported: 0.33 }], incentiveRate: () => 3001 }, "confirmed");
+    expect(p.incentive).toBe(990);
+  });
   it("日当が決まっていないときは 0 円で知らせる", () => {
     expect(payAssignment(a(null), "confirmed")).toMatchObject({ daily: 0, missingDailyRate: true });
   });
@@ -226,5 +241,24 @@ describe("金額の表示と入力", async () => {
     expect(parseYen("")).toBeNull();
     expect(parseYen("abc")).toBeNaN();
     expect(parseYen("1.5")).toBeNaN();
+  });
+});
+
+describe("遠方の上乗せ（Phase 12）", () => {
+  it("1時間30分を超える30分ごとに1回分。回数が0なら0、1回分の額が決まっていなければ null", () => {
+    expect(travelAllowance(0, 1000)).toBe(0);
+    expect(travelAllowance(0, null)).toBe(0);
+    expect(travelAllowance(1, 1000)).toBe(1000);
+    expect(travelAllowance(3, 1000)).toBe(3000);
+    expect(travelAllowance(2, null)).toBeNull();
+  });
+
+  it("日当に足して、源泉の対象にも入る（当日不稼働なら付かない）", () => {
+    const a = payAssignment({ worked: true, dailyRate: 17500, travel: 1000, items: [], incentiveRate: () => null }, "confirmed");
+    expect(a).toMatchObject({ daily: 18500, travel: 1000, missingTravelRate: false });
+    const m = payStaffMonth({ method: "fee", assignments: [a], expenses: [], adjustments: [] }, { includeExpenses: true, taxInclusive: true, taxRatePercent: 10 });
+    expect(m.withholdingBase).toBe(18500);
+    expect(payAssignment({ worked: false, dailyRate: 17500, travel: 1000, items: [], incentiveRate: () => null }, "confirmed").daily).toBe(0);
+    expect(payAssignment({ worked: true, dailyRate: 17500, travel: null, items: [], incentiveRate: () => null }, "confirmed").missingTravelRate).toBe(true);
   });
 });

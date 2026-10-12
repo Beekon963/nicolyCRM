@@ -91,8 +91,9 @@ export async function runImport(target: ImportTarget, rows: Record<string, strin
         }
         // ★ お金・口座（オーナーのみ）
         const priv: Record<string, unknown> = { staff_id: staffId };
-        const rate = v.base_daily_rate ? Number(yen(v.base_daily_rate)) : rank ? ctx.rankRates.get(rank.id) : undefined;
-        if (rate != null && (v.base_daily_rate || !existingId)) priv.base_daily_rate = rate;
+        // 日当はランクで決まる（Phase 12）。人ごとの日当は、ランクの基準日当と違う額が書いてあるときだけ入れる
+        const rate = v.base_daily_rate ? Number(yen(v.base_daily_rate)) : undefined;
+        if (rate != null && rate !== (rank ? ctx.rankRates.get(rank.id) : undefined)) priv.base_daily_rate = rate;
         if (v.withholding_method) priv.withholding_method = WITHHOLDING[v.withholding_method];
         if (v.invoice_number) priv.invoice_number = v.invoice_number.toUpperCase().replace(/[\s-]/g, "");
         if (v.bank_cell) Object.assign(priv, parseBankCell(v.bank_cell));

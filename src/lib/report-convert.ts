@@ -40,6 +40,10 @@ const tagsOf = (n: string) => [...n.matchAll(TAG)].map((m) => m[1]);
  */
 const SYNONYMS: [RegExp, string][] = [
   [/^(キヘン|機変|キシュヘン)$/, "機種変更"],
+  // PI（ポートイン）は MNP のこと（「simのみPI」→「simのみmnp」）
+  [/pi$/, "mnp"],
+  [/^アンセキ/, "アンシンセキュリティ"],
+  [/^アンパ$/, "アンシンパック"],
   [/^(ノリカエ|乗換|乗り換え)$/, "mnp"],
   [/^シンキ$/, "新規"],
   [/プラチナ/, "platinum"],

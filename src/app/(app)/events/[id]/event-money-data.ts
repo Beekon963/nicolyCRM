@@ -53,17 +53,31 @@ export async function loadEventMoney(eventId: string, clientId: string, venueId:
   });
 
   const staffById = new Map(input.staff.map((s) => [s.id, s]));
+  const travelOf = new Map((input.travelSteps ?? []).map((t) => [t.assignmentId, t.steps]));
   const daily = input.assignments
     .filter((a) => a.status === "confirmed")
     .map((a) => {
       const s = staffById.get(a.staffId);
+      // 空のときに使う日当: 人ごとの日当 → ランクの基準日当（Phase 12）
+      const base =
+        s?.baseDailyRate != null
+          ? `人ごとの日当 ${formatYen(s.baseDailyRate)}`
+          : s?.rankDailyRate != null
+            ? `ランクの日当 ${formatYen(s.rankDailyRate)}`
+            : "日当: 未設定";
+      const steps = travelOf.get(a.id) ?? 0;
+      const travel = steps
+        ? input.settings.travelStepAmount == null
+          ? `・遠方 ＋${steps}回分（額が未設定）`
+          : `・遠方 ＋${formatYen(steps * input.settings.travelStepAmount)}`
+        : "";
       return {
         key: a.id,
         id: a.id,
         label: s?.name ?? "",
         sub: masters.roleById.get(a.roleId)?.name,
         text: text(input.dailyOverrides.find((d) => d.assignmentId === a.id)?.amount),
-        fallback: s?.baseDailyRate == null ? "基本日当: 未設定" : `基本日当 ${formatYen(s.baseDailyRate)}`,
+        fallback: base + travel,
       };
     });
 

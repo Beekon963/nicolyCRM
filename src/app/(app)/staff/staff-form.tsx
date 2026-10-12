@@ -23,13 +23,16 @@ export function StaffForm({
   ranks,
   areas,
   rankRates,
+  others = [],
 }: {
   initial?: StaffInput;
   roles: Opt[];
   ranks: Opt[];
   areas: Opt[];
-  /** オーナーの新規登録のときだけ渡す（ランク → 基準日当） */
+  /** オーナーの新規登録のときだけ渡す（ランク → 基準日当。人ごとの日当の欄の説明に使う） */
   rankRates?: Record<string, number>;
+  /** 「紹介してくれた人」に選べるスタッフ（本人以外） */
+  others?: Opt[];
 }) {
   const router = useRouter();
   const isNew = !initial?.id;
@@ -46,20 +49,15 @@ export function StaffForm({
       role_ids: [],
       area_ids: [],
       base_daily_rate: null,
+      referred_by: "",
     },
   );
-  const [rateTouched, setRateTouched] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pending, start] = useTransition();
   useUnsavedChanges(dirty);
 
   function set<K extends keyof StaffInput>(k: K, v: StaffInput[K]) {
-    setForm((f) => {
-      const next = { ...f, [k]: v };
-      // ランクを選んだら、基本日当の初期値にランクの基準日当を入れる（Phase 0 決定2）
-      if (k === "rank_id" && rankRates && !rateTouched) next.base_daily_rate = rankRates[String(v)] ?? null;
-      return next;
-    });
+    setForm((f) => ({ ...f, [k]: v }));
     setDirty(true);
   }
 
@@ -110,27 +108,32 @@ export function StaffForm({
 
       {isNew && rankRates && (
         <div className="flex flex-col gap-1 rounded-md border border-primary/30 p-3">
-          <Label htmlFor="rate">基本日当（オーナーのみ・ランクの基準日当が初期値）</Label>
+          <Label htmlFor="rate">人ごとの日当（オーナーのみ・ランクの額と違う人だけ）</Label>
           <div className="flex items-center gap-2">
             <Input
               id="rate"
               className="w-40"
               inputMode="numeric"
+              placeholder="空ならランクの額"
               value={form.base_daily_rate ?? ""}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9]/g, "");
-                setRateTouched(true);
                 set("base_daily_rate", v === "" ? null : Number(v));
               }}
             />
             円
           </div>
+          <p className="text-sm text-muted-foreground">
+            {form.rank_id && rankRates[form.rank_id] != null
+              ? `空のときは、ランクの基準日当 ${rankRates[form.rank_id].toLocaleString("ja-JP")}円（ランクを上げると変わります）`
+              : "空のときは、ランクの基準日当（設定 → ランク）になります"}
+          </p>
         </div>
       )}
 
       <details className="group rounded-md border" open={!isNew}>
         <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-3 font-medium">
-          詳細（LINE表示名・最寄り駅・エリア・状態・メモ）
+          詳細（LINE表示名・最寄り駅・エリア・紹介・状態・メモ）
           <ChevronDownIcon className="size-5 transition-transform group-open:rotate-180" />
         </summary>
         <div className="flex flex-col gap-4 border-t p-3">
@@ -147,6 +150,17 @@ export function StaffForm({
           <div className="flex flex-col gap-2">
             <Label>対応エリア</Label>
             <ChipSelect label="対応エリア" options={areas} value={form.area_ids} onChange={(v) => set("area_ids", v)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="referred-by">紹介してくれた人（友達紹介）</Label>
+            <NativeSelect id="referred-by" value={form.referred_by ?? ""} onChange={(e) => set("referred_by", e.target.value)}>
+              <option value="">なし</option>
+              {others.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </NativeSelect>
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="status">状態</Label>

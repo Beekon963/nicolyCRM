@@ -14,7 +14,7 @@ export default async function EditStaffPage({ params }: PageProps<"/staff/[id]/e
   const supabase = await createClient();
   const { data: s } = await supabase.from("staff").select("*, staff_roles(role_id), staff_areas(area_id)").eq("id", id).maybeSingle();
   if (!s) notFound();
-  const masters = await getMasters();
+  const [masters, { data: others }] = await Promise.all([getMasters(), supabase.from("staff").select("id, name").neq("id", id).order("kana")]);
   // 無効化した役割・エリアでも、付いているものは選択肢に残す
   const keep = <T extends { id: string; is_active: boolean }>(xs: T[], selected: string[]) => xs.filter((x) => x.is_active || selected.includes(x.id));
   const roleIds = s.staff_roles.map((r) => r.role_id);
@@ -36,10 +36,12 @@ export default async function EditStaffPage({ params }: PageProps<"/staff/[id]/e
           memo: memoForEdit(s.memo),
           role_ids: roleIds,
           area_ids: areaIds,
+          referred_by: s.referred_by ?? "",
         }}
         roles={keep(masters.roles, roleIds)}
         ranks={keep(masters.ranks, s.rank_id ? [s.rank_id] : [])}
         areas={keep(masters.areas, areaIds)}
+        others={others ?? []}
       />
     </>
   );

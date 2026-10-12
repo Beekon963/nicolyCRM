@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertOwner } from "@/lib/auth";
-import { computeMonthLive, toSnapshot } from "@/lib/data/money";
+import { computeMonthLive, getMoneySettings, toSnapshot } from "@/lib/data/money";
+import { getReferralBonusTargets } from "@/lib/data/referrals";
 import type { FreeeSettings } from "@/lib/export/freee";
 import { toZenginKana } from "@/lib/export/kana";
 import type { ZenginSender } from "@/lib/export/zengin";
@@ -191,6 +192,58 @@ export async function saveTargets(rows: { month: string; revenue: number | null;
   revalidatePath("/money", "layout");
   revalidatePath("/");
   return ok("月次目標を保存しました");
+}
+
+/** ランク制度の決まり: 遠方の上乗せの1回分と、友達紹介のボーナス（Phase 12。オーナーのみ） */
+export async function saveRankRules(input: { travelStepAmount: number | null; referralAmount: number | null; referralAfter: number }): Promise<ActionResult> {
+  await assertOwner();
+  const yen = z.number().int("金額は整数（円）で入れてください").min(0, "金額は0円以上にしてください").max(1_000_000, "金額が大きすぎます").nullable();
+  const p = z
+    .object({ travelStepAmount: yen, referralAmount: yen, referralAfter: z.number().int().min(1, "回数は1回以上にしてください").max(100, "回数が大きすぎます") })
+    .safeParse(input);
+  if (!p.success) return fail(p.error.issues[0].message);
+  const v = p.data;
+  const supabase = await createClient();
+  const { error } = await supabase.from("owner_settings").upsert([
+    { key: "travel_allowance", value: { per_step: v.travelStepAmount } },
+    { key: "referral_bonus", value: { amount: v.referralAmount, after: v.referralAfter } },
+  ]);
+  if (error) return fail(dbErrorMessage(error));
+  revalidatePath("/settings/money");
+  revalidatePath("/money", "layout");
+  return ok("遠方の上乗せ・友達紹介の設定を保存しました");
+}
+
+/**
+ * 友達紹介のボーナスを、紹介した人のその月の調整額に足す（Phase 12。オーナーのみ）。
+ * 紹介された人が決めた回数稼働していて、まだ足していないときだけ。調整額を消せば、もう一度足せる
+ */
+export async function addReferralBonus(referredStaffId: string, month: string): Promise<ActionResult> {
+  await assertOwner();
+  if (!z.uuid().safeParse(referredStaffId).success || !/^\d{4}-\d{2}$/.test(month)) return fail("不正な指定です");
+  const settings = await getMoneySettings();
+  if (settings.referralBonus.amount == null) return fail("お金の設定で、友達紹介のボーナスの額を入れてください");
+  const target = (await getReferralBonusTargets(settings.referralBonus.after)).find((t) => t.staffId === referredStaffId);
+  if (!target) return fail("ボーナスの対象ではありません（まだ回数に届いていないか、もう足しています）");
+  const supabase = await createClient();
+  const { data: adj, error } = await supabase
+    .from("payment_adjustments")
+    .insert({
+      staff_id: target.referrerId,
+      month: `${month}-01`,
+      amount: settings.referralBonus.amount,
+      reason: `友達紹介のボーナス（${target.name}さんが${settings.referralBonus.after}回稼働）`,
+    })
+    .select("id")
+    .single();
+  if (error || !adj) return fail(dbErrorMessage(error));
+  const { error: e2 } = await supabase.from("referral_bonuses").insert({ referred_staff_id: target.staffId, referrer_staff_id: target.referrerId, adjustment_id: adj.id });
+  if (e2) {
+    await supabase.from("payment_adjustments").delete().eq("id", adj.id);
+    return fail(dbErrorMessage(e2));
+  }
+  revalidatePath("/money", "layout");
+  return ok(`${target.referrerName}さんの調整額にボーナスを足しました`);
 }
 
 /** 調整額（＋/−、理由は必須）。締めた月は DB が止める */

@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { matchesQuery } from "@/lib/search";
 import type { Masters } from "./masters";
+import { sumCounts } from "@/lib/count";
 
 export type StaffListItem = {
   id: string;
@@ -74,7 +75,7 @@ export async function getStaffDetail(id: string) {
 
   const rows = (assignments.data ?? []).map((a) => {
     const sum = (k: "reported_count" | "confirmed_count") =>
-      a.report_items.some((i) => i[k] != null) ? a.report_items.reduce((s, i) => s + (i[k] ?? 0), 0) : null;
+      a.report_items.some((i) => i[k] != null) ? sumCounts(a.report_items.map((i) => i[k])) : null;
     return { ...a, reported_total: sum("reported_count"), confirmed_total: sum("confirmed_count") };
   });
   rows.sort((a, b) => a.event.date.localeCompare(b.event.date));

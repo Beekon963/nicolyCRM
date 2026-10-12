@@ -5,10 +5,11 @@ import { requireOwner } from "@/lib/auth";
 import { formatShortJa, paymentDateOf } from "@/lib/date";
 import { getMonthMoney, getMoneySettings, type PaymentState } from "@/lib/data/money";
 import { getMasters } from "@/lib/data/masters";
+import { getReferralBonusTargets } from "@/lib/data/referrals";
 import { formatYen, WITHHOLDING_LABEL } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { MoneyHeader, monthParam, StatTile } from "../money-header";
-import { AdjustmentForm, RemoveAdjustment } from "./adjustments";
+import { AddReferralBonus, AdjustmentForm, RemoveAdjustment } from "./adjustments";
 import { PaidBar, PaidToggle } from "./paid";
 
 export const metadata = { title: "支払い | お金 | NICOLY CRM" };
@@ -18,6 +19,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/money/p
   await requireOwner();
   const month = monthParam((await searchParams).month);
   const [money, masters, settings] = await Promise.all([getMonthMoney(month), getMasters(), getMoneySettings()]);
+  const referrals = await getReferralBonusTargets(settings.referralBonus.after);
   const sum = (f: (s: (typeof money.staff)[number]) => number) => money.staff.reduce((a, s) => a + f(s), 0);
   const closed = money.closing === "closed";
   const payDate = paymentDateOf(month, settings.paymentDay);
@@ -30,6 +32,38 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/money/p
   return (
     <div className="flex flex-col gap-4 pb-8">
       <MoneyHeader month={month} current="/money/payments" closing={money.closing} />
+      {referrals.length > 0 && (
+        <section aria-label="友達紹介のボーナス" className="mx-4 flex flex-col gap-2 rounded-2xl border border-status-waiting/40 bg-status-waiting-bg p-4">
+          <h2 className="font-bold">友達紹介のボーナス（{referrals.length}人）</h2>
+          <p className="text-sm text-muted-foreground">
+            紹介された人が{settings.referralBonus.after}回稼働しました。紹介した人の、この月の調整額に足せます（消せば元に戻ります）。
+          </p>
+          {settings.referralBonus.amount == null && (
+            <p className="text-sm text-status-alert">
+              <Link href="/settings/money" className="underline underline-offset-2">
+                お金の設定
+              </Link>
+              でボーナスの額を入れてください。
+            </p>
+          )}
+          <ul className="flex flex-col divide-y rounded-xl border bg-card">
+            {referrals.map((r) => (
+              <li key={r.staffId} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0">
+                  <span className="block font-medium">{r.referrerName}さん</span>
+                  <span className="block text-sm text-muted-foreground">
+                    紹介: {r.name}さん（{r.worked}回稼働{r.reachedOn && `・${settings.referralBonus.after}回目 ${formatShortJa(r.reachedOn)}`}）
+                  </span>
+                </span>
+                {!closed && settings.referralBonus.amount != null && (
+                  <AddReferralBonus referredStaffId={r.staffId} month={month} label={`${formatYen(settings.referralBonus.amount)}を足す`} />
+                )}
+              </li>
+            ))}
+          </ul>
+          {closed && <p className="text-sm text-muted-foreground">この月は締め済みです。締めていない月の画面で足してください。</p>}
+        </section>
+      )}
       {money.staff.length === 0 ? (
         <EmptyState title="この月の稼働はありません">確定した稼働があると、スタッフごとの報酬がここに出ます。</EmptyState>
       ) : (
@@ -70,6 +104,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/money/p
                       <span className="flex flex-wrap items-center gap-1 pt-0.5">
                         {!allEstimate && <PayStatus state={money.payments[s.id]} estimate={hasEstimate(s)} />}
                         {s.missingDailyRate && <Badge tone="alert">日当が未設定</Badge>}
+                        {s.missingTravelRate && <Badge tone="alert">遠方の額が未設定</Badge>}
                       </span>
                       <span className="block pt-0.5 text-sm text-muted-foreground">
                         {[s.invoiceRegistered ? "インボイス登録あり" : "インボイス登録なし", s.method !== "none" && `源泉 ${WITHHOLDING_LABEL[s.method]}`].filter(Boolean).join("・")}
@@ -107,6 +142,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/money/p
                           </Link>
                           <span className="text-muted-foreground">
                             日当 {formatYen(a.pay.daily)}
+                            {a.pay.travel > 0 && `（うち遠方 ${formatYen(a.pay.travel)}）`}
                             {a.pay.incentive > 0 && ` ＋ ${a.pay.lines.map((l) => `${masters.itemById.get(l.itemId)?.name ?? ""} ${l.qty}件`).join("・")} ${formatYen(a.pay.incentive)}`}
                             {a.expenses > 0 && ` ＋ 経費 ${formatYen(a.expenses)}`}
                           </span>

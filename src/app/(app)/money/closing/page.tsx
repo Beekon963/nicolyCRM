@@ -36,6 +36,7 @@ export default async function ClosingPage({ searchParams }: PageProps<"/money/cl
     { label: "未承認の交通費・経費", n: check.pendingExpenses, unit: "件", href: "/expenses" },
     { label: "人日単価が未設定の取引先", n: missingRoles.length, unit: "社", href: `/money/invoices?month=${month}` },
     { label: "日当が未設定のスタッフ", n: missingDaily.length, unit: "人", href: `/money/payments?month=${month}` },
+    { label: "遠方の上乗せの額が未設定のスタッフ", n: money.staff.filter((s) => s.missingTravelRate).length, unit: "人", href: "/settings/money" },
   ] as const;
   const warnings = items.filter((i) => i.n > 0).map((i) => `${i.label}が${i.n}${i.unit}`);
   const paidCount = Object.values(money.payments).filter((p) => p.status === "paid").length;

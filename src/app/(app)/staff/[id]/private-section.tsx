@@ -27,7 +27,16 @@ export type StaffPrivate = {
 };
 
 /** ★ オーナーだけに表示（管理者にはこのデータ自体を渡さない） */
-export function PrivateSection({ staffId, initial }: { staffId: string; initial: StaffPrivate | null }) {
+export function PrivateSection({
+  staffId,
+  initial,
+  rank,
+}: {
+  staffId: string;
+  initial: StaffPrivate | null;
+  /** この人のランクと、その基準日当（人ごとの日当が空のときに使う。Phase 12） */
+  rank: { name: string; rate: number | null } | null;
+}) {
   const [form, setForm] = useState<StaffPrivateInput>({
     staffId,
     base_daily_rate: initial?.base_daily_rate ?? null,
@@ -67,11 +76,12 @@ export function PrivateSection({ staffId, initial }: { staffId: string; initial:
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="rate">基本日当</Label>
+          <Label htmlFor="rate">人ごとの日当（ランクの額と違う人だけ）</Label>
           <div className="flex items-center gap-2">
             <Input
               id="rate"
               inputMode="numeric"
+              placeholder="空ならランクの額"
               value={form.base_daily_rate ?? ""}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9]/g, "");
@@ -80,6 +90,15 @@ export function PrivateSection({ staffId, initial }: { staffId: string; initial:
             />
             円
           </div>
+          <p className="text-sm text-muted-foreground">
+            {form.base_daily_rate != null
+              ? "この額で計算します（ランクを変えても変わりません。ランクに合わせるときは空にして保存）"
+              : rank?.rate != null
+                ? `ランク ${rank.name} の基準日当 ${rank.rate.toLocaleString("ja-JP")}円 で計算します`
+                : rank
+                  ? `ランク ${rank.name} に基準日当がありません。ここに日当を入れるか、設定 → ランクで基準日当を入れてください`
+                  : "ランクがありません。ここに日当を入れるか、ランクを選んでください"}
+          </p>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="wh">源泉徴収の方式</Label>

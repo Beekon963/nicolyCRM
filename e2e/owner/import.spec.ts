@@ -43,8 +43,8 @@ test("メンバー管理シート形式の CSV（Shift_JIS）でスタッフを�
     `select bank_name, bank_branch, account_number, base_daily_rate from staff_private where staff_id = $1`,
     [s.id],
   );
-  const rankRate = await one<{ base_daily_rate: number }>(`select base_daily_rate from rank_rates rr join ranks r on r.id = rr.rank_id where r.name = 'SS'`);
-  expect(priv).toEqual({ bank_name: "ダミー銀行", bank_branch: "駅前支店", account_number: "1234567", base_daily_rate: rankRate.base_daily_rate });
+  // 日当はランクで決まるので、人ごとの日当は入れない（Phase 12）
+  expect(priv).toEqual({ bank_name: "ダミー銀行", bank_branch: "駅前支店", account_number: "1234567", base_daily_rate: null });
   const dup = await sql(`select id from staff where name = $1`, [`既存の人${id}`]);
   expect(dup).toHaveLength(0);
 

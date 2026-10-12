@@ -11,6 +11,7 @@ import type { AppUser } from "@/lib/auth";
 import { monthOf, monthRange, nextMonth, todayJst } from "@/lib/date";
 import { holidaysBetween } from "@/lib/date/holidays";
 import type { Masters } from "@/lib/data/masters";
+import { getReferredStaff } from "@/lib/data/referrals";
 import type { StaffDetail as Detail } from "@/lib/data/staff";
 import { INPUT_SOURCE, STAFF_STATUS } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
@@ -25,13 +26,31 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
   const thisMonth = monthOf(today);
   const months = [thisMonth, nextMonth(thisMonth)];
 
-  const [{ data: venues }, { data: clients }, priv] = await Promise.all([
+  const [{ data: venues }, { data: clients }, priv, rankRate, referrer, referred] = await Promise.all([
     supabase.from("venues").select("id, name").eq("is_active", true).order("name"),
     supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name"),
     // ★ 金額系はオーナーのときだけ取りに行く（管理者は RLS でも 0 件）
     user.role === "owner"
       ? supabase.from("staff_private").select("*").eq("staff_id", staff.id).maybeSingle()
       : Promise.resolve({ data: null }),
+    user.role === "owner" && staff.rank_id
+      ? supabase
+          .from("rank_rates")
+          .select("base_daily_rate")
+          .eq("rank_id", staff.rank_id)
+          .maybeSingle()
+          .then((r) => r.data?.base_daily_rate ?? null)
+      : Promise.resolve(null),
+    // 友達紹介（Phase 12）: 紹介してくれた人と、この人が紹介した人
+    staff.referred_by
+      ? supabase
+          .from("staff")
+          .select("id, name")
+          .eq("id", staff.referred_by)
+          .maybeSingle()
+          .then((r) => r.data)
+      : Promise.resolve(null),
+    getReferredStaff(1, staff.id),
   ]);
 
   const holidays = holidaysBetween(monthRange(months[0]).start, monthRange(months[1]).end);
@@ -83,6 +102,26 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
           <Field label="最寄り駅">{staff.nearest_station}</Field>
           <Field label="役割">{roleNames.join("・")}</Field>
           <Field label="対応エリア">{areaNames.join("・")}</Field>
+          {referrer && (
+            <Field label="紹介してくれた人">
+              <Link href={`/staff/${referrer.id}`} className="text-primary underline-offset-2 hover:underline">
+                {referrer.name}
+              </Link>
+            </Field>
+          )}
+          {referred.length > 0 && (
+            <Field label="紹介した人">
+              {referred.map((r, i) => (
+                <span key={r.staffId}>
+                  {i > 0 && "・"}
+                  <Link href={`/staff/${r.staffId}`} className="text-primary underline-offset-2 hover:underline">
+                    {r.name}
+                  </Link>
+                  （{r.worked}回稼働）
+                </span>
+              ))}
+            </Field>
+          )}
         </dl>
       </Section>
 
@@ -163,7 +202,7 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
 
       {user.role === "owner" && (
         <Section title="お金・契約（オーナーのみ）" className="border-primary/30">
-          <PrivateSection staffId={staff.id} initial={priv.data} />
+          <PrivateSection staffId={staff.id} initial={priv.data} rank={rank ? { name: rank.name, rate: rankRate } : null} />
         </Section>
       )}
     </div>

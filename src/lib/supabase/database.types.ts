@@ -145,13 +145,13 @@ isOneToOne: true
                   ]
                 },"assignments": {
                   Row: {
-                    "cancel_reason": string,"cancel_reason_code": string | null,"confirm_notice_sent_at": string | null,"created_at": string,"created_by": string | null,"event_id": string,"id": string,"offered_at": string,"reminder_sent_at": string | null,"responded_at": string | null,"response_source": Database["public"]['Enums']["input_source"] | null,"role_id": string,"staff_id": string,"status": Database["public"]['Enums']["assignment_status"],"updated_at": string
+                    "cancel_reason": string,"cancel_reason_code": string | null,"confirm_notice_sent_at": string | null,"created_at": string,"created_by": string | null,"event_id": string,"id": string,"offered_at": string,"reminder_sent_at": string | null,"responded_at": string | null,"response_source": Database["public"]['Enums']["input_source"] | null,"role_id": string,"staff_id": string,"status": Database["public"]['Enums']["assignment_status"],"travel_steps": number,"updated_at": string
                   }
                   Insert: {
-                    "cancel_reason"?: string,"cancel_reason_code"?: string | null,"confirm_notice_sent_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"event_id": string,"id"?: string,"offered_at"?: string,"reminder_sent_at"?: string | null,"responded_at"?: string | null,"response_source"?: Database["public"]['Enums']["input_source"] | null,"role_id": string,"staff_id": string,"status"?: Database["public"]['Enums']["assignment_status"],"updated_at"?: string
+                    "cancel_reason"?: string,"cancel_reason_code"?: string | null,"confirm_notice_sent_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"event_id": string,"id"?: string,"offered_at"?: string,"reminder_sent_at"?: string | null,"responded_at"?: string | null,"response_source"?: Database["public"]['Enums']["input_source"] | null,"role_id": string,"staff_id": string,"status"?: Database["public"]['Enums']["assignment_status"],"travel_steps"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "cancel_reason"?: string,"cancel_reason_code"?: string | null,"confirm_notice_sent_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"event_id"?: string,"id"?: string,"offered_at"?: string,"reminder_sent_at"?: string | null,"responded_at"?: string | null,"response_source"?: Database["public"]['Enums']["input_source"] | null,"role_id"?: string,"staff_id"?: string,"status"?: Database["public"]['Enums']["assignment_status"],"updated_at"?: string
+                    "cancel_reason"?: string,"cancel_reason_code"?: string | null,"confirm_notice_sent_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"event_id"?: string,"id"?: string,"offered_at"?: string,"reminder_sent_at"?: string | null,"responded_at"?: string | null,"response_source"?: Database["public"]['Enums']["input_source"] | null,"role_id"?: string,"staff_id"?: string,"status"?: Database["public"]['Enums']["assignment_status"],"travel_steps"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -502,13 +502,13 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"report_required": boolean,"start_time": string | null,"updated_at": string,"venue_id": string
+                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"counts_only": boolean,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"report_required": boolean,"start_time": string | null,"updated_at": string,"venue_id": string
                   }
                   Insert: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"counts_only"?: boolean,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
                   }
                   Update: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"counts_only"?: boolean,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
                   }
                   Relationships: [
                     {
@@ -829,6 +829,37 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
+                },"referral_bonuses": {
+                  Row: {
+                    "adjustment_id": string,"created_at": string,"referred_staff_id": string,"referrer_staff_id": string
+                  }
+                  Insert: {
+                    "adjustment_id": string,"created_at"?: string,"referred_staff_id": string,"referrer_staff_id": string
+                  }
+                  Update: {
+                    "adjustment_id"?: string,"created_at"?: string,"referred_staff_id"?: string,"referrer_staff_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "referral_bonuses_adjustment_id_fkey"
+      columns: ["adjustment_id"]
+isOneToOne: true
+      referencedRelation: "payment_adjustments"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "referral_bonuses_referred_staff_id_fkey"
+      columns: ["referred_staff_id"]
+isOneToOne: true
+      referencedRelation: "staff"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "referral_bonuses_referrer_staff_id_fkey"
+      columns: ["referrer_staff_id"]
+isOneToOne: false
+      referencedRelation: "staff"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"report_formats": {
                   Row: {
                     "company_id": string | null,"created_at": string,"event_block": string,"footer": string,"for_staff": boolean,"header": string,"id": string,"is_active": boolean,"name": string,"person_block": string,"sort_order": number,"start_block": string,"updated_at": string
@@ -952,13 +983,13 @@ isOneToOne: false
                   ]
                 },"staff": {
                   Row: {
-                    "created_at": string,"id": string,"kana": string,"line_name": string,"line_user_id": string | null,"memo": string,"mypage_token": string,"name": string,"nearest_station": string,"phone": string,"phone_digits": string | null,"rank_id": string | null,"search_text": string | null,"status": Database["public"]['Enums']["staff_status"],"token_rotated_at": string | null,"updated_at": string
+                    "created_at": string,"id": string,"kana": string,"line_name": string,"line_user_id": string | null,"memo": string,"mypage_token": string,"name": string,"nearest_station": string,"phone": string,"phone_digits": string | null,"rank_id": string | null,"referred_by": string | null,"search_text": string | null,"status": Database["public"]['Enums']["staff_status"],"token_rotated_at": string | null,"updated_at": string
                   }
                   Insert: {
-                    "created_at"?: string,"id"?: string,"kana"?: string,"line_name"?: string,"line_user_id"?: string | null,"memo"?: string,"mypage_token"?: string,"name": string,"nearest_station"?: string,"phone"?: string,"phone_digits"?: never,"rank_id"?: string | null,"search_text"?: never,"status"?: Database["public"]['Enums']["staff_status"],"token_rotated_at"?: string | null,"updated_at"?: string
+                    "created_at"?: string,"id"?: string,"kana"?: string,"line_name"?: string,"line_user_id"?: string | null,"memo"?: string,"mypage_token"?: string,"name": string,"nearest_station"?: string,"phone"?: string,"phone_digits"?: never,"rank_id"?: string | null,"referred_by"?: string | null,"search_text"?: never,"status"?: Database["public"]['Enums']["staff_status"],"token_rotated_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"kana"?: string,"line_name"?: string,"line_user_id"?: string | null,"memo"?: string,"mypage_token"?: string,"name"?: string,"nearest_station"?: string,"phone"?: string,"phone_digits"?: never,"rank_id"?: string | null,"search_text"?: never,"status"?: Database["public"]['Enums']["staff_status"],"token_rotated_at"?: string | null,"updated_at"?: string
+                    "created_at"?: string,"id"?: string,"kana"?: string,"line_name"?: string,"line_user_id"?: string | null,"memo"?: string,"mypage_token"?: string,"name"?: string,"nearest_station"?: string,"phone"?: string,"phone_digits"?: never,"rank_id"?: string | null,"referred_by"?: string | null,"search_text"?: never,"status"?: Database["public"]['Enums']["staff_status"],"token_rotated_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -966,6 +997,12 @@ isOneToOne: false
       columns: ["rank_id"]
 isOneToOne: false
       referencedRelation: "ranks"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "staff_referred_by_fkey"
+      columns: ["referred_by"]
+isOneToOne: false
+      referencedRelation: "staff"
       referencedColumns: ["id"]
     }
                   ]
@@ -1293,6 +1330,9 @@ isOneToOne: false
                            },
 "set_payments_paid":
 { Args: { "p_month": string,"p_paid_on": string,"p_staff_ids": (string)[] }; Returns: number
+                           },
+"setting_bool":
+{ Args: { "p_default": boolean,"p_key": string }; Returns: boolean
                            },
 "setting_int":
 { Args: { "p_default": number,"p_key": string }; Returns: number

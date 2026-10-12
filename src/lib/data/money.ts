@@ -17,6 +17,10 @@ export type MoneySettings = {
   withholdingTaxInclusive: boolean;
   /** 支払日（翌月の何日。0 = 末日） */
   paymentDay: number;
+  /** 遠方の上乗せの1回分（1時間30分を超える30分ごと。決まっていなければ null。Phase 12） */
+  travelStepAmount: number | null;
+  /** 友達紹介のボーナス（額が決まっていなければ null）と、紹介された人が何回稼働したら出すか */
+  referralBonus: { amount: number | null; after: number };
 };
 
 export const DEFAULT_MONEY_SETTINGS: MoneySettings = {
@@ -25,21 +29,33 @@ export const DEFAULT_MONEY_SETTINGS: MoneySettings = {
   withholdingIncludeExpenses: true,
   withholdingTaxInclusive: true,
   paymentDay: 25,
+  travelStepAmount: null,
+  referralBonus: { amount: null, after: 5 },
 };
 
 export async function getMoneySettings(): Promise<MoneySettings> {
   const supabase = await createClient();
-  const { data } = await supabase.from("owner_settings").select("key, value").in("key", ["consumption_tax", "withholding", "payment_day"]);
+  const { data } = await supabase
+    .from("owner_settings")
+    .select("key, value")
+    .in("key", ["consumption_tax", "withholding", "payment_day", "travel_allowance", "referral_bonus"]);
   const get = (k: string) => data?.find((r) => r.key === k)?.value as Record<string, unknown> | number | undefined;
   const tax = (get("consumption_tax") ?? {}) as { rate_percent?: number; rounding?: Rounding };
   const wh = (get("withholding") ?? {}) as { include_expenses?: boolean; tax_inclusive?: boolean };
   const day = get("payment_day");
+  const travel = (get("travel_allowance") ?? {}) as { per_step?: number | null };
+  const referral = (get("referral_bonus") ?? {}) as { amount?: number | null; after?: number };
   return {
     taxRatePercent: tax.rate_percent ?? DEFAULT_MONEY_SETTINGS.taxRatePercent,
     taxRounding: tax.rounding ?? DEFAULT_MONEY_SETTINGS.taxRounding,
     withholdingIncludeExpenses: wh.include_expenses ?? DEFAULT_MONEY_SETTINGS.withholdingIncludeExpenses,
     withholdingTaxInclusive: wh.tax_inclusive ?? DEFAULT_MONEY_SETTINGS.withholdingTaxInclusive,
     paymentDay: typeof day === "number" ? day : DEFAULT_MONEY_SETTINGS.paymentDay,
+    travelStepAmount: typeof travel.per_step === "number" ? travel.per_step : null,
+    referralBonus: {
+      amount: typeof referral.amount === "number" ? referral.amount : null,
+      after: typeof referral.after === "number" && referral.after > 0 ? referral.after : DEFAULT_MONEY_SETTINGS.referralBonus.after,
+    },
   };
 }
 
@@ -102,6 +118,8 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
   let evq = supabase
     .from("events")
     .select("id, date, client_id, venue_id, cancelled_at, report_required, client:companies(name), venue:venues(name)")
+    // LINE のトーク履歴から取り込んだ件数の記録だけの現場は、お金の計算に入れない（Phase 11）
+    .eq("counts_only", false)
     .order("date")
     .order("id");
   evq = range ? evq.gte("date", range.start).lte("date", range.end) : evq.eq("id", (scope as { eventId: string }).eventId);
@@ -115,13 +133,13 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
     chunked(eventIds, 200, make);
 
   const assignments = await byEvents((ids) =>
-    supabase.from("assignments").select("id, event_id, staff_id, role_id, status, report:reports(confirmed_at)").in("event_id", ids),
+    supabase.from("assignments").select("id, event_id, staff_id, role_id, status, travel_steps, report:reports(confirmed_at)").in("event_id", ids),
   );
   const asgIds = assignments.map((a) => a.id);
   const staffIds = [...new Set(assignments.map((a) => a.staff_id))];
   const byAsg = <T>(make: (ids: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) => chunked(asgIds, 200, make);
 
-  const [reportItems, expenses, overrides, eventRates, eventIncentives, clientRates, incentiveRates, billing, staffPrivate, staffNames, adjustments] =
+  const [reportItems, expenses, overrides, eventRates, eventIncentives, clientRates, incentiveRates, billing, staffPrivate, staffNames, adjustments, rankRates] =
     await Promise.all([
       byAsg((ids) => supabase.from("report_items").select("assignment_id, item_id, reported_count, confirmed_count").in("assignment_id", ids)),
       byAsg((ids) => supabase.from("expenses").select("assignment_id, staff_id, kind, amount, status").in("assignment_id", ids)),
@@ -132,17 +150,21 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
       supabase.from("incentive_rates").select("item_id, amount").then((r) => r.data ?? []),
       chunked(clientIds, 200, (ids) => supabase.from("company_billing").select("company_id, bill_transport").in("company_id", ids)),
       chunked(staffIds, 200, (ids) => supabase.from("staff_private").select("staff_id, base_daily_rate, withholding_method, invoice_number").in("staff_id", ids)),
-      chunked(staffIds, 200, (ids) => supabase.from("staff").select("id, name").in("id", ids)),
+      chunked(staffIds, 200, (ids) => supabase.from("staff").select("id, name, rank_id").in("id", ids)),
       range
         ? supabase.from("payment_adjustments").select("id, staff_id, amount, reason").eq("month", range.start).then((r) => r.data ?? [])
         : Promise.resolve([] as { id: string; staff_id: string; amount: number; reason: string }[]),
+      // ランクの基準日当（人ごとの日当がない人はこれ。Phase 12）
+      supabase.from("rank_rates").select("rank_id, base_daily_rate").then((r) => r.data ?? []),
     ]);
+  const rankRate = new Map(rankRates.map((r) => [r.rank_id, r.base_daily_rate]));
+  const rankDaily = (rankId: string | null) => (rankId ? (rankRate.get(rankId) ?? null) : null);
 
   const priv = new Map(staffPrivate.map((p) => [p.staff_id, p]));
   const adjStaff = adjustments.map((a) => a.staff_id).filter((id) => !staffIds.includes(id));
   const extraStaff = adjStaff.length
     ? await chunked([...new Set(adjStaff)], 200, (ids) =>
-        supabase.from("staff").select("id, name, private:staff_private(base_daily_rate, withholding_method, invoice_number)").in("id", ids),
+        supabase.from("staff").select("id, name, rank_id, private:staff_private(base_daily_rate, withholding_method, invoice_number)").in("id", ids),
       )
     : [];
 
@@ -174,14 +196,29 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
     staff: [
       ...staffNames.map((s) => {
         const p = priv.get(s.id);
-        return { id: s.id, name: s.name, baseDailyRate: p?.base_daily_rate ?? null, method: p?.withholding_method ?? "none", invoiceNumber: p?.invoice_number ?? null };
+        return {
+          id: s.id,
+          name: s.name,
+          baseDailyRate: p?.base_daily_rate ?? null,
+          rankDailyRate: rankDaily(s.rank_id),
+          method: p?.withholding_method ?? "none",
+          invoiceNumber: p?.invoice_number ?? null,
+        };
       }),
       ...extraStaff.map((s) => {
         const p = Array.isArray(s.private) ? s.private[0] : s.private;
-        return { id: s.id, name: s.name, baseDailyRate: p?.base_daily_rate ?? null, method: p?.withholding_method ?? "none", invoiceNumber: p?.invoice_number ?? null };
+        return {
+          id: s.id,
+          name: s.name,
+          baseDailyRate: p?.base_daily_rate ?? null,
+          rankDailyRate: rankDaily(s.rank_id),
+          method: p?.withholding_method ?? "none",
+          invoiceNumber: p?.invoice_number ?? null,
+        };
       }),
     ],
     dailyOverrides: overrides.filter((o) => o.daily_rate_override != null).map((o) => ({ assignmentId: o.assignment_id, amount: o.daily_rate_override! })),
+    travelSteps: assignments.filter((a) => a.travel_steps > 0).map((a) => ({ assignmentId: a.id, steps: a.travel_steps })),
     adjustments: adjustments.map((a) => ({ id: a.id, staffId: a.staff_id, amount: a.amount, reason: a.reason })),
     billing: billing.map((b) => ({ companyId: b.company_id, billTransport: b.bill_transport })),
     settings: {
@@ -189,6 +226,7 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
       taxRounding: settings.taxRounding,
       withholdingIncludeExpenses: settings.withholdingIncludeExpenses,
       withholdingTaxInclusive: settings.withholdingTaxInclusive,
+      travelStepAmount: settings.travelStepAmount,
     },
   };
 }

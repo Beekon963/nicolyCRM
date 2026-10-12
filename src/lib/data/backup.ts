@@ -38,6 +38,7 @@ const TABLES: { table: string; label: string; order: string }[] = [
   { table: "incentive_rates", label: "インセンティブ単価", order: "item_id" },
   { table: "event_incentive_rates", label: "現場のインセンティブ上書き", order: "event_id,item_id" },
   { table: "payment_adjustments", label: "調整額", order: "id" },
+  { table: "referral_bonuses", label: "友達紹介のボーナス", order: "referred_staff_id" },
   { table: "monthly_closings", label: "月次締め", order: "month" },
   { table: "closing_logs", label: "締めの履歴", order: "id" },
   { table: "invoices", label: "請求（締めた月）", order: "id" },
