@@ -106,6 +106,13 @@ export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; 
             <span className="font-bold">月の稼働表（今のスプレッドシート）</span>
             <span className="text-sm text-muted-foreground">月のシート（202611 など）から、現場・アサイン・稼働可能日・単価をまとめて取り込みます</span>
           </button>
+          <Link
+            href="/import/line"
+            className="flex min-h-16 flex-col items-start justify-start rounded-2xl border bg-card p-4 text-left shadow-card transition-colors hover:bg-accent sm:col-span-2"
+          >
+            <span className="font-bold">LINEのトーク履歴（過去の件数の報告）</span>
+            <span className="text-sm text-muted-foreground">件数の報告の LINE グループのトーク履歴から、過去の獲得件数と現場詳細を取り込みます</span>
+          </Link>
         </div>
       )}
 

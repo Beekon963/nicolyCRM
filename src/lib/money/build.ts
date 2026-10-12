@@ -2,6 +2,7 @@
  * DB から取った行をまとめて、月（または現場）の請求・支払い・粗利を計算する。
  * どの人を「稼働した」と数えるか、どの経費を入れるか、確定分か見込み分か、をここで決める。
  */
+import { sumCounts } from "@/lib/count";
 import { billEvent, type BillingEvent, type CountBasis, type EventBill, type ItemCount, invoiceTotals } from "./invoice";
 import { type AssignmentPay, excludeTax, payAssignment, payStaffMonth, type StaffMonthPay } from "./pay";
 import { findIncentive, type Rate, type RateKind, type RateTable } from "./rates";
@@ -272,8 +273,9 @@ function mergeItems(rows: { itemId: string; reported: number | null; confirmed: 
   const m = new Map<string, ItemCount>();
   for (const r of rows) {
     const cur = m.get(r.itemId) ?? { itemId: r.itemId, reported: null, confirmed: null };
-    if (r.reported != null) cur.reported = (cur.reported ?? 0) + r.reported;
-    if (r.confirmed != null) cur.confirmed = (cur.confirmed ?? 0) + r.confirmed;
+    // 件数は小数第2位まであるので、足し算の誤差が出ないようにそろえる（Phase 11）
+    if (r.reported != null) cur.reported = sumCounts([cur.reported, r.reported]);
+    if (r.confirmed != null) cur.confirmed = sumCounts([cur.confirmed, r.confirmed]);
     m.set(r.itemId, cur);
   }
   return [...m.values()];

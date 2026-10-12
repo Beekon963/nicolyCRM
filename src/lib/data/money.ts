@@ -102,6 +102,8 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
   let evq = supabase
     .from("events")
     .select("id, date, client_id, venue_id, cancelled_at, report_required, client:companies(name), venue:venues(name)")
+    // LINE のトーク履歴から取り込んだ件数の記録だけの現場は、お金の計算に入れない（Phase 11）
+    .eq("counts_only", false)
     .order("date")
     .order("id");
   evq = range ? evq.gte("date", range.start).lte("date", range.end) : evq.eq("id", (scope as { eventId: string }).eventId);

@@ -11,6 +11,9 @@ import { SEED_USERS } from "../../scripts/seed/constants.mts";
 
 export const DB_URL = process.env.TEST_DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
+// 獲得件数（numeric。Phase 11 で小数第2位まで）を数として読む（そのままだと "2.00" の文字になる）
+pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
+
 export type Actor = "owner" | "manager" | "inactive" | "anon";
 
 let pool: pg.Pool | null = null;

@@ -7,6 +7,8 @@
  * 金額は扱わない（差し込みにも入れない）。
  */
 
+import { sumCounts } from "@/lib/count";
+
 export type ReportFormatBlocks = { header: string; eventBlock: string; personBlock: string; footer: string };
 
 export type ReportPerson = {
@@ -63,7 +65,7 @@ export const REPORT_BLOCK_LABEL: Record<keyof ReportFormatBlocks, { label: strin
 /** 獲得項目ごとの件数を足し合わせる（名前の並びは最初に出てきた順） */
 function sumItems(people: ReportPerson[]): { name: string; count: number }[] {
   const m = new Map<string, number>();
-  for (const p of people) for (const i of p.items) m.set(i.name, (m.get(i.name) ?? 0) + (i.count ?? 0));
+  for (const p of people) for (const i of p.items) m.set(i.name, sumCounts([m.get(i.name), i.count]));
   return [...m.entries()].map(([name, count]) => ({ name, count }));
 }
 
@@ -101,7 +103,7 @@ function itemList(items: { name: string; count: number | null }[]): string {
   return items.map((i) => `${i.name} ${i.count ?? 0}`).join(" / ");
 }
 
-const total = (items: { count: number | null }[]) => items.reduce((a, i) => a + (i.count ?? 0), 0);
+const total = (items: { count: number | null }[]) => sumCounts(items.map((i) => i.count));
 
 /** 獲得した項目だけを「項目 件数」で1行ずつ（0件は出さない。1つもなければ「なし」） */
 function gotList(items: { name: string; count: number | null }[]): string {

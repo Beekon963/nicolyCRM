@@ -3,6 +3,7 @@
  * 金額は扱わない（獲得件数と稼働の数だけ）。DB から取った行をここで数える。
  */
 import { addDays, monthOf, monthRange } from "@/lib/date";
+import { sumCounts } from "@/lib/count";
 
 export type Basis = "confirmed" | "reported";
 export type GroupBy = "staff" | "venue" | "client";
@@ -62,8 +63,9 @@ export function analyze(rows: ResultRow[], by: GroupBy, basis: Basis): AnalysisG
     for (const i of r.items) {
       const n = itemCount(i, basis);
       if (!n) continue;
-      g.total += n;
-      g.byItem[i.item_id] = (g.byItem[i.item_id] ?? 0) + n;
+      // 件数は小数第2位まで（2人で取った0.5件など）。足し算の誤差が出ないようにそろえる
+      g.total = sumCounts([g.total, n]);
+      g.byItem[i.item_id] = sumCounts([g.byItem[i.item_id], n]);
     }
   }
   return [...groups.values()]

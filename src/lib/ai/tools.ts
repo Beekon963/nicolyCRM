@@ -10,6 +10,7 @@ import { renderReport } from "@/lib/report-format";
 import { digitsOnly, orLike, searchNorm } from "@/lib/search";
 import { type AiContext, type AiTool, checkRange, dateArg, day, one, t5, ToolInputError } from "./common";
 import { PROPOSAL_TOOLS, type Proposal } from "./proposals";
+import { sumCounts } from "@/lib/count";
 
 /**
  * AI アシスタントが使う道具（Phase 4-4）。
@@ -193,7 +194,7 @@ const getStaff: AiTool = {
       for (const i of a.report_items) {
         const n = i.confirmed_count ?? i.reported_count ?? 0;
         const name = masters.itemById.get(i.item_id)?.name ?? "";
-        totals.set(name, (totals.get(name) ?? 0) + n);
+        totals.set(name, sumCounts([totals.get(name), n]));
       }
     const worked = rows.filter((a) => a.status === "confirmed" && a.ev.date < today);
     return {
@@ -300,7 +301,7 @@ const results: AiTool = {
           if (n == null) continue;
           const name = masters.itemById.get(i.item_id)?.name ?? "";
           counts[name] = n;
-          totals.set(name, (totals.get(name) ?? 0) + n);
+          totals.set(name, sumCounts([totals.get(name), n]));
         }
         return {
           date: day(a.ev.date),

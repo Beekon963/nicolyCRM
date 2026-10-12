@@ -54,6 +54,14 @@ describe("項目名をそろえる", () => {
     expect(resolveItemName("アマプラ", NW)).toMatchObject({ name: "Amazonプライム", how: "guess" });
   });
 
+  it("PI は MNP、あんせき は あんしんセキュリティ（LINE の報告でよくある略し方）", () => {
+    const dict: NameDict = { items: ["新規", "MNP", "SIMのみMNP", "あんしんセキュリティ", "あんしんパック"], aliases: [] };
+    expect(resolveItemName("PI", dict)).toMatchObject({ name: "MNP", how: "guess" });
+    expect(resolveItemName("simのみPI", dict)).toMatchObject({ name: "SIMのみMNP", how: "guess" });
+    expect(resolveItemName("あんせき", dict)).toMatchObject({ name: "あんしんセキュリティ", how: "guess" });
+    expect(resolveItemName("あんぱ", dict)).toMatchObject({ name: "あんしんパック", how: "guess" });
+  });
+
   it("「（仮）」が付いていたら、（仮）の項目に入れる。（仮）の項目がなければわからないにする", () => {
     expect(resolveItemName("光（仮）", NW)).toMatchObject({ name: "ドコモ光 1G（仮）", how: "guess" });
     expect(resolveItemName("GOLD(仮)", NW)).toMatchObject({ name: "ｄカードGOLD（仮）", how: "guess" });

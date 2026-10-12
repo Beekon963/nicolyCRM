@@ -7,7 +7,7 @@
  * - 差引支払額 ＝ 日当計 ＋ インセンティブ計 ＋ 調整額 ＋ 交通費・経費 − 源泉徴収額
  * 日当・インセンティブは税込として扱う（要件 §13-6）。
  */
-import { type CountBasis, type ItemCount, itemQty } from "./invoice";
+import { type CountBasis, type ItemCount, itemAmount, itemQty } from "./invoice";
 import { applyRate, sum } from "./round";
 import { withholdingAmount, type WithholdingMethod } from "./withholding";
 
@@ -34,7 +34,7 @@ export function payAssignment(a: PayAssignment, basis: CountBasis): AssignmentPa
     .map((it) => {
       const qty = itemQty(it, basis);
       const unit = a.incentiveRate(it.itemId) ?? 0;
-      return { itemId: it.itemId, unit, qty, amount: unit * qty };
+      return { itemId: it.itemId, unit, qty, amount: itemAmount(unit, qty) };
     })
     .filter((l) => l.qty > 0);
   return { daily: a.dailyRate ?? 0, incentive: sum(lines.map((l) => l.amount)), lines, missingDailyRate: a.dailyRate == null };

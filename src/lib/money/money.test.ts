@@ -9,6 +9,7 @@ import {
   findRate,
   grossProfit,
   invoiceTotals,
+  itemAmount,
   payAssignment,
   type PayAssignment,
   payStaffMonth,
@@ -167,6 +168,15 @@ describe("請求の細かい決まり", () => {
     expect(b.missingRoles).toEqual([CATCHER]);
     expect(b.lines.find((l) => l.kind === "person_day")).toMatchObject({ unit: 0, qty: 1, amount: 0 });
   });
+  it("件数が小数（2人で取った0.5件など）でも、0.01件単位で掛けて1円未満は切り捨てる", () => {
+    const half = { ...base, items: [{ itemId: NEW_MNP, confirmed: 0.5, reported: 0.5 }] };
+    expect(billEvent(half, rates, { billTransport: false, basis: "confirmed" }).lines.find((l) => l.kind === "item")).toMatchObject({ qty: 0.5, amount: 2500 });
+    expect(itemAmount(3001, 0.5)).toBe(1500);
+    expect(itemAmount(5000, 0.33)).toBe(1650);
+    // 0.34 + 0.33 + 0.33 を足した 1 件（足し算の誤差があっても 1 件として掛ける）
+    expect(itemAmount(5000, 0.34 + 0.33 + 0.33)).toBe(5000);
+    expect(itemAmount(5000, 0)).toBe(0);
+  });
   it("消費税の端数処理は設定に従う", () => {
     expect(invoiceTotals(12345, TAX)).toEqual({ subtotal: 12345, tax: 1234, total: 13579 });
     expect(invoiceTotals(12345, { ratePercent: 10, rounding: "round" }).tax).toBe(1235);
@@ -176,6 +186,10 @@ describe("請求の細かい決まり", () => {
 
 describe("支払いの細かい決まり", () => {
   const a = (dailyRate: number | null): PayAssignment => ({ worked: true, dailyRate, items: [], incentiveRate: () => null });
+  it("インセンティブも小数の件数で計算し、1円未満は切り捨てる", () => {
+    const p = payAssignment({ worked: true, dailyRate: 10000, items: [{ itemId: NEW_MNP, confirmed: 0.33, reported: 0.33 }], incentiveRate: () => 3001 }, "confirmed");
+    expect(p.incentive).toBe(990);
+  });
   it("日当が決まっていないときは 0 円で知らせる", () => {
     expect(payAssignment(a(null), "confirmed")).toMatchObject({ daily: 0, missingDailyRate: true });
   });

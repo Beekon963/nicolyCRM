@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertMember } from "@/lib/auth";
+import { isCount } from "@/lib/count";
 import { createClient } from "@/lib/supabase/server";
 
 const itemSchema = z.object({
   item_id: z.uuid(),
-  confirmed: z.number().int().min(0).max(999),
+  // 件数は小数第2位まで（LINE のトーク履歴から取り込んだ0.5件など。Phase 11）
+  confirmed: z.number().min(0).max(999).refine(isCount, "件数が正しくありません"),
   reason: z.enum(["cancelled", "rejected", "input_error", "other"]).nullable(),
   note: z.string().trim().max(200),
 });

@@ -73,6 +73,33 @@ test("管理者が速報 → 確定を入力でき、差分理由と履歴が残
   }
 });
 
+test("2人で分けた 0.5 件のような件数も、そのまま確定できる（Phase 11）", async ({ page }) => {
+  const ev = await makeEvent("jst_today() - 4", { required: 1 });
+  try {
+    // ほかのテストと同じ日に同じ人を確定にしない（同じ日の確定は1つまで）
+    const staff = await one<{ id: string; name: string }>(
+      `select id, name from staff s where status = 'active'
+          and not exists (select 1 from assignments a join events e on e.id = a.event_id where a.staff_id = s.id and e.date between public.jst_today() - 5 and public.jst_today())
+        order by random() limit 1`,
+    );
+    const a = await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [ev.id, staff.id, ev.roleId]);
+    const mnp = await one<{ id: string }>(`select id from items where name = 'MNP'`);
+    await sql(`insert into reports (assignment_id, submitted_at, source) values ($1, now(), 'self')`, [a.id]);
+    await sql(`insert into report_items (assignment_id, item_id, reported_count) values ($1, $2, 0.5)`, [a.id, mnp.id]);
+
+    await page.goto(`/results?event=${ev.id}`);
+    await expect(page.getByText("速報 0.5")).toBeVisible();
+    await page.getByRole("textbox", { name: `${staff.name}のMNPの確定件数`, exact: true }).fill("1.5");
+    await page.getByLabel("MNPの差分の理由").selectOption("input_error");
+    await page.getByRole("button", { name: "確定する" }).click();
+    await expect(page.getByText(`${staff.name}さん: 確定しました`)).toBeVisible();
+    const ri = await one<{ confirmed_count: number }>(`select confirmed_count from report_items where assignment_id = $1 and item_id = $2`, [a.id, mnp.id]);
+    expect(ri.confirmed_count).toBe(1.5);
+  } finally {
+    await cleanupEvent(ev.id);
+  }
+});
+
 test("交通費を承認でき、元に戻せる", async ({ page }) => {
   const ev = await makeEvent("jst_today() - 2", { required: 1 });
   try {

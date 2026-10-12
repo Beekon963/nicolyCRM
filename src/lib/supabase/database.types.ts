@@ -502,13 +502,13 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"report_required": boolean,"start_time": string | null,"updated_at": string,"venue_id": string
+                    "belongings": string,"cancel_reason": string,"cancelled_at": string | null,"client_id": string,"counts_only": boolean,"created_at": string,"created_by": string | null,"date": string,"end_time": string | null,"group_id": string | null,"id": string,"meeting_place": string,"meeting_time": string | null,"notes": string,"report_required": boolean,"start_time": string | null,"updated_at": string,"venue_id": string
                   }
                   Insert: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id": string,"counts_only"?: boolean,"created_at"?: string,"created_by"?: string | null,"date": string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id": string
                   }
                   Update: {
-                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
+                    "belongings"?: string,"cancel_reason"?: string,"cancelled_at"?: string | null,"client_id"?: string,"counts_only"?: boolean,"created_at"?: string,"created_by"?: string | null,"date"?: string,"end_time"?: string | null,"group_id"?: string | null,"id"?: string,"meeting_place"?: string,"meeting_time"?: string | null,"notes"?: string,"report_required"?: boolean,"start_time"?: string | null,"updated_at"?: string,"venue_id"?: string
                   }
                   Relationships: [
                     {
