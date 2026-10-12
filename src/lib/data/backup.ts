@@ -44,6 +44,7 @@ const TABLES: { table: string; label: string; order: string }[] = [
   { table: "payments", label: "支払い（締めた月）", order: "id" },
   { table: "monthly_targets", label: "月次目標", order: "month" },
   { table: "report_formats", label: "日報のフォーマット", order: "id" },
+  { table: "item_aliases", label: "言いかえ表", order: "id" },
   { table: "training_slots", label: "研修の枠", order: "id" },
   { table: "training_bookings", label: "研修の予約", order: "id" },
   { table: "roles", label: "役割", order: "id" },

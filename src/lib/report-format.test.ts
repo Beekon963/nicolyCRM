@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderReport, type ReportDay } from "./report-format";
+import { REPORT_PRESETS, renderReport, type ReportDay } from "./report-format";
 
 const day: ReportDay = {
   date: "10/10",
@@ -64,5 +64,81 @@ describe("日報のフォーマット", () => {
     const mine: ReportDay = { ...day, events: [{ ...day.events[0], people: [day.events[0].people[0]] }] };
     const text = renderReport({ header: "{日付} {取引先}", eventBlock: "{会場}", personBlock: "{名前} {件数一覧}", footer: "" }, mine);
     expect(text).toBe("10/10 テスト通信\nDSテスト中央\n青木 新規 3 / MNP 1");
+  });
+
+  it("獲得した項目は0件を出さずに1行ずつ。1つもなければ「なし」", () => {
+    const text = renderReport({ header: "", eventBlock: "{会場}\n{獲得した項目}", personBlock: "", footer: "" }, day);
+    expect(text).toBe("DSテスト中央\n新規 4\nMNP 1\nDSテスト北\nなし");
+  });
+
+  it("稼働者は全員の名前、所感は2人以上なら名前つき", () => {
+    const text = renderReport({ header: "", eventBlock: "{稼働者}\n{所感}", personBlock: "", footer: "" }, day);
+    expect(text).toBe("青木、井上\n青木：好調\n上田");
+  });
+});
+
+describe("書式の見本: NextWave", () => {
+  const nextwave = REPORT_PRESETS.find((p) => p.key === "nextwave")!.blocks;
+  const one: ReportDay = {
+    date: "10/11",
+    weekday: "日",
+    clientName: "ネクストウェーブ",
+    events: [
+      {
+        venueName: "DSテスト東",
+        time: "10:00〜19:00",
+        people: [
+          {
+            name: "山田 太郎",
+            role: "クローザー",
+            items: [
+              { name: "新規", count: 0 },
+              { name: "機種変更", count: 2 },
+              { name: "Pixel", count: 2 },
+              { name: "ドコモ光 1G", count: 1 },
+            ],
+            comment: "店舗様から評価いただきました。",
+          },
+        ],
+      },
+    ],
+  };
+
+  it("いただいた見本と同じ形（獲得した項目だけ1行ずつ、所感）", () => {
+    expect(renderReport(nextwave, one)).toBe(
+      [
+        "【ネクストウェーブ報告フォーマット】",
+        "",
+        "日付：10/11",
+        "DSテスト東",
+        "稼働者：山田 太郎",
+        "",
+        "【実績】",
+        "機種変更 2",
+        "Pixel 2",
+        "ドコモ光 1G 1",
+        "",
+        "【所感】",
+        "店舗様から評価いただきました。",
+      ].join("\n"),
+    );
+  });
+
+  it("2人以上の現場は全員分を1つにまとめ、現場が2つなら1行あけて続ける", () => {
+    const two: ReportDay = {
+      ...one,
+      events: [
+        { ...one.events[0], people: [one.events[0].people[0], { name: "佐藤 花子", role: "キャッチャー", items: [{ name: "機種変更", count: 1 }], comment: "" }] },
+        { venueName: "DSテスト西", time: "", people: [{ name: "鈴木 一郎", role: "クローザー", items: [{ name: "新規", count: 0 }], comment: "" }] },
+      ],
+    };
+    const lines = renderReport(nextwave, two).split("\n");
+    expect(lines).toContain("稼働者：山田 太郎、佐藤 花子");
+    expect(lines).toContain("機種変更 3");
+    expect(lines).toContain("山田 太郎：店舗様から評価いただきました。");
+    // 2つ目の現場の前は1行あく
+    const second = lines.indexOf("DSテスト西");
+    expect(lines.slice(second - 4, second)).toEqual(["", "【ネクストウェーブ報告フォーマット】", "", "日付：10/11"]);
+    expect(lines.at(-3)).toBe("なし");
   });
 });

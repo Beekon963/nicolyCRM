@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { FileTextIcon, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { REPORT_BLOCK_LABEL, REPORT_VARIABLES, renderReport, type ReportDay, type ReportFormatBlocks, SAMPLE_DAY } from "@/lib/report-format";
+import { REPORT_BLOCK_LABEL, REPORT_PRESETS, REPORT_VARIABLE_HINT, REPORT_VARIABLES, renderReport, type ReportDay, type ReportFormatBlocks, SAMPLE_DAY } from "@/lib/report-format";
 import { cn } from "@/lib/utils";
 import { saveReportFormat } from "./actions";
 
@@ -64,9 +64,9 @@ export function ReportFormatList({ formats, clients, itemNames }: { formats: For
           }}
         />
       ))}
+      <div className="flex flex-wrap gap-2">
       <Button
         variant="outline"
-        className="self-start"
         onClick={() =>
           setDrafts((ds) => [
             ...ds,
@@ -87,8 +87,42 @@ export function ReportFormatList({ formats, clients, itemNames }: { formats: For
         <PlusIcon />
         新しいフォーマットを作る
       </Button>
+      {/* 取引先からいただいた形を、そのまま入れて作る（使う取引先は名前が合えば自動で選ぶ） */}
+      {REPORT_PRESETS.map((p) => (
+        <Button
+          key={p.key}
+          variant="outline"
+          // 名前が長いので、スマホでは折り返す（横にはみ出さないように）
+          className="h-auto min-h-11 max-w-full py-2 whitespace-normal"
+          title={p.note}
+          onClick={() =>
+            setDrafts((ds) => [
+              ...ds,
+              {
+                id: null,
+                name: `${p.name.replace(/（.*）/, "")}用`,
+                companyId: clients.find((c) => presetMatches(p.key, c.name))?.id ?? null,
+                forStaff: true,
+                isActive: true,
+                ...p.blocks,
+              },
+            ])
+          }
+        >
+          <FileTextIcon />
+          見本から作る: {p.name}
+        </Button>
+      ))}
+      </div>
     </div>
   );
+}
+
+/** 見本の名前と取引先の名前が合うか（NextWave = ネクストウェーブ） */
+function presetMatches(key: string, clientName: string): boolean {
+  const n = clientName.normalize("NFKC").toLowerCase().replace(/\s/g, "");
+  if (key === "nextwave") return n.includes("nextwave") || n.includes("ネクストウェーブ");
+  return false;
 }
 
 function FormatEditor({
@@ -146,7 +180,7 @@ function FormatEditor({
     });
 
   return (
-    <details open={open} className={cn("group rounded-lg border", !f.isActive && "opacity-70")}>
+    <details open={open} className={cn("group rounded-2xl border bg-card shadow-card", !f.isActive && "opacity-70")}>
       <summary className="flex min-h-14 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
         <span className="font-bold">{f.name || "（名前のないフォーマット）"}</span>
         <span className="text-sm text-muted-foreground">
@@ -206,6 +240,7 @@ function FormatEditor({
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => insert(b, v)}
+                        title={REPORT_VARIABLE_HINT[v]}
                         className="h-9 rounded-full border px-3 text-sm text-muted-foreground hover:bg-accent"
                       >
                         {`{${v}}`}

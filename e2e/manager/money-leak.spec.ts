@@ -23,6 +23,7 @@ const PAGES = [
   "/availability",
   "/results",
   "/results/daily",
+  "/results/convert",
   "/analysis",
   "/analysis?by=client&range=12m",
   "/results?show=all",
