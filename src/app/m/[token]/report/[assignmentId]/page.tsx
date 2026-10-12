@@ -2,12 +2,13 @@ import { ChevronDownIcon, ChevronLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { ReportConverter } from "@/components/app/report-converter";
 import { ShareButtons } from "@/components/app/share-buttons";
-import { formatShortJa, parse, weekdayJa } from "@/lib/date";
+import { formatShortJa, parse, todayJst, weekdayJa } from "@/lib/date";
 import { callMypage, type MypageEvent } from "@/lib/mypage";
 import { type NameDict, renameItems } from "@/lib/report-convert";
 import { renderReport } from "@/lib/report-format";
 import { formatTimeRange } from "@/lib/templates";
 import { EventCard } from "../../event-card";
+import { StartReport } from "../../start-report";
 import { ReportForm } from "./report-form";
 
 type Report = {
@@ -23,7 +24,7 @@ type Report = {
   items: { item_id: string; name: string; reported: number | null; confirmed: number | null }[];
   expenses: { transport?: { amount: number; memo: string; status: "pending" | "approved" | "rejected" }; other?: { amount: number; memo: string; status: "pending" | "approved" | "rejected" } };
   /** この現場の取引先で使う日報のフォーマット（DB が古いときは返らないことがある） */
-  formats?: { id: string; name: string; header: string; event_block: string; person_block: string; footer: string }[];
+  formats?: { id: string; name: string; header: string; event_block: string; person_block: string; footer: string; start_block?: string }[];
   /** 言いかえ表（いつもの書き方 → 公認名称） */
   aliases?: { alias: string; name: string }[];
   /** 同じ現場の全員（本人を含む）の報告。名前・役割・件数・コメントだけ */
@@ -45,6 +46,8 @@ export default async function MypageReport({ params }: PageProps<"/m/[token]/rep
         報告の一覧へ
       </Link>
       <EventCard event={d.event} role={d.role} />
+      {/* 稼働日の当日は、まず「稼働します」の報告 */}
+      {d.event.date === todayJst() && <StartReport d={d} />}
       {d.confirmed ? (
         <p className="rounded-lg bg-status-done-bg p-3 text-status-done">管理者が確定しました。修正が必要なときは管理者に連絡してください。</p>
       ) : !d.editable ? (

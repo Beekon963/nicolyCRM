@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REPORT_PRESETS, renderReport, type ReportDay } from "./report-format";
+import { REPORT_PRESETS, renderReport, renderStart, type ReportDay } from "./report-format";
 
 const day: ReportDay = {
   date: "10/10",
@@ -140,5 +140,27 @@ describe("書式の見本: NextWave", () => {
     const second = lines.indexOf("DSテスト西");
     expect(lines.slice(second - 4, second)).toEqual(["", "【ネクストウェーブ報告フォーマット】", "", "日付：10/11"]);
     expect(lines.at(-3)).toBe("なし");
+  });
+});
+
+describe("稼働開始の報告", () => {
+  const start = REPORT_PRESETS.find((p) => p.key === "nextwave")!.start;
+  const day = (names: string[]): ReportDay => ({
+    date: "10/12",
+    weekday: "月",
+    clientName: "ネクストウェーブ",
+    events: [{ venueName: "DSテスト東", time: "10:00〜19:00", people: names.map((name) => ({ name, role: "", items: [], comment: "" })) }],
+  });
+
+  it("NextWave の見本: 現場名・稼働者名・「稼働します」", () => {
+    expect(renderStart(start, day(["山田 太郎"]))).toBe("DSテスト東\n稼働者：山田 太郎\n稼働します");
+  });
+
+  it("2人以上の現場は全員の名前を書く", () => {
+    expect(renderStart(start, day(["山田 太郎", "佐藤 花子"]))).toBe("DSテスト東\n稼働者：山田 太郎、佐藤 花子\n稼働します");
+  });
+
+  it("文面が空なら何も作らない", () => {
+    expect(renderStart("  ", day(["山田"]))).toBe("");
   });
 });

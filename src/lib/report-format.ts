@@ -31,6 +31,9 @@ export const REPORT_VARIABLES = {
   footer: ["日付", "曜日", "取引先", "現場数", "人数", "稼働者", "件数一覧", "獲得した項目", "件数合計", "所感"],
 } as const satisfies Record<keyof ReportFormatBlocks, readonly string[]>;
 
+/** 稼働開始の報告（現場に着いたとき「稼働します」）で使える差し込み */
+export const START_VARIABLES = ["日付", "曜日", "取引先", "会場", "時間", "稼働者", "人数"] as const;
+
 /** 差し込みの意味（設定画面で、ボタンの横に小さく出す） */
 export const REPORT_VARIABLE_HINT: Record<string, string> = {
   件数一覧: "全部の項目を1行に（新規 3 / MNP 0）",
@@ -150,10 +153,34 @@ export function renderReport(format: ReportFormatBlocks, day: ReportDay): string
 }
 
 /**
+ * 稼働開始の報告の文（現場に着いたら LINE に送る）。1つの現場の分だけ作る。
+ * 稼働者は同じ現場の全員（2名以上の現場は代表者が全員の名前を書いて送るため）
+ */
+export function renderStart(template: string, day: ReportDay): string {
+  const e = day.events[0];
+  if (!template.trim() || !e) return "";
+  const values = {
+    日付: day.date,
+    曜日: day.weekday,
+    取引先: day.clientName,
+    会場: e.venueName,
+    時間: e.time,
+    稼働者: workerNames(e.people),
+    人数: String(e.people.length),
+  };
+  return fill(template, values, [])
+    .split("\n")
+    .map((l) => l.replace(/[ \t　]+$/, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * 書式の見本（設定画面の「見本から作る」）。取引先からいただいた形をそのまま入れておく。
  * - NextWave: 現場ごとに1通（2人以上の現場は全員分をまとめる）。【実績】は獲得した項目だけ1行ずつ
  */
-export const REPORT_PRESETS: { key: string; name: string; note: string; blocks: ReportFormatBlocks }[] = [
+export const REPORT_PRESETS: { key: string; name: string; note: string; blocks: ReportFormatBlocks; start: string }[] = [
   {
     key: "nextwave",
     name: "NextWave（ネクストウェーブ）",
@@ -165,6 +192,8 @@ export const REPORT_PRESETS: { key: string; name: string; note: string; blocks: 
       personBlock: "",
       footer: "",
     },
+    // 稼働開始時は、現場名と稼働者名を書いて「稼働します」（2名以上は代表者が全員の名前を書く）
+    start: "{会場}\n稼働者：{稼働者}\n稼働します",
   },
 ];
 

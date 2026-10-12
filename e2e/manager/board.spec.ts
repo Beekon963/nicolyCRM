@@ -113,19 +113,22 @@ test.describe("稼働表", () => {
   });
 
   test("上の段の空いたマスから、その日・その取引先で現場を作る画面へ進める", async ({ page }) => {
-    const ev = await one<{ client_id: string; client: string }>(
-      `select e.client_id, c.name as client from events e join companies c on c.id = e.client_id where e.id = $1`,
-      [eventId],
-    );
-    await page.goto(`/events/board?month=${date.slice(0, 7)}`);
     const next = (await one<{ d: string }>(`select to_char($1::date + 1, 'YYYY-MM-DD') as d`, [date])).d;
     test.skip(next.slice(0, 7) !== date.slice(0, 7), "月末の翌日は別の月になるため");
-    const busy = await sql(`select 1 from events where client_id = $1 and date = $2`, [ev.client_id, next]);
-    test.skip(busy.length > 0, "翌日にも同じ取引先の現場があるため");
-    await page.getByRole("button", { name: `${ev.client} ${Number(next.slice(8))}日`, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/events/new\\?date=${next}&client=${ev.client_id}`));
-    await expect(page.getByLabel("日付")).toHaveValue(next);
-    await expect(page.getByLabel("取引先", { exact: true })).toHaveValue(ev.client_id);
+    // このテストだけの取引先を作る（ほかのテストが同じ取引先・同じ日に現場を作って消すと、空いたマスでなくなるため）
+    const name = `E2E空きマス${Math.random().toString(36).slice(2, 6)}`;
+    const client = await one<{ id: string }>(`insert into companies (kind, name, status) values ('client', $1, 'active') returning id`, [name]);
+    const own = await one<{ id: string }>(`insert into events (client_id, venue_id, date) values ($1, (select id from venues limit 1), $2) returning id`, [client.id, date]);
+    try {
+      await page.goto(`/events/board?month=${date.slice(0, 7)}`);
+      await page.getByRole("button", { name: `${name} ${Number(next.slice(8))}日`, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/events/new\\?date=${next}&client=${client.id}`));
+      await expect(page.getByLabel("日付")).toHaveValue(next);
+      await expect(page.getByLabel("取引先", { exact: true })).toHaveValue(client.id);
+    } finally {
+      await cleanupEvent(own.id);
+      await sql(`delete from companies where id = $1`, [client.id]);
+    }
   });
 });
 

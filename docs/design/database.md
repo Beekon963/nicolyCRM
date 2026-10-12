@@ -499,4 +499,5 @@ erDiagram
 |---|---|
 | `item_aliases` | 言いかえ表（取引先［空なら全取引先］・いつもの書き方・獲得項目）。同じ取引先で同じ書き方は1つ（大文字・小文字、前後の空白は区別しない）。読むのはメンバー、足す・直す・消すのはオーナー。直し方は `src/lib/report-convert.ts` |
 | `mypage_report_get` | 言いかえ表（`aliases`）と、同じ現場の確定した人の報告（`coworkers`: 名前・役割・本人か・送ったか・コメント・項目ごとの件数）を足した。電話番号・鍵・金額は返さない |
+| `report_formats.start_block` | 稼働開始の報告の文面（空なら出さない）。NextWave の書式には自動で入れた。マイページの書式（`mypage_report_get` の `formats`）にも返す |
 

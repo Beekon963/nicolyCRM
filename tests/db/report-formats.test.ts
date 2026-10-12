@@ -49,4 +49,22 @@ describe("日報のフォーマット", () => {
       expect(names).not.toContain("管理者だけ");
     });
   });
+
+  it("稼働開始の報告の文面（start_block）もマイページに返る", async () => {
+    await asRole("anon", async (c) => {
+      await c.query("reset role");
+      const staff = (await c.query(`select id, mypage_token as token from public.staff where status = 'active' order by id limit 1`)).rows[0];
+      const client = (await c.query(`select id from public.companies where kind = 'client' order by id limit 1`)).rows[0];
+      const role = (await c.query(`select id from public.roles where name = 'クローザー'`)).rows[0];
+      const venue = (await c.query(`select id from public.venues limit 1`)).rows[0];
+      const ev = (await c.query(`insert into public.events (client_id, venue_id, date) values ($1, $2, public.jst_today()) returning id`, [client.id, venue.id])).rows[0];
+      const a = (await c.query(`insert into public.assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [ev.id, staff.id, role.id])).rows[0];
+      await c.query(`insert into public.report_formats (name, company_id, for_staff, event_block, start_block) values ('稼働開始つき', $1, true, '{会場}', E'{会場}\\n稼働します')`, [client.id]);
+      await c.query("set local role anon");
+      const got = (await c.query(`select public.mypage_report_get($1, $2) as r`, [staff.token, a.id])).rows[0].r;
+      const f = got.formats.find((x: { name: string }) => x.name === "稼働開始つき");
+      expect(f.start_block).toBe("{会場}\n稼働します");
+    });
+  });
 });
+
