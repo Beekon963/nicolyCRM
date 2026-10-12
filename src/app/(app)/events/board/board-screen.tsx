@@ -4,7 +4,7 @@ import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
-import { BoardGrid, BoardLegend, type BoardMoney } from "@/components/app/board-grid";
+import { BoardGauge, BoardGrid, BoardLegend, type BoardMoney } from "@/components/app/board-grid";
 import { MessageDialog, type Recipient } from "@/components/app/message-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from "@/components/ui/toaster";
 import { type BoardStaffAssignment, type BoardStaffRow, isDropped } from "@/lib/board";
 import { type AvailabilityChange, applyAvailability, reverseChanges } from "@/lib/board/grid";
+import { type BoardFilters, filterBoard, filterCounts, NO_FILTERS } from "@/lib/board/view";
+import { useIsPhone, useLocalPref } from "@/hooks/use-local-pref";
 import { formatShortJa } from "@/lib/date";
 import type { BoardEventInfo, BoardPageData } from "@/lib/data/board";
 import { AVAILABILITY } from "@/lib/labels";
@@ -19,6 +21,18 @@ import { buildMessage } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { removeOffer } from "../actions";
 import { assignFromBoard, setAvailabilityCells, setAvailabilityDay, undoAssignFromBoard } from "./actions";
+import { BoardDayList, BoardFilterBar, type BoardView } from "./board-views";
+
+/** 絞り込みとリスト・表は、この端末に覚えておく */
+const parseFilters = (raw: string | null): BoardFilters => {
+  try {
+    const v = raw ? (JSON.parse(raw) as Partial<BoardFilters>) : {};
+    return { shortageOnly: v.shortageOnly === true, freeOnly: v.freeOnly === true, fromToday: v.fromToday === true };
+  } catch {
+    return NO_FILTERS;
+  }
+};
+const parseView = (raw: string | null): BoardView | null => (raw === '"list"' ? "list" : raw === '"table"' ? "table" : null);
 
 type Sel = { staffId: string; date: string } | { clientId: string; date: string } | null;
 
@@ -30,6 +44,21 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
   // キーで入れた稼働可能日は、保存が終わる前から表に出す
   const [shown, showChanges] = useOptimistic(board, applyAvailability);
   const [, startSave] = useTransition();
+  const [filters, setFilters] = useLocalPref("nicoly.board.filters", parseFilters);
+  const [savedView, setView] = useLocalPref("nicoly.board.view", parseView);
+  const phone = useIsPhone();
+  // 選んでいなければ、スマホは日ごとのリスト、PC は表（画面の幅が分かるまでは骨組み）
+  const view: BoardView | null = savedView ?? (phone == null ? null : phone ? "list" : "table");
+  const counts = filterCounts(shown, filters);
+  const visible = filterBoard(shown, view === "list" ? { ...filters, freeOnly: false, fromToday: false } : filters);
+  const filterBar = view && <BoardFilterBar filters={filters} setFilters={setFilters} counts={counts} view={view} setView={setView} />;
+  // 絞り込んだ結果、何もないとき（次に何をすればいいかを出す）
+  const emptyNote =
+    view === "table" && filters.shortageOnly && counts.shortage === 0 ? (
+      <p className="mx-4 mb-2 rounded-xl bg-status-done-bg p-3 font-semibold text-status-done">✓ 欠員の現場はありません</p>
+    ) : view === "table" && filters.freeOnly && counts.free === 0 ? (
+      <p className="mx-4 mb-2 rounded-xl bg-muted p-3 text-[#344054]">○で空いている人はいません。「稼働可能日の提出状況」から提出をお願いしてください。</p>
+    ) : null;
 
   /** 稼働表でキー（1 2 3 / Delete）を押して、選んだマスの稼働可能日を入れる。「元に戻す」付き */
   function saveAvailability(changes: AvailabilityChange[], undo = false) {
@@ -67,17 +96,36 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
               この月に出せるスタッフがいません（稼働表に出るのは「稼働中」の人と、この月に予定がある人です）。「データ取り込み」でスタッフ名簿を取り込むか、「スタッフ」の画面で状態を「すべて」にして、休止・終了になっていないか確かめてください。
             </p>
           )}
-          <BoardGrid
-            board={shown}
-            money={money}
-            onSetAvailability={saveAvailability}
-            onStaffCell={(staffId, date) => setSel({ staffId, date })}
-            onClientCell={openClientCell}
-            staffHref={(id) => `/staff/${id}`}
-          />
+          {view == null ? (
+            // 画面の幅が分かるまでの骨組み（一瞬だけ）
+            <div aria-hidden className="mx-4 h-64 rounded-xl bg-muted motion-safe:animate-pulse" />
+          ) : view === "list" ? (
+            <>
+              <BoardGauge board={shown} />
+              {filterBar}
+              <BoardDayList board={visible} filters={filters} onStaffDay={(staffId, date) => setSel({ staffId, date })} />
+            </>
+          ) : (
+            <BoardGrid
+              board={visible}
+              money={money}
+              filters={
+                <>
+                  {filterBar}
+                  {emptyNote}
+                </>
+              }
+              showFree
+              fillBoard={shown}
+              onSetAvailability={saveAvailability}
+              onStaffCell={(staffId, date) => setSel({ staffId, date })}
+              onClientCell={openClientCell}
+              staffHref={(id) => `/staff/${id}`}
+            />
+          )}
         </>
       )}
-      <BoardLegend admin />
+      {view === "table" && <BoardLegend admin />}
 
       <Dialog open={!!staffRow} onOpenChange={(o) => !o && setSel(null)}>
         <DialogContent side="bottom" className="max-h-[85dvh] overflow-y-auto md:top-1/2 md:bottom-auto md:left-1/2 md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-lg">

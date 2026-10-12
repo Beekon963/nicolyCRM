@@ -29,10 +29,12 @@ import {
   selectionTsv,
   single,
 } from "@/lib/board/grid";
+import { clientFill, freeCountByDate, sortChips } from "@/lib/board/view";
 import { clampZoom, keepFocus, stepZoom, zoomLabel } from "@/lib/board/zoom";
 import { fillOf } from "@/lib/fill";
 import { cn } from "@/lib/utils";
 import { CompanyName } from "./company-name";
+import { SeatBar, ThinBar } from "./seat-bar";
 import { StatusPill } from "./status-pill";
 import { VENUE_COLOR_KEYS, VENUE_COLORS, venueStyle } from "@/lib/venue-colors";
 
@@ -293,8 +295,20 @@ export function BoardGrid({
   staffHref,
   money,
   className,
+  filters,
+  showFree,
+  chipLimit = 1,
+  fillBoard,
 }: {
   board: Board;
+  /** 表の上に出す絞り込みのボタン（管理画面だけ） */
+  filters?: React.ReactNode;
+  /** 欠員の現場に「○N」（その日○で空いている人の数）を出す（管理画面だけ） */
+  showFree?: boolean;
+  /** 1つのマスに出す現場の数（あふれた分は「＋N件」。行は月の中で一番多い日の高さになるので、少なくして空白を減らす） */
+  chipLimit?: number;
+  /** 取引先名の下の埋まり具合を数える元（絞り込む前の稼働表。絞り込んでも数が変わらないように） */
+  fillBoard?: Board;
   /** ★ オーナーだけ: 右端に出す金額（取引先の売上・スタッフの報酬）。見るだけリンクには渡さない */
   money?: BoardMoney;
   onStaffCell?: (staffId: string, date: string) => void;
@@ -325,6 +339,9 @@ export function BoardGrid({
       ? { anchor: clampPos(selRaw.sel.anchor, rows.length, cols), focus: clampPos(selRaw.sel.focus, rows.length, cols) }
       : null;
   const setSel = (next: Selection | null) => setSelRaw(next ? { month: board.month, sel: next } : null);
+  const free = showFree ? freeCountByDate(board) : null;
+  // 「＋N件」を開いたマス（押して開けないとき＝見るだけリンクで使う）
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
 
   // 今日の列が見えるところまで横に動かす（拡大・縮小していても画面上の位置で合わせる）
   useEffect(() => {
@@ -557,7 +574,9 @@ export function BoardGrid({
   return (
     <div className={cn("flex flex-col", full && "fixed inset-0 z-50 bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]")}>
       {/* 全画面のときは表だけにする */}
+      {/* 全画面のときは表だけにする（絞り込みは閉じてから） */}
       {!full && <BoardGauge board={board} />}
+      {!full && filters}
       <div className="flex flex-wrap items-center gap-1 px-4 py-1" role="toolbar" aria-label="表の大きさ">
         {full && <span className="mr-auto min-w-0 truncate font-bold">{Number(board.month.slice(5))}月</span>}
         <Button variant="outline" size="icon" aria-label="縮小" disabled={zoom <= 0.25} onClick={() => setZoom(stepZoom(zoom, -1))}>
@@ -646,6 +665,8 @@ export function BoardGrid({
                     {/* 今日は丸で囲む（カレンダーのアプリと同じ見せ方） */}
                     <span className={cn("mx-auto grid size-7 place-items-center rounded-full text-base leading-none", d.isToday && "bg-primary font-bold text-primary-foreground")}>{d.day}</span>
                     <span className="block text-xs">{d.isToday ? "今日" : d.weekday}</span>
+                    {/* その日の埋まり具合（途中は青、全部うまったら緑） */}
+                    <ThinBar fill={fillOf([d])} className="mx-auto mt-0.5 w-10" />
                     <ResizeHandle label="日付の列の幅を変える" onStart={(e) => startResize("dayW", e)} onReset={() => resetWidth("dayW")} />
                   </th>
                 ))}
@@ -700,15 +721,36 @@ export function BoardGrid({
                         <span className="line-clamp-[var(--lines,2)]">
                           <CompanyName name={c.name} />
                         </span>
+                        <ClientFillLine fill={clientFill((fillBoard?.clients.find((x) => x.id === c.id) ?? c).cells, board.days)} />
                       </th>
                       {board.days.map((d, i) => {
-                        const chips = c.cells[d.date] ?? [];
+                        // 欠員の現場を先に。あふれた分は「＋N件」（押すと一覧が開く。見るだけリンクではその場で開く）
+                        const chips = sortChips(c.cells[d.date] ?? []);
+                        const key = `${c.id}|${d.date}`;
+                        const shownChips = opened.has(key) ? chips : chips.slice(0, chipLimit);
+                        const hidden = chips.slice(shownChips.length);
+                        const more = hidden.length;
+                        // 隠れた現場に欠員があれば「＋1件（欠1）」と赤で知らせる
+                        const hiddenShort = hidden.reduce((n, e) => n + (e.cancelled ? 0 : e.shortage), 0);
+                        const moreCls = cn(
+                          "self-start rounded px-1.5 text-xs leading-5 font-semibold",
+                          hiddenShort ? "bg-status-alert-tint text-[#912018] ring-1 ring-status-alert-solid/40" : "bg-[#eaecf0] text-[#344054]",
+                        );
+                        const moreText = `＋${more}件${hiddenShort ? `（欠${hiddenShort}）` : ""}`;
                         return (
                           <td key={d.date} data-c={i + 1} className={cn("border-r border-b p-0 align-top", DAY_W, colTint(d))}>
                             <Cell onClick={onClientCell && (() => onClientCell(c.id, d.date))} label={`${c.name} ${d.day}日`}>
-                              {chips.map((e) => (
-                                <EventChip key={e.id} e={e} rate={money?.eventRate[e.id]} />
+                              {shownChips.map((e) => (
+                                <EventChip key={e.id} e={e} rate={money?.eventRate[e.id]} free={free?.[d.date]} />
                               ))}
+                              {more > 0 &&
+                                (onClientCell ? (
+                                  <span className={moreCls}>{moreText}</span>
+                                ) : (
+                                  <button type="button" className={cn(moreCls, "min-h-6 hover:brightness-95")} onClick={() => setOpened((o) => new Set(o).add(key))}>
+                                    {moreText}
+                                  </button>
+                                ))}
                             </Cell>
                           </td>
                         );
@@ -828,10 +870,11 @@ function VenueDot() {
 }
 
 /**
- * 上の段（取引先ごと）の現場。そろった現場は会場の色のタイルに緑の ✓、欠員がある現場はタイルごと赤（白い「欠N」）。
- * 打診中の人数は黄色の札。中止は点線。
+ * 上の段（取引先ごと）の現場。人数分のマス（1人 = 1マス。確定は塗り、打診中は縞、空きは白）で、どれだけ埋まったかを見せる。
+ * そろった現場は会場の色のタイルに緑のマスと ✓、欠員がある現場はタイルごと赤（「欠N」）。中止は点線。
+ * free: その日○で空いている人の数（欠員の現場だけ「○N」で出す。管理画面だけ）
  */
-function EventChip({ e, rate }: { e: BoardEventChip; rate?: string }) {
+function EventChip({ e, rate, free }: { e: BoardEventChip; rate?: string; free?: number }) {
   if (e.cancelled)
     return (
       <span className="flex min-w-0 items-center gap-1 rounded-md border border-dashed px-1 py-0.5 leading-tight text-muted-foreground" title={`${e.venueName}（中止）`}>
@@ -846,23 +889,37 @@ function EventChip({ e, rate }: { e: BoardEventChip; rate?: string }) {
       style={venueStyle(e.venueColor)}
       className={cn(
         TILE,
-        "flex min-w-0 flex-col gap-0.5 group-data-[density=small]/board:flex-row group-data-[density=small]/board:items-center group-data-[density=small]/board:gap-1",
+        "flex min-w-0 flex-col gap-1 group-data-[density=small]/board:flex-row group-data-[density=small]/board:items-center group-data-[density=small]/board:gap-1",
         short ? RED_TILE : VENUE_TILE,
       )}
-      title={`${e.venueName} 確定${e.confirmed}/必要${e.required}${e.offered ? ` 打診中${e.offered}` : ""}`}
+      title={`${e.venueName} 確定${e.confirmed}/必要${e.required}${e.offered ? ` 打診中${e.offered}` : ""}${short && free ? ` ○で空いている人${free}` : ""}`}
     >
-      <span className="flex flex-wrap items-center gap-1">
+      <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+        <SeatBar required={e.required} confirmed={e.confirmed} offered={e.offered} className="max-w-full" />
         {short ? <Pill tone="alert">欠{e.shortage}</Pill> : <Pill tone="done">✓</Pill>}
-        <span className="text-xs font-bold tabular-nums">
-          {e.confirmed}/{e.required}
-        </span>
         {e.offered > 0 && <Pill tone="waiting">打{e.offered}</Pill>}
+        {short && free ? (
+          <span className="text-xs font-bold text-status-done tabular-nums" title={`この日○で空いている人 ${free}人`}>
+            ○{free}
+          </span>
+        ) : null}
       </span>
       <span className="flex min-w-0 items-center gap-1">
         {short && <VenueDot />}
         <span className="line-clamp-[var(--lines,2)] font-bold group-data-[density=small]/board:truncate">{e.venueName}</span>
       </span>
       <RateLine text={rate} />
+    </span>
+  );
+}
+
+/** 取引先名の下: 見えている日の埋まり具合（確定/必要と細いバー） */
+function ClientFillLine({ fill }: { fill: ReturnType<typeof clientFill> }) {
+  if (fill.required === 0) return null;
+  return (
+    <span className="mt-1 flex items-center gap-1.5 text-xs font-normal text-muted-foreground tabular-nums group-data-[density=small]/board:hidden">
+      <ThinBar fill={fill} className="w-12 shrink-0" />
+      {fill.filled}/{fill.required}
     </span>
   );
 }
@@ -992,21 +1049,37 @@ export function BoardLegend({ admin }: { admin?: boolean }) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className={item}>
             <span className={cn(TILE, RED_TILE, sample, "font-semibold")}>
+              <SeatBar required={2} confirmed={0} offered={0} />
               <Pill tone="alert">欠2</Pill>
-              1/3
             </span>
-            欠員あり（確定/必要）
+            まだだれもいない
+          </span>
+          <span className={item}>
+            <span className={cn(TILE, RED_TILE, sample, "font-semibold")}>
+              <SeatBar required={2} confirmed={1} offered={0} />
+              <Pill tone="alert">欠1</Pill>
+            </span>
+            1人足りない（2人中1人確定）
+          </span>
+          <span className={item}>
+            <span className={cn(TILE, RED_TILE, sample, "font-semibold")}>
+              <SeatBar required={2} confirmed={1} offered={1} />
+              <Pill tone="waiting">打1</Pill>
+            </span>
+            縞は打診中（回答待ち）
           </span>
           <span className={item}>
             <span style={venueStyle("purple")} className={cn(TILE, VENUE_TILE, sample, "font-semibold")}>
+              <SeatBar required={2} confirmed={2} offered={0} />
               <Pill tone="done">✓</Pill>
-              3/3
             </span>
-            そろった
+            全員そろった（緑）
           </span>
-          <span className={item}>
-            <Pill tone="waiting">打1</Pill>打診中の人数
-          </span>
+          {admin && (
+            <span className={item}>
+              <b className="text-status-done">○3</b>その日○で空いている人
+            </span>
+          )}
           <span className={item}>
             <span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">11</span>今日
           </span>

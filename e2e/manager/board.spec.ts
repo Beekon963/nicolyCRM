@@ -4,18 +4,27 @@ import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
  * 稼働表（Phase 1.5）: 今のシートと同じ形で月全体を見渡し、マスから打診・確定・稼働可能日の入力ができる。
+ * スマホは最初は日ごとのリスト（Phase 10）なので、ここでは表を選んだ状態で確かめる（リストは board-view.spec.ts）
  */
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem("nicoly.board.view", '"table"'));
+});
+
 test.describe("稼働表", () => {
   let date = "";
   let eventId = "";
   let venue = "";
   let roleId = "";
   let staff: { id: string; name: string };
+  let clientId = "";
 
   test.beforeEach(async () => {
     date = await freeFutureDate();
     const ev = await makeEvent(`'${date}'::date`, { required: 1 });
     eventId = ev.id;
+    // 取引先はこのテストだけのもの（マスに出す現場は1件なので、ほかのテストの現場と同じ日だと隠れることがある）
+    clientId = (await one<{ id: string }>(`insert into companies (kind, name, status) values ('client', $1, 'active') returning id`, [`E2E稼働表${Math.random().toString(36).slice(2, 8)}`])).id;
+    await sql(`update events set client_id = $1 where id = $2`, [clientId, eventId]);
     venue = ev.venue;
     roleId = ev.roleId;
     staff = await one(
@@ -32,6 +41,7 @@ test.describe("稼働表", () => {
 
   test.afterEach(async () => {
     await cleanupEvent(eventId);
+    await sql(`delete from companies where id = $1`, [clientId]);
     await sql(`delete from availability where staff_id = $1 and date = $2`, [staff.id, date]);
   });
 

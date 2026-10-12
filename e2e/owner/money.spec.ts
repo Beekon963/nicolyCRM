@@ -59,6 +59,8 @@ test.describe("支払い", () => {
 });
 
 test("稼働表: オーナーには右端に売上・報酬の列と、その月の数字が出る", async ({ page }) => {
+  // スマホは最初はリストなので、表を選んでおく
+  await page.addInitScript(() => window.localStorage.setItem("nicoly.board.view", '"table"'));
   await page.goto("/events/board");
   await expect(page.getByRole("region", { name: /稼働表/ })).toBeVisible();
   await expect(page.getByText(/^売上・報酬/)).toBeAttached();
@@ -78,7 +80,8 @@ test("管理者はお金の画面を開けず、ホームにも今月の数字�
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "今日やること（営業）" })).toBeVisible();
   await expect(page.getByText("今月の数字")).toHaveCount(0);
-  // 稼働表にも金額の列・その月の数字は出ない
+  // 稼働表にも金額の列・その月の数字は出ない（表で確かめる。スマホ幅は最初はリスト）
+  await page.addInitScript(() => window.localStorage.setItem("nicoly.board.view", '"table"'));
   await page.goto("/events/board");
   await expect(page.getByRole("region", { name: /稼働表/ })).toBeVisible();
   await expect(page.getByText("売上・報酬")).toHaveCount(0);

@@ -33,8 +33,8 @@ test("オーナーが作ったリンクを、ログインなしで開ける。�
   await expect(guest.getByRole("heading", { name: "NICOLY 稼働表（見るだけ）" })).toBeVisible();
   await expect(guest.getByRole("region", { name: /稼働表/ })).toBeVisible();
   await expectNoHorizontalScroll(guest);
-  // マスは押せない（見るだけ）
-  await expect(guest.getByRole("region", { name: /稼働表/ }).getByRole("button")).toHaveCount(0);
+  // マスは押せない（見るだけ）。「＋N件」は隠れた現場をその場で開くだけ
+  await expect(guest.getByRole("region", { name: /稼働表/ }).getByRole("button").filter({ hasNotText: /^＋\d+件/ })).toHaveCount(0);
   const html = await guest.content();
   for (const s of Object.values(SENTINELS)) expect(html).not.toContain(String(s));
   expect(html).not.toMatch(/090-0000-|\/m\/[\w-]{40,}/);
