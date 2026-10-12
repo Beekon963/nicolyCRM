@@ -600,6 +600,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"item_aliases": {
+                  Row: {
+                    "alias": string,"company_id": string | null,"created_at": string,"id": string,"item_id": string
+                  }
+                  Insert: {
+                    "alias": string,"company_id"?: string | null,"created_at"?: string,"id"?: string,"item_id": string
+                  }
+                  Update: {
+                    "alias"?: string,"company_id"?: string | null,"created_at"?: string,"id"?: string,"item_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "item_aliases_company_id_fkey"
+      columns: ["company_id"]
+isOneToOne: false
+      referencedRelation: "companies"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "item_aliases_item_id_fkey"
+      columns: ["item_id"]
+isOneToOne: false
+      referencedRelation: "items"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"items": {
                   Row: {
                     "created_at": string,"id": string,"is_active": boolean,"name": string,"sort_order": number

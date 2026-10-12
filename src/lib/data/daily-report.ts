@@ -1,6 +1,8 @@
 import "server-only";
 import { parse, weekdayJa } from "@/lib/date";
 import { getMasters } from "@/lib/data/masters";
+import { dictFor, loadAliases } from "@/lib/data/report-dict";
+import { renameItems } from "@/lib/report-convert";
 import type { ReportDay, ReportFormatBlocks } from "@/lib/report-format";
 import { formatTimeRange } from "@/lib/templates";
 import { createClient } from "@/lib/supabase/server";
@@ -27,6 +29,7 @@ export async function loadDailyReports(date: string): Promise<DailyClient[]> {
     supabase.from("company_items").select("company_id, item_id"),
     getMasters(),
   ]);
+  const aliases = await loadAliases();
 
   const { m, d } = parse(date);
   const label = `${m}/${d}`;
@@ -38,6 +41,8 @@ export async function loadDailyReports(date: string): Promise<DailyClient[]> {
     const chosen = (companyItems ?? []).filter((c) => c.company_id === ev.client_id).map((c) => c.item_id);
     const counted = new Set(ev.assignments.flatMap((a) => a.report_items.filter((ri) => ri.reported_count != null || ri.confirmed_count != null).map((ri) => ri.item_id)));
     const items = masters.items.filter((i) => (chosen.length ? chosen.includes(i.id) : i.is_active) || counted.has(i.id));
+    // 言いかえ表があれば、項目名を取引先の名前（公認名称）に直す
+    const dict = dictFor(ev.client_id, items.map((i) => i.name), aliases);
 
     const worked = ev.assignments
       .filter((a) => a.status === "confirmed")
@@ -48,10 +53,13 @@ export async function loadDailyReports(date: string): Promise<DailyClient[]> {
       return {
         name: a.staff?.name ?? "",
         role: masters.roleById.get(a.role_id)?.name ?? "",
-        items: items.map((i) => {
-          const ri = a.report_items.find((x) => x.item_id === i.id);
-          return { name: i.name, count: ri ? (ri.confirmed_count ?? ri.reported_count) : null };
-        }),
+        items: renameItems(
+          items.map((i) => {
+            const ri = a.report_items.find((x) => x.item_id === i.id);
+            return { name: i.name, count: ri ? (ri.confirmed_count ?? ri.reported_count) : null };
+          }),
+          dict,
+        ),
         comment: report?.comment ?? "",
         unreported,
       };

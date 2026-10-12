@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ReplaceIcon } from "lucide-react";
 import Link from "next/link";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,19 @@ export default async function DailyReportPage({ searchParams }: PageProps<"/resu
 
   return (
     <div className="flex flex-col gap-4 pb-8">
-      <PageHeader title="日報" back="/results" description="集めた実績報告を、取引先ごとのフォーマットの文章にします。コピーして LINE に貼ってください。" />
+      <PageHeader
+        title="日報"
+        back="/results"
+        description="集めた実績報告を、取引先ごとのフォーマットの文章にします。コピーして LINE に貼ってください。"
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/results/convert">
+              <ReplaceIcon />
+              LINEの報告を変換
+            </Link>
+          </Button>
+        }
+      />
       <div className="flex flex-wrap items-center gap-2 px-4">
         <Button asChild variant="ghost" size="sm">
           <Link href={`/results/daily?date=${addDays(date, -1)}`} aria-label="前の日">

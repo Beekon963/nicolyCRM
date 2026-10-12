@@ -58,6 +58,11 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
   const [history, setHistory] = useState<History | null>(null);
   const [editing, setEditing] = useState(!a.confirmed);
   const proxy = !a.submitted;
+  // 項目が多い取引先（公認名称が40以上など）は、件数のある項目だけ出し、ほかはボタンで出す
+  const many = items.length > 12;
+  const [showAll, setShowAll] = useState(false);
+  const [counted] = useState(() => new Set(a.items.filter((i) => (i.reported ?? 0) > 0 || (i.confirmed ?? 0) > 0).map((i) => i.item_id)));
+  const visible = many && !showAll ? items.filter((i) => counted.has(i.item_id) || i.value > 0) : items;
 
   const set = (id: string, patch: Partial<(typeof items)[number]>) => setItems((xs) => xs.map((x) => (x.item_id === id ? { ...x, ...patch } : x)));
 
@@ -88,7 +93,8 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
 
       {/* 項目ごとに1行（左に項目名と速報、右に件数）。枠を重ねず、うすい灰色の地でまとめる */}
       <ul className="divide-y rounded-xl bg-[#f9fafb] px-1">
-        {items.map((i) => {
+        {many && visible.length === 0 && <li className="px-3 py-3 text-sm text-muted-foreground">件数の入った項目はありません</li>}
+        {visible.map((i) => {
           const differs = !proxy && i.reported != null && i.reported !== i.value;
           return (
             <li key={i.item_id} className="flex flex-col gap-2 px-3 py-2">
@@ -131,6 +137,11 @@ export function ResultRow({ a, itemNames }: { a: ResultAssignment; itemNames: Ma
           );
         })}
       </ul>
+      {many && (
+        <Button type="button" variant="ghost" size="sm" className="self-start text-primary" onClick={() => setShowAll(!showAll)}>
+          {showAll ? "件数のある項目だけにする" : `ほかの項目も出す（${items.length - visible.length}）`}
+        </Button>
+      )}
 
       <div className="flex justify-end gap-2">
         {editing ? (

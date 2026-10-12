@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { isMasterKind, MASTER_KINDS, type MasterRow } from "../kinds";
+import { BulkItems } from "./bulk-items";
 import { MasterEditor } from "./master-editor";
 
 export default async function MasterPage({ params }: PageProps<"/settings/masters/[kind]">) {
@@ -24,9 +25,13 @@ export default async function MasterPage({ params }: PageProps<"/settings/master
     rows = data ?? [];
   }
 
+  // 獲得項目は、取引先の公認名称の一覧を貼ってまとめて登録できる
+  const clients = kind === "items" ? ((await supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name")).data ?? []) : [];
+
   return (
     <>
       <PageHeader title={MASTER_KINDS[kind].title} back="/settings" description={MASTER_KINDS[kind].description} />
+      {kind === "items" && <BulkItems clients={clients} />}
       <MasterEditor kind={kind} initial={rows} />
     </>
   );

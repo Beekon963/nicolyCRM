@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertOwner } from "@/lib/auth";
+import { itemLines } from "@/lib/items-bulk";
 import { createClient } from "@/lib/supabase/server";
 import { isMasterKind, type MasterKind, type MasterRow } from "../kinds";
 
@@ -58,4 +59,46 @@ export async function saveMasters(kind: MasterKind, rows: MasterRow[]): Promise<
 
   revalidatePath(`/settings/masters/${kind}`);
   return ok("保存しました");
+}
+
+/**
+ * 獲得項目をまとめて登録する（オーナーだけ）。
+ * - 1行に1つ。もうある名前は作らずにそのまま使う（過去のデータを壊さない）
+ * - clientId を渡すと、その取引先の「使う獲得項目」に足す（その取引先の現場では、選んだ項目だけ出る）
+ */
+export async function bulkAddItems(text: string, clientId: string | null): Promise<ActionResult<{ created: number; existing: number }>> {
+  await assertOwner();
+  const names = itemLines(text);
+  if (!names.length) return fail("項目の名前を1行に1つずつ入れてください");
+  if (names.length > 200) return fail("一度に入れられるのは200項目までです");
+  if (clientId && !z.uuid().safeParse(clientId).success) return fail("不正な取引先です");
+
+  const supabase = await createClient();
+  const { data: items, error: readError } = await supabase.from("items").select("id, name, sort_order");
+  if (readError) return fail(dbErrorMessage(readError));
+  const byName = new Map((items ?? []).map((i) => [i.name, i.id]));
+  let order = Math.max(0, ...(items ?? []).map((i) => i.sort_order));
+  const fresh = names.filter((n) => !byName.has(n)).map((name) => ({ name, sort_order: ++order, is_active: true }));
+  if (fresh.length) {
+    const { data, error } = await supabase.from("items").insert(fresh).select("id, name");
+    if (error) return fail(dbErrorMessage(error));
+    for (const i of data ?? []) byName.set(i.name, i.id);
+  }
+  // 無効にしていた項目を使い直すときは、有効に戻す
+  const reused = names.filter((n) => !fresh.some((f) => f.name === n)).map((n) => byName.get(n)!);
+  if (reused.length) {
+    const { error } = await supabase.from("items").update({ is_active: true }).in("id", reused);
+    if (error) return fail(dbErrorMessage(error));
+  }
+  if (clientId) {
+    const { error } = await supabase
+      .from("company_items")
+      .upsert(names.map((n) => ({ company_id: clientId, item_id: byName.get(n)! })), { onConflict: "company_id,item_id", ignoreDuplicates: true });
+    if (error) return fail(dbErrorMessage(error));
+  }
+  revalidatePath("/settings/masters/items");
+  return ok(`${fresh.length}項目を作りました${names.length - fresh.length ? `（${names.length - fresh.length}項目はもうありました）` : ""}${clientId ? "。取引先の「使う獲得項目」にも入れました" : ""}`, {
+    created: fresh.length,
+    existing: names.length - fresh.length,
+  });
 }

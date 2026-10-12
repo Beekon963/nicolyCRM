@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { CountStepper } from "@/components/app/count-stepper";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { normalizeName } from "@/lib/report-convert";
 import { saveReport } from "../../actions";
 
 type Item = { item_id: string; name: string; reported: number | null; confirmed: number | null };
@@ -41,6 +42,14 @@ export function ReportForm({
   const touch = () => setDirty(true);
   const locked = (e?: Expense) => !editable || (e != null && e.status !== "pending");
   const yen = (v: string) => v.replace(/[^0-9]/g, "");
+  const many = items.length > 12;
+  const [query, setQuery] = useState("");
+  // 開いたときに件数が入っていた項目を上に（入れている途中で並びが変わらないよう、最初の件数で決める）
+  const [pinned] = useState(() => new Set(items.filter((i) => (i.reported ?? 0) > 0).map((i) => i.item_id)));
+  const q = normalizeName(query);
+  const shown = (many ? [...items.filter((i) => pinned.has(i.item_id)), ...items.filter((i) => !pinned.has(i.item_id))] : items).filter(
+    (i) => !q || normalizeName(i.name).includes(q) || (counts[i.item_id] ?? 0) > 0,
+  );
 
   return (
     <form
@@ -65,7 +74,15 @@ export function ReportForm({
     >
       <fieldset className="flex flex-col gap-3" disabled={!editable}>
         <legend className="mb-1 text-lg font-bold">獲得件数</legend>
-        {items.map((i) => (
+        {/* 項目が多い取引先（公認名称が40以上など）は、さがして入れられるようにする。入れてある項目は上に */}
+        {many && (
+          <div className="relative">
+            <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
+            <Input type="search" aria-label="項目をさがす" placeholder={`項目をさがす（${items.length}項目）`} className="pl-10" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+        )}
+        {shown.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-muted-foreground">「{query}」の項目はありません</p>}
+        {shown.map((i) => (
           <div key={i.item_id} className="flex items-center justify-between gap-2 rounded-lg border p-3">
             <span className="text-base font-medium">{i.name}</span>
             <CountStepper

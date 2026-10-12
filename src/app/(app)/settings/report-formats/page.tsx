@@ -1,7 +1,9 @@
 import { PageHeader } from "@/components/app/page-header";
 import { requireOwner } from "@/lib/auth";
 import { getMasters } from "@/lib/data/masters";
+import { loadAliases } from "@/lib/data/report-dict";
 import { createClient } from "@/lib/supabase/server";
+import { AliasEditor } from "./alias-editor";
 import { ReportFormatList } from "./report-format-list";
 
 export const metadata = { title: "日報のフォーマット | 設定 | NICOLY CRM" };
@@ -10,10 +12,11 @@ export const metadata = { title: "日報のフォーマット | 設定 | NICOLY 
 export default async function ReportFormatsPage() {
   await requireOwner();
   const supabase = await createClient();
-  const [formats, clients, masters] = await Promise.all([
+  const [formats, clients, masters, aliases] = await Promise.all([
     supabase.from("report_formats").select("id, name, company_id, for_staff, is_active, header, event_block, person_block, footer").order("sort_order").order("created_at"),
     supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name"),
     getMasters(),
+    loadAliases(),
   ]);
   return (
     <>
@@ -37,6 +40,7 @@ export default async function ReportFormatsPage() {
         clients={clients.data ?? []}
         itemNames={masters.items.filter((i) => i.is_active).map((i) => i.name)}
       />
+      <AliasEditor aliases={aliases} clients={clients.data ?? []} itemNames={masters.items.filter((i) => i.is_active).map((i) => i.name)} />
     </>
   );
 }
