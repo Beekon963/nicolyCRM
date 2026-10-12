@@ -10,11 +10,22 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import type { ActionResult } from "@/lib/action-result";
-import { type ConvertedLine, mergeCounts, type NameDict, normalizeName, parseReportText, resolveLines } from "@/lib/report-convert";
-import { REPORT_PRESETS, renderReport, type ReportFormatBlocks } from "@/lib/report-format";
+import { type ConvertedLine, matchPerson, mergeCounts, type NameDict, normalizeName, type ParsedReport, parseReportText, resolveLines } from "@/lib/report-convert";
+import { REPORT_PRESETS, type ReportPerson, renderReport, type ReportFormatBlocks } from "@/lib/report-format";
 import { cn } from "@/lib/utils";
 
 export type ConverterFormat = { id: string; name: string; blocks: ReportFormatBlocks };
+
+/** 変換した結果（「実績に入れる」「報告に入れる」で使う） */
+export type ConverterResult = {
+  parsed: ParsedReport;
+  /** 1行ずつ。name は当てた項目の名前（選んでいなければ null）。person は稼働者の名前にそろえたもの（なければ空） */
+  rows: { raw: string; name: string | null; count: number; person: string; notes: string[] }[];
+  /** 名前の分からない行の数（0 になるまで入れられない） */
+  unresolved: number;
+  /** 貼った文の稼働者（なければ defaults の稼働者） */
+  workers: string[];
+};
 
 const HOW: Record<ConvertedLine["how"], { label: string; tone: "done" | "waiting" | "alert" }> = {
   exact: { label: "✓ 同じ名前", tone: "done" },
@@ -23,11 +34,21 @@ const HOW: Record<ConvertedLine["how"], { label: string; tone: "done" | "waiting
   unknown: { label: "選んでください", tone: "alert" },
 };
 
+/** 報告のメモ（「RMMNP: ソフトバンクから楽天 / iPhone17×2」）。CRM の報告のコメントに残すとき用 */
+export function notesText(rows: ConverterResult["rows"]): string {
+  return rows
+    .filter((r) => r.notes.length)
+    .map((r) => `${(r.name ?? r.raw).replace(/[（(]後日[)）]$/, "")}: ${r.notes.join(" / ")}`)
+    .join("\n");
+}
+
 /**
- * LINE に書いた報告（いつもの書き方）を貼ると、取引先の公認名称・書式に直す（Phase 8）。
+ * LINE に書いた報告（いつもの書き方）を貼ると、取引先の公認名称・書式に直す（Phase 8・9）。
  * - 項目名は「同じ名前 → 言いかえ表 → 推測」の順に当てる。推測（黄）とわからない（赤）は選び直せる
  * - onSaveAlias があるとき（オーナー）は、選んだ言いかえを「覚える」で言いかえ表に足せる
  * - 日付・現場・稼働者は、貼った文になければ defaults を使う
+ * - 「新規1(山田)」のように人の名前が付いていれば、1人ずつの件数にする（NICOLY フォーマット）。項目の下の行はメモ
+ * - footer に「実績に入れる」などのボタンを出せる（変換した結果を渡す）
  */
 export function ReportConverter({
   dict,
@@ -35,43 +56,68 @@ export function ReportConverter({
   defaults,
   onSaveAlias,
   placeholder,
+  footer,
+  showOutput = true,
 }: {
   dict: NameDict;
   formats: ConverterFormat[];
   defaults: { date: string; weekday: string; venue: string; workers: string[]; clientName: string };
   onSaveAlias?: (alias: string, name: string) => Promise<ActionResult>;
   placeholder?: string;
+  footer?: (r: ConverterResult) => React.ReactNode;
+  /** 変換した報告（書式の文）を出すか。書式のない取引先のマイページでは出さない */
+  showOutput?: boolean;
 }) {
   const [text, setText] = useState("");
   // 人が選び直した名前（元の書き方 → 項目の名前）
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [learned, setLearned] = useState<{ alias: string; name: string }[]>([]);
   const [pending, start] = useTransition();
-  // 取引先の書式がなければ見本（NextWave の形）を使う
+  // 取引先の書式がなければ見本を使う
   const choices = formats.length ? formats : REPORT_PRESETS.map((p) => ({ id: `preset-${p.key}`, name: `見本: ${p.name}`, blocks: p.blocks }));
   const [formatId, setFormatId] = useState(choices[0]?.id ?? "");
   const format = choices.find((f) => f.id === formatId) ?? choices[0];
 
   const fullDict = useMemo(() => ({ ...dict, aliases: [...learned, ...dict.aliases] }), [dict, learned]);
-  const parsed = useMemo(() => parseReportText(text), [text]);
+  const parsed = useMemo(() => parseReportText(text, fullDict), [text, fullDict]);
   const lines = useMemo(() => resolveLines(parsed.lines, fullDict), [parsed, fullDict]);
   const keyOf = (raw: string) => normalizeName(raw);
   const nameOf = (l: ConvertedLine) => picks[keyOf(l.raw)] || l.name;
   const unresolved = lines.filter((l) => !nameOf(l));
+  const workers = parsed.workers.length ? parsed.workers : defaults.workers;
+
+  const result: ConverterResult = {
+    parsed,
+    rows: lines.map((l) => ({
+      raw: l.raw,
+      name: nameOf(l) || null,
+      count: l.count,
+      person: l.person ? (matchPerson(l.person, workers) ?? l.person) : workers.length === 1 ? workers[0] : "",
+      notes: l.notes ?? [],
+    })),
+    unresolved: unresolved.length,
+    workers,
+  };
 
   const output = (() => {
     if (!format || (!parsed.lines.length && !parsed.comment)) return "";
-    const workers = parsed.workers.length ? parsed.workers : defaults.workers;
-    // 同じ項目になったものは件数を足し、取引先の項目の並び順にする
-    const items = mergeCounts(
-      lines.map((l) => ({ name: nameOf(l) || l.raw, count: l.count })),
-      dict.items,
-    );
+    const tagged = parsed.lines.some((l) => l.person);
+    // 人の名前のない報告は、全員分を1つに（今までどおり）。名前があれば1人ずつ
+    const groups = tagged ? [...new Set(result.rows.map((r) => r.person))] : [workers.join("、")];
+    const people: ReportPerson[] = groups.map((g, i) => ({
+      name: g,
+      role: "",
+      items: mergeCounts(
+        result.rows.filter((r) => !tagged || r.person === g).map((r) => ({ name: r.name || r.raw, count: r.count, notes: r.notes })),
+        dict.items,
+      ),
+      comment: i === 0 ? parsed.comment : "",
+    }));
     return renderReport(format.blocks, {
       date: parsed.date || defaults.date,
       weekday: parsed.date ? "" : defaults.weekday,
       clientName: defaults.clientName,
-      events: [{ venueName: parsed.venue || defaults.venue, time: "", people: [{ name: workers.join("、"), role: "", items, comment: parsed.comment }] }],
+      events: [{ venueName: parsed.venue || defaults.venue, time: "", people, workers, remark: parsed.comment }],
     });
   })();
 
@@ -96,7 +142,9 @@ export function ReportConverter({
           onChange={(e) => setText(e.target.value)}
           placeholder={placeholder ?? "例:\n10/11\nDS〇〇\n山田\nキヘン 2\n光 1\nGOLD 1\n【所感】\n午後から来店が増えました"}
         />
-        <p className="text-sm text-muted-foreground">1行に「項目 件数」（例: キヘン 2、MAX×3）。【所感】のあとはコメントになります。</p>
+        <p className="text-sm text-muted-foreground">
+          1行に「項目 件数」（例: キヘン 2、MAX×3、新規1(山田)）。「後日」の下は後日の獲得、項目の下の行はメモ、【所感】のあとはコメントになります。
+        </p>
       </div>
 
       {lines.length > 0 && (
@@ -113,10 +161,19 @@ export function ReportConverter({
               const canLearn = onSaveAlias && name && (picked || l.how === "guess") && !learned.some((x) => keyOf(x.alias) === keyOf(l.raw));
               return (
                 <li key={`${l.raw}-${i}`} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
-                  <span className="flex min-w-0 items-center gap-2 sm:w-44">
-                    <span className="min-w-0 font-medium break-words">{l.raw}</span>
-                    <span className="shrink-0 text-muted-foreground tabular-nums">{l.count}</span>
-                    <ArrowRightIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="flex min-w-0 flex-col sm:w-44">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 font-medium break-words">{l.raw}</span>
+                      <span className="shrink-0 text-muted-foreground tabular-nums">{l.count}</span>
+                      <ArrowRightIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                    </span>
+                    {(Boolean(l.person) || (l.notes?.length ?? 0) > 0) && (
+                      <span className="text-sm break-words text-muted-foreground">
+                        {l.person && `${l.person}`}
+                        {l.person && l.notes?.length ? " / " : ""}
+                        {l.notes?.length ? `メモ: ${l.notes.join("・")}` : ""}
+                      </span>
+                    )}
                   </span>
                   <NativeSelect
                     aria-label={`「${l.raw}」をどの項目にするか`}
@@ -157,7 +214,7 @@ export function ReportConverter({
         </p>
       )}
 
-      {output && (
+      {showOutput && output && (
         <section aria-label="変換した報告" className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">変換した報告</h3>
@@ -176,6 +233,8 @@ export function ReportConverter({
           <ShareButtons text={output} />
         </section>
       )}
+
+      {lines.length > 0 && footer?.(result)}
     </div>
   );
 }

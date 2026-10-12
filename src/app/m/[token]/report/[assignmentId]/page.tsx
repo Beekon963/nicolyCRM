@@ -32,7 +32,7 @@ type Report = {
 };
 
 /** 現場の全員分をまとめる書式か（{稼働者}{獲得した項目}{所感} を「はじめ・現場ごと・おわり」で使っている） */
-const isSiteLevel = (f: { header: string; event_block: string; footer: string }) => /\{(稼働者|獲得した項目|所感)\}/.test(f.header + f.event_block + f.footer);
+const isSiteLevel = (f: { header: string; event_block: string; footer: string }) => /\{(稼働者|獲得した項目|当日・後日の実績|所感)\}/.test(f.header + f.event_block + f.footer);
 
 export default async function MypageReport({ params }: PageProps<"/m/[token]/report/[assignmentId]">) {
   const { token, assignmentId } = await params;
@@ -55,9 +55,18 @@ export default async function MypageReport({ params }: PageProps<"/m/[token]/rep
       ) : d.submitted_at ? (
         <p className="rounded-lg bg-status-done-bg p-3 text-status-done">送信済みです。{formatShortJa(d.deadline)}まで修正できます。</p>
       ) : null}
-      <ReportForm token={token} assignmentId={assignmentId} items={d.items} comment={d.comment} expenses={d.expenses} editable={d.editable} />
+      <ReportForm
+        token={token}
+        assignmentId={assignmentId}
+        items={d.items}
+        comment={d.comment}
+        expenses={d.expenses}
+        editable={d.editable}
+        converter={converterProps(d)}
+      />
       {d.submitted_at && (d.formats ?? []).length > 0 && <LineReports d={d} />}
-      {(d.formats ?? []).length > 0 && <LineConvert d={d} />}
+      {/* 報告できるうちは、上の「LINE に書いた報告から入れる」で変換もできる */}
+      {!d.editable && (d.formats ?? []).length > 0 && <LineConvert d={d} />}
     </div>
   );
 }
@@ -118,10 +127,21 @@ function LineReports({ d }: { d: Report }) {
   );
 }
 
-/** LINE にいつもの書き方で書いた報告を、取引先の公認名称・書式に直す（たたんでおく） */
-function LineConvert({ d }: { d: Report }) {
+/** 貼った報告の変換に使うもの（取引先の項目・言いかえ表・書式・日付と現場と稼働者） */
+function converterProps(d: Report) {
   const { m, d: day } = parse(d.event.date);
   const workers = (d.coworkers ?? []).map((c) => c.name);
+  return {
+    dict: { items: d.items.map((i) => i.name), aliases: d.aliases ?? [] },
+    formats: (d.formats ?? []).map((f) => ({ id: f.id, name: f.name, blocks: { header: f.header, eventBlock: f.event_block, personBlock: f.person_block, footer: f.footer } })),
+    defaults: { date: `${m}/${day}`, weekday: weekdayJa(d.event.date), venue: d.event.venue.name, workers: workers.length ? workers : [d.staff_name ?? ""], clientName: d.client_name ?? "" },
+    myName: d.staff_name ?? "",
+  };
+}
+
+/** LINE にいつもの書き方で書いた報告を、取引先の公認名称・書式に直す（報告の期間が過ぎたあと。たたんでおく） */
+function LineConvert({ d }: { d: Report }) {
+  const c = converterProps(d);
   return (
     <details className="group rounded-2xl border bg-card shadow-card">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 font-bold">
@@ -130,11 +150,7 @@ function LineConvert({ d }: { d: Report }) {
       </summary>
       <div className="border-t p-4">
         <p className="mb-3 text-sm text-muted-foreground">いつもの書き方（キヘン・光・GOLD など）で書いた報告を貼ると、{d.client_name ?? "取引先"}の名前と形に直します。</p>
-        <ReportConverter
-          dict={{ items: d.items.map((i) => i.name), aliases: d.aliases ?? [] }}
-          formats={(d.formats ?? []).map((f) => ({ id: f.id, name: f.name, blocks: { header: f.header, eventBlock: f.event_block, personBlock: f.person_block, footer: f.footer } }))}
-          defaults={{ date: `${m}/${day}`, weekday: weekdayJa(d.event.date), venue: d.event.venue.name, workers: workers.length ? workers : [d.staff_name ?? ""], clientName: d.client_name ?? "" }}
-        />
+        <ReportConverter dict={c.dict} formats={c.formats} defaults={c.defaults} />
       </div>
     </details>
   );

@@ -143,9 +143,92 @@ describe("LINE の報告文を読む", () => {
     ]);
   });
 
-  it("件数の読めない行は知らせる", () => {
-    const p = parseReportText(["【実績】", "機種変更 2", "Pixel"].join("\n"));
-    expect(p.unreadable).toEqual(["Pixel"]);
+  it("件数の読めない行は知らせる（項目の名前だけの行・最初の行）", () => {
+    expect(parseReportText(["【実績】", "機種変更 2", "Pixel"].join("\n"), NW).unreadable).toEqual(["Pixel"]);
+    expect(parseReportText(["【実績】", "Pixel", "機種変更 2"].join("\n")).unreadable).toEqual(["Pixel"]);
+  });
+});
+
+/** NICOLY フォーマットの取引先（楽天モバイルの催事など）の項目 */
+const RM: NameDict = {
+  items: ["新規", "RMsimのみMNP", "RMMNP", "カード", "ひかり", "新規（後日）", "RMMNP（後日）"],
+  aliases: [],
+};
+
+describe("NICOLY フォーマットを読む", () => {
+  const text = [
+    "【NICOLY フォーマット】",
+    "",
+    "10/11 〇〇モバイル△△モール",
+    "山田",
+    "",
+    "【実績】",
+    "当日",
+    "新規1(山田)",
+    "",
+    "RMsimのみMNP1（山田）",
+    "ワイモバイルから楽天",
+    "",
+    "RMMNP2(山田)",
+    "ソフトバンクから楽天",
+    "iPhone17×2",
+    "",
+    "カード1",
+    "",
+    "ひかり 1",
+  ].join("\n");
+
+  it("日付と現場が1行、件数のあとの名前、区切りなしの件数、項目の下のメモを読める", () => {
+    const p = parseReportText(text, RM);
+    expect(p).toMatchObject({ date: "10/11", venue: "〇〇モバイル△△モール", workers: ["山田"], unreadable: [] });
+    expect(p.lines).toEqual([
+      { raw: "新規", count: 1, person: "山田" },
+      { raw: "RMsimのみMNP", count: 1, person: "山田", notes: ["ワイモバイルから楽天"] },
+      { raw: "RMMNP", count: 2, person: "山田", notes: ["ソフトバンクから楽天", "iPhone17×2"] },
+      { raw: "カード", count: 1 },
+      { raw: "ひかり", count: 1 },
+    ]);
+    expect(resolveLines(p.lines, RM).map((l) => [l.name, l.how])).toEqual([
+      ["新規", "exact"],
+      ["RMsimのみMNP", "exact"],
+      ["RMMNP", "exact"],
+      ["カード", "exact"],
+      ["ひかり", "exact"],
+    ]);
+  });
+
+  it("取引先の項目を渡さなくても、メモは件数に入れない", () => {
+    const p = parseReportText(text);
+    expect(p.lines.map((l) => [l.raw, l.count])).toEqual([
+      ["新規", 1],
+      ["RMsimのみMNP", 1],
+      ["RMMNP", 2],
+      ["カード", 1],
+      ["ひかり", 1],
+    ]);
+  });
+
+  it("「後日」の下の項目は「（後日）」の項目に入れる。（後日）の項目がなければ選んでもらう", () => {
+    const p = parseReportText(["【実績】", "当日", "新規1(山田)", "", "後日", "新規2(佐藤)", "RMMNP1(山田)", "カード1"].join("\n"), RM);
+    expect(p.lines.map((l) => [l.raw, l.count, l.person])).toEqual([
+      ["新規", 1, "山田"],
+      ["新規（後日）", 2, "佐藤"],
+      ["RMMNP（後日）", 1, "山田"],
+      ["カード（後日）", 1, undefined],
+    ]);
+    expect(resolveLines(p.lines, RM).map((l) => [l.name, l.how, l.candidates])).toEqual([
+      ["新規", "exact", []],
+      ["新規（後日）", "exact", []],
+      ["RMMNP（後日）", "exact", []],
+      [null, "unknown", ["カード（後日）"]],
+    ]);
+  });
+
+  it("「光1（仮）」のように件数のあとの（仮）も読む。見出しより前の「DS〇〇2」は現場名のまま", () => {
+    expect(parseItemLine("光1（仮）")).toEqual({ raw: "光（仮）", count: 1 });
+    expect(parseItemLine("カード1")).toEqual({ raw: "カード", count: 1 });
+    expect(parseItemLine("あんしんセキュリティ999")).toBeNull();
+    expect(parseReportText(["10/11", "DS〇〇2", "山田", "【実績】", "新規1"].join("\n"), RM)).toMatchObject({ venue: "DS〇〇2", workers: ["山田"] });
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itemLines, withProvisional } from "./items-bulk";
+import { itemLines, withLater, withProvisional } from "./items-bulk";
 
 describe("獲得項目のまとめて登録", () => {
   it("見出しの行・空の行・同じ名前は使わない", () => {
@@ -17,5 +17,9 @@ describe("獲得項目のまとめて登録", () => {
       "ドコモ光 10G",
       "ドコモ光 10G（仮）",
     ]);
+  });
+
+  it("（後日）は、（仮）でない項目のすぐ下に足す。もう（後日）があるものは足さない", () => {
+    expect(withLater(withProvisional(["新規", "ひかり", "カード（後日）", "カード"]))).toEqual(["新規", "新規（後日）", "ひかり", "ひかり（後日）", "カード（後日）", "カード", "カード（仮）"]);
   });
 });

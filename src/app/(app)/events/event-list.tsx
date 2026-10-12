@@ -76,6 +76,9 @@ export function EventList({
         actions={
           <>
             <Button asChild variant="outline" size="sm">
+              <Link href="/events/from-text">募集の文から作る</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
               <Link href="/events/bulk">まとめて作る</Link>
             </Button>
             <Button asChild size="sm" className="hidden md:inline-flex">

@@ -12,23 +12,33 @@ export type ReportFormatBlocks = { header: string; eventBlock: string; personBlo
 export type ReportPerson = {
   name: string;
   role: string;
-  /** 獲得項目ごとの件数（並び順どおり。未報告は null） */
-  items: { name: string; count: number | null }[];
+  /** 獲得項目ごとの件数（並び順どおり。未報告は null）。notes は項目の下に書くメモ（LINE の報告を変換したときだけ） */
+  items: ReportItem[];
   comment: string;
   /** 報告がまだ（件数が入っていない） */
   unreported?: boolean;
 };
 
-export type ReportEvent = { venueName: string; time: string; people: ReportPerson[] };
+export type ReportItem = { name: string; count: number | null; notes?: string[] };
+
+export type ReportEvent = {
+  venueName: string;
+  time: string;
+  people: ReportPerson[];
+  /** {稼働者} をこの名前にする（LINE の報告を変換したとき。件数のない人も入れるため） */
+  workers?: string[];
+  /** {所感} をこの文にする（LINE の報告を変換したとき） */
+  remark?: string;
+};
 
 export type ReportDay = { date: string; weekday: string; clientName: string; events: ReportEvent[] };
 
 /** 差し込み項目（設定画面のボタン用）。{件数:項目名} は獲得項目ごとに足す */
 export const REPORT_VARIABLES = {
-  header: ["日付", "曜日", "取引先", "現場数", "人数", "稼働者", "件数一覧", "獲得した項目", "件数合計", "所感"],
-  eventBlock: ["日付", "曜日", "取引先", "会場", "時間", "人数", "稼働者", "件数一覧", "獲得した項目", "件数合計", "所感"],
-  personBlock: ["日付", "曜日", "取引先", "会場", "名前", "役割", "件数一覧", "獲得した項目", "件数合計", "コメント"],
-  footer: ["日付", "曜日", "取引先", "現場数", "人数", "稼働者", "件数一覧", "獲得した項目", "件数合計", "所感"],
+  header: ["日付", "曜日", "取引先", "現場数", "人数", "稼働者", "件数一覧", "獲得した項目", "当日・後日の実績", "件数合計", "所感"],
+  eventBlock: ["日付", "曜日", "取引先", "会場", "時間", "人数", "稼働者", "件数一覧", "獲得した項目", "当日・後日の実績", "件数合計", "所感"],
+  personBlock: ["日付", "曜日", "取引先", "会場", "名前", "役割", "件数一覧", "獲得した項目", "当日・後日の実績", "件数合計", "コメント"],
+  footer: ["日付", "曜日", "取引先", "現場数", "人数", "稼働者", "件数一覧", "獲得した項目", "当日・後日の実績", "件数合計", "所感"],
 } as const satisfies Record<keyof ReportFormatBlocks, readonly string[]>;
 
 /** 稼働開始の報告（現場に着いたとき「稼働します」）で使える差し込み */
@@ -38,6 +48,7 @@ export const START_VARIABLES = ["日付", "曜日", "取引先", "会場", "時�
 export const REPORT_VARIABLE_HINT: Record<string, string> = {
   件数一覧: "全部の項目を1行に（新規 3 / MNP 0）",
   獲得した項目: "獲得した項目だけ1行ずつ（0件は出さない）",
+  "当日・後日の実績": "「当日」「後日」に分けて「新規1(山田)」の形で1人ずつ（後日は「〇〇（後日）」の項目）",
   稼働者: "その現場の全員の名前（、でつなぐ）",
   所感: "全員のコメント（2人以上なら名前つき）",
 };
@@ -54,6 +65,36 @@ function sumItems(people: ReportPerson[]): { name: string; count: number }[] {
   const m = new Map<string, number>();
   for (const p of people) for (const i of p.items) m.set(i.name, (m.get(i.name) ?? 0) + (i.count ?? 0));
   return [...m.entries()].map(([name, count]) => ({ name, count }));
+}
+
+const LATER = /[（(]後日[)）]$/;
+
+/** 「新規1」「RMMNP2」（見本どおり間をあけない。名前が数字で終わるときだけ「あんしんセキュリティ999 1」のように間をあける） */
+const countLabel = (name: string, count: number) => (/[0-9０-９]$/.test(name) ? `${name} ${count}` : `${name}${count}`);
+
+/**
+ * NICOLY フォーマットの実績: 「当日」「後日」に分け、項目ごとに「新規1(山田)」の形で1人ずつ。項目の下にメモ、項目の間は1行あける。
+ * 後日は名前が「〇〇（後日）」の項目（見出しの下では「（後日）」を外す）。1件もなければ「なし」
+ */
+function dayLaterList(people: ReportPerson[]): string {
+  const order: string[] = [];
+  for (const p of people) for (const i of p.items) if ((i.count ?? 0) > 0 && !order.includes(i.name)) order.push(i.name);
+  const section = (later: boolean) =>
+    order
+      .filter((name) => LATER.test(name) === later)
+      .map((name) =>
+        people
+          .flatMap((p) =>
+            p.items
+              .filter((i) => i.name === name && (i.count ?? 0) > 0)
+              .map((i) => [countLabel(name.replace(LATER, ""), i.count!) + (p.name.trim() ? `(${p.name.trim()})` : ""), ...(i.notes ?? [])].join("\n")),
+          )
+          .join("\n"),
+      )
+      .join("\n\n");
+  const today = section(false);
+  const later = section(true);
+  return [today && `当日\n${today}`, later && `後日\n${later}`].filter(Boolean).join("\n\n") || "なし";
 }
 
 function itemList(items: { name: string; count: number | null }[]): string {
@@ -83,7 +124,7 @@ function remarks(people: ReportPerson[]): string {
   return withComment.map((p) => `${p.name}：${p.comment.trim()}`).join("\n");
 }
 
-function fill(block: string, values: Record<string, string>, items: { name: string; count: number | null }[]): string {
+function fill(block: string, values: Record<string, string>, items: ReportItem[]): string {
   return block.replace(/\{([^{}]+)\}/g, (whole, key: string) => {
     if (key.startsWith("件数:")) {
       const name = key.slice(3).trim();
@@ -103,11 +144,12 @@ export function renderReport(format: ReportFormatBlocks, day: ReportDay): string
     ...common,
     現場数: String(day.events.length),
     人数: String(people.length),
-    稼働者: workerNames(people),
+    稼働者: day.events.some((e) => e.workers) ? day.events.flatMap((e) => e.workers ?? e.people.map((p) => p.name)).join("、") : workerNames(people),
     件数一覧: itemList(dayItems),
     獲得した項目: gotList(dayItems),
+    "当日・後日の実績": dayLaterList(people),
     件数合計: String(total(dayItems)),
-    所感: remarks(people),
+    所感: day.events.some((e) => e.remark != null) ? day.events.map((e) => e.remark ?? remarks(e.people)).filter(Boolean).join("\n") : remarks(people),
   };
 
   const parts: string[] = [];
@@ -119,11 +161,12 @@ export function renderReport(format: ReportFormatBlocks, day: ReportDay): string
       会場: e.venueName,
       時間: e.time,
       人数: String(e.people.length),
-      稼働者: workerNames(e.people),
+      稼働者: e.workers ? e.workers.join("、") : workerNames(e.people),
       件数一覧: itemList(evItems),
       獲得した項目: gotList(evItems),
+      "当日・後日の実績": dayLaterList(e.people),
       件数合計: String(total(evItems)),
-      所感: remarks(e.people),
+      所感: e.remark ?? remarks(e.people),
     };
     if (format.eventBlock.trim()) parts.push(fill(format.eventBlock, evValues, evItems));
     for (const p of e.people) {
@@ -135,6 +178,7 @@ export function renderReport(format: ReportFormatBlocks, day: ReportDay): string
         役割: p.role,
         件数一覧: p.unreported ? "（未報告）" : itemList(p.items),
         獲得した項目: p.unreported ? "（未報告）" : gotList(p.items),
+        "当日・後日の実績": p.unreported ? "（未報告）" : dayLaterList([p]),
         件数合計: p.unreported ? "（未報告）" : String(total(p.items)),
         コメント: p.comment,
       };
@@ -194,6 +238,18 @@ export const REPORT_PRESETS: { key: string; name: string; note: string; blocks: 
     },
     // 稼働開始時は、現場名と稼働者名を書いて「稼働します」（2名以上は代表者が全員の名前を書く）
     start: "{会場}\n稼働者：{稼働者}\n稼働します",
+  },
+  {
+    key: "nicoly",
+    name: "NICOLY",
+    note: "現場ごとに1通。【実績】は「当日」「後日」に分けて「新規1(山田)」の形。所感は最後に（なければ出ません）",
+    blocks: {
+      header: "",
+      eventBlock: "【NICOLY フォーマット】\n\n{日付} {会場}\n{稼働者}\n\n【実績】\n{当日・後日の実績}\n\n{所感}\n",
+      personBlock: "",
+      footer: "",
+    },
+    start: "",
   },
 ];
 

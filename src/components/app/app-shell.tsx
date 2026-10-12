@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlusIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
+import { CalendarPlusIcon, ClipboardPasteIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -152,6 +152,10 @@ function CreateFab() {
           <Link href="/events/new" className={item} onClick={() => setMenu(false)}>
             <CalendarPlusIcon className="size-5 text-primary" />
             現場を作る
+          </Link>
+          <Link href="/events/from-text" className={item} onClick={() => setMenu(false)}>
+            <ClipboardPasteIcon className="size-5 text-primary" />
+            募集の文から作る
           </Link>
           <button
             type="button"

@@ -126,6 +126,20 @@ export function paymentDateOf(month: string, day: number): DateString {
   return d < end ? d : end;
 }
 
+/**
+ * 年のない「月/日」（LINE の募集文の「11/5」など）を日付にする。
+ * 今年のその日が、今日より2か月以上前なら来年とみなす（12月に「1/5」と書いてあれば来年の1月）。ない日（2/30 など）は null
+ */
+export function resolveMonthDay(month: number, day: number, today: DateString): DateString | null {
+  const { y } = parse(today);
+  for (const year of [y, y + 1]) {
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    if (!isDateString(date)) continue;
+    if (date >= addDays(today, -60)) return date;
+  }
+  return null;
+}
+
 /** 期間内の日付を列挙（start〜end を含む） */
 export function eachDay(start: DateString, end: DateString): DateString[] {
   const n = diffDays(start, end);

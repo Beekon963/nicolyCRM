@@ -164,3 +164,72 @@ describe("稼働開始の報告", () => {
     expect(renderStart("  ", day(["山田"]))).toBe("");
   });
 });
+
+describe("書式の見本: NICOLY", () => {
+  const nicoly = REPORT_PRESETS.find((p) => p.key === "nicoly")!.blocks;
+  const day = (people: ReportDay["events"][number]["people"], extra: Partial<ReportDay["events"][number]> = {}): ReportDay => ({
+    date: "10/11",
+    weekday: "土",
+    clientName: "〇〇モバイル",
+    events: [{ venueName: "〇〇モバイル△△モール", time: "", people, ...extra }],
+  });
+
+  it("いただいた見本と同じ形（日付と現場が1行、「当日」の下に「新規1(山田)」、項目の下にメモ、項目の間は1行あける）", () => {
+    const text = renderReport(
+      nicoly,
+      day([
+        {
+          name: "山田",
+          role: "",
+          items: [
+            { name: "新規", count: 1 },
+            { name: "RMsimのみMNP", count: 1, notes: ["ワイモバイルから楽天"] },
+            { name: "RMMNP", count: 2, notes: ["ソフトバンクから楽天", "iPhone17×2"] },
+            { name: "カード", count: 1 },
+            { name: "Pixel", count: 0 },
+          ],
+          comment: "",
+        },
+      ]),
+    );
+    expect(text).toBe(
+      [
+        "【NICOLY フォーマット】",
+        "",
+        "10/11 〇〇モバイル△△モール",
+        "山田",
+        "",
+        "【実績】",
+        "当日",
+        "新規1(山田)",
+        "",
+        "RMsimのみMNP1(山田)",
+        "ワイモバイルから楽天",
+        "",
+        "RMMNP2(山田)",
+        "ソフトバンクから楽天",
+        "iPhone17×2",
+        "",
+        "カード1(山田)",
+      ].join("\n"),
+    );
+  });
+
+  it("「（後日）」の項目は「後日」の下に（後日）を外して出す。2人の現場は1人ずつ、所感は最後", () => {
+    const text = renderReport(
+      nicoly,
+      day(
+        [
+          { name: "山田", role: "", items: [{ name: "新規", count: 1 }, { name: "新規（後日）", count: 1 }], comment: "" },
+          { name: "佐藤", role: "", items: [{ name: "新規", count: 2 }], comment: "" },
+        ],
+        { remark: "午後から好調でした" },
+      ),
+    );
+    expect(text.split("\n").slice(3)).toEqual(["山田、佐藤", "", "【実績】", "当日", "新規1(山田)", "新規2(佐藤)", "", "後日", "新規1(山田)", "", "午後から好調でした"]);
+  });
+
+  it("1件もなければ「なし」", () => {
+    expect(renderReport(nicoly, day([{ name: "山田", role: "", items: [{ name: "新規", count: 0 }], comment: "" }]))).toContain("【実績】\nなし");
+  });
+});

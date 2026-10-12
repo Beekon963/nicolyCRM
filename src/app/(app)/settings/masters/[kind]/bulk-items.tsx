@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
-import { itemLines, withProvisional } from "@/lib/items-bulk";
+import { itemLines, withLater, withProvisional } from "@/lib/items-bulk";
 import { bulkAddItems } from "./actions";
 
 /**
@@ -20,10 +20,12 @@ export function BulkItems({ clients }: { clients: { id: string; name: string }[]
   const router = useRouter();
   const [text, setText] = useState("");
   const [provisional, setProvisional] = useState(true);
+  const [later, setLater] = useState(false);
   const [clientId, setClientId] = useState("");
   const [pending, start] = useTransition();
   const lines = itemLines(text);
-  const finalLines = provisional ? withProvisional(lines) : lines;
+  const withP = provisional ? withProvisional(lines) : lines;
+  const finalLines = later ? withLater(withP) : withP;
 
   return (
     <details className="group mx-4 mb-4 rounded-2xl border bg-card shadow-card">
@@ -52,6 +54,10 @@ export function BulkItems({ clients }: { clients: { id: string; name: string }[]
         <label className="flex min-h-11 items-center gap-3">
           <Checkbox checked={provisional} onCheckedChange={(v) => setProvisional(v === true)} aria-label="光・カードの（仮）の項目も作る" />
           光・カードの項目には「（仮）」の項目も作る（仮申し込みを分けて数える）
+        </label>
+        <label className="flex min-h-11 items-center gap-3">
+          <Checkbox checked={later} onCheckedChange={(v) => setLater(v === true)} aria-label="「（後日）」の項目も作る" />
+          「（後日）」の項目も作る（報告の「後日」の獲得を、当日と分けて数える）
         </label>
         <div className="flex flex-col gap-1 sm:max-w-sm">
           <Label htmlFor="bulk-client">この取引先の現場で使う項目にする（任意）</Label>

@@ -12,6 +12,7 @@ import {
   monthRange,
   nextMonth,
   paymentDateOf,
+  resolveMonthDay,
   todayJst,
   tomorrowJst,
   weekdayJa,
@@ -77,6 +78,17 @@ describe("暦日の計算", () => {
     expect(paymentDateOf("2026-01", 0)).toBe("2026-02-28");
     expect(paymentDateOf("2026-01", 31)).toBe("2026-02-28");
     expect(paymentDateOf("2027-12", 0)).toBe("2028-01-31");
+  });
+
+  it("年のない「月/日」は、今日から2か月より前なら来年にする", () => {
+    expect(resolveMonthDay(11, 5, "2026-10-12")).toBe("2026-11-05");
+    expect(resolveMonthDay(10, 12, "2026-10-12")).toBe("2026-10-12");
+    // 少し前の日（報告を後から入れるとき）は今年のまま
+    expect(resolveMonthDay(9, 1, "2026-10-12")).toBe("2026-09-01");
+    expect(resolveMonthDay(1, 5, "2026-12-20")).toBe("2027-01-05");
+    expect(resolveMonthDay(2, 29, "2027-12-20")).toBe("2028-02-29");
+    expect(resolveMonthDay(2, 30, "2026-10-12")).toBeNull();
+    expect(resolveMonthDay(13, 1, "2026-10-12")).toBeNull();
   });
 
   it("不正な日付は弾く", () => {

@@ -6,6 +6,7 @@ import { recordActivity } from "@/app/(app)/sales/activity-actions";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { addDays, formatShortJa } from "@/lib/date";
 import { getMasters } from "@/lib/data/masters";
+import { enterReports, loadReportTargets, type ReportAsg, reportSkip } from "@/lib/data/report-entry";
 import { ACTIVITY_KIND, ACTIVITY_RESULT, ASSIGNMENT_STATUS, AVAILABILITY, COMPANY_STATUS } from "@/lib/labels";
 import { type AiContext, type AiTool, dateArg, one, t5, ToolInputError } from "./common";
 
@@ -74,40 +75,6 @@ const proposal = (kind: ProposalKind, title: string, rows: ProposalRow[], warnin
 // ---------------------------------------------------------------------------
 // 確認カードを作る（読むだけ。まだ登録しない）
 // ---------------------------------------------------------------------------
-
-type ReportAsg = {
-  id: string;
-  status: keyof typeof ASSIGNMENT_STATUS;
-  role_id: string;
-  staff: { name: string } | null;
-  event: { date: string; client_id: string; cancelled_at: string | null; venue: { name: string } | null; client: { name: string } | null } | null;
-  report: { submitted_at: string | null; confirmed_at: string | null } | null;
-};
-
-async function loadReportTargets(ctx: AiContext, ids: string[]) {
-  const { data } = await ctx.supabase
-    .from("assignments")
-    .select("id, status, role_id, staff:staff(name), event:events(date, client_id, cancelled_at, venue:venues(name), client:companies(name)), report:reports(submitted_at, confirmed_at)")
-    .in("id", ids);
-  return new Map(
-    (data ?? []).map((a) => {
-      const ev = one(a.event);
-      const row: ReportAsg = { ...a, staff: one(a.staff), event: ev ? { ...ev, venue: one(ev.venue), client: one(ev.client) } : null, report: one(a.report) };
-      return [a.id, row];
-    }),
-  );
-}
-
-/** 報告を入れられない理由（入れられるなら null） */
-function reportSkip(a: ReportAsg | undefined, today: string): string | null {
-  if (!a || !a.event) return "見つかりません";
-  if (a.status !== "confirmed") return `状態が「${ASSIGNMENT_STATUS[a.status].label}」です`;
-  if (a.event.cancelled_at) return "中止の現場です";
-  if (a.event.date > today) return "まだ先の現場です";
-  if (a.report?.confirmed_at) return "実績はもう確定しています（実績確認の画面で直せます）";
-  if (a.report?.submitted_at) return "本人がもう報告しています（実績確認の画面で確定してください）";
-  return null;
-}
 
 /**
  * 取引先が「使う獲得項目」を選んでいるのに、その中にない項目を入れようとしていたら知らせる
@@ -289,30 +256,12 @@ export const PROPOSAL_TOOLS: AiTool[] = [proposeReports, proposeAvailability, pr
 // ---------------------------------------------------------------------------
 
 export async function executeProposal(ctx: AiContext, kind: ProposalKind, raw: unknown): Promise<ActionResult<{ undo?: ProposalUndo }>> {
-  const { supabase, user, today } = ctx;
+  const { supabase, user } = ctx;
   switch (kind) {
     case "reports": {
       const p = PAYLOAD.reports.safeParse(raw);
       if (!p.success) return fail("内容が正しくありません。もう一度 AI に頼んでください");
-      const targets = await loadReportTargets(ctx, p.data.entries.map((e) => e.assignment_id));
-      let done = 0;
-      const skipped: string[] = [];
-      for (const e of p.data.entries) {
-        const a = targets.get(e.assignment_id);
-        const why = reportSkip(a, today);
-        if (why) {
-          skipped.push(`${a?.staff?.name ?? ""}: ${why}`);
-          continue;
-        }
-        const { error } = await supabase.from("reports").upsert({ assignment_id: e.assignment_id, submitted_at: new Date().toISOString(), source: "admin", comment: e.comment });
-        if (error) return fail(dbErrorMessage(error));
-        if (e.counts.length) {
-          const { error: ie } = await supabase.from("report_items").upsert(e.counts.map((c) => ({ assignment_id: e.assignment_id, item_id: c.item_id, reported_count: c.count })));
-          if (ie) return fail(dbErrorMessage(ie));
-        }
-        done++;
-      }
-      return ok(`${done}人分の報告を入れました${skipped.length ? `（入れなかった人: ${skipped.join(" / ")}）` : ""}。確定は「実績確認」で行ってください`);
+      return enterReports(ctx, p.data.entries);
     }
     case "availability": {
       const p = PAYLOAD.availability.safeParse(raw);
