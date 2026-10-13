@@ -21,16 +21,14 @@ const csv = (decision: string, title: string) =>
   Buffer.from("﻿" + [HEAD, `${LOGIN},${NAME},利用中,10/40,${title},8/8・テスト合格,1/6,0/5,0/7,0/9,合格,まだ,3/5,${decision},1,読了,2026/10/12 23:30`].join("\r\n") + "\r\n");
 
 test.beforeAll(async () => {
-  const closer = await one<{ id: string }>(`select id from roles where name = 'クローザー'`);
+  // 役割は付けない（ほかのテストが「クローザーの人」を選ぶときに、このテストの人を選ばないように）
   staffId = (await one<{ id: string }>(`insert into staff (name, kana) values ($1, 'がくしゅう') returning id`, [NAME])).id;
-  await sql(`insert into staff_roles (staff_id, role_id) values ($1, $2)`, [staffId, closer.id]);
   eventId = (await makeEvent(`'${await freeFutureDate()}'::date`, { required: 2 })).id;
 });
 
 test.afterAll(async () => {
   if (eventId) await cleanupEvent(eventId);
   await sql(`delete from academy_progress where staff_id = $1 or academy_id = $2`, [staffId, LOGIN]);
-  await sql(`delete from staff_roles where staff_id = $1`, [staffId]);
   await sql(`delete from staff_private where staff_id = $1`, [staffId]);
   await sql(`delete from staff where id = $1`, [staffId]);
 });
@@ -71,6 +69,8 @@ test("スタッフ一覧と打診の候補に、称号と稼働判断の札が�
   await expectNoHorizontalScroll(page);
 
   await page.goto(`/events/${eventId}/candidates`);
+  // 役割のない人も出す
+  await page.getByRole("switch", { name: "クローザーができる人だけ" }).click();
   const row = page.getByRole("main").getByRole("listitem").filter({ hasText: NAME });
   await expect(row).toContainText("携帯を案内できる・稼働可");
   await expectNoHorizontalScroll(page);

@@ -64,7 +64,7 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
       />
       <details className="px-4 pb-2 text-sm text-muted-foreground">
         <summary className="w-fit cursor-pointer select-none hover:text-foreground">並び順について</summary>
-        <p className="pt-1">○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。帽子の札はアカデミーの称号と稼働判断です（並び順には使いません）。</p>
+        <p className="pt-1">○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。帽子の札はアカデミーの称号と稼働判断です（順番には使っていません）。</p>
       </details>
       <CandidatePicker
         eventId={id}
