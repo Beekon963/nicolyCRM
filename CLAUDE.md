@@ -123,6 +123,8 @@ npm run test:e2e     # 画面テスト（スマホ幅 375px と PC）。npm run 
 ```
 
 - 画面テストは DB にデータを足すので、気になったら `npm run db:reset` で作り直す。今日の日付で現場を作るテストは `cleanupEvent()` で後片付けする。
+- 画面テストは2つずつ同時に動く。予定・報告・稼働可能日を入れる人はダミーデータからくじ引きで選ばず、`makeStaff()` で作って `dropStaff()` で消す（同じ人を取り合って失敗するため）。取引先に書式・獲得項目を付けるときは `makeClient()` / `dropClient()`（`e2e/helpers/db.ts`）。
+- 開いてすぐ入力・保存する画面は `gotoReady()`（`e2e/helpers/layout.ts`）で開く。一覧の並びを読むときは、確かめたい行が出るのを待ってから読む。
 - 新しい画面を作ったら `e2e/owner/no-scroll.spec.ts`（375px 横スクロール）と `e2e/manager/money-leak.spec.ts`（管理者に金額が漏れない）に足す。
 - 新しい DB 関数は anon から実行できない設定になっている（`20261006000008_grants.sql`）。マイページ用だけ `grant execute ... to anon` する。
 - 本番に出すのは `main` だけ（Vercel は `main` を公開する）。開発ブランチから `main` へのプルリクエストをユーザーが Merge する。

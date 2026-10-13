@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, freeFutureDate, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, freeFutureDate, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -46,7 +46,8 @@ test.beforeAll(async () => {
       [client.id, date],
     )
   ).id;
-  staff = await sql(`select id, name, mypage_token as token from staff where status = 'active' order by random() limit 2`);
+  // 2人はこのテストで作る（ほかのテストと同じ人を取り合わないように）
+  staff = [await makeStaff("変換 一郎"), await makeStaff("変換 二郎")];
   assignmentId = (await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [eventId, staff[0].id, role.id])).id;
   await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [eventId, staff[1].id, role.id]);
   await sql(`insert into reports (assignment_id, submitted_at, comment) values ($1, now(), '店舗様から評価いただきました')`, [assignmentId]);
@@ -55,6 +56,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await cleanupEvent(eventId);
+  await dropStaff(...staff.map((s) => s.id));
   await sql(`delete from report_formats where name in ($1, $2)`, [FORMAT, FORMAT_UI]);
   await sql(`delete from item_aliases where company_id = $1`, [client.id]);
   await sql(`delete from company_items where company_id = $1`, [client.id]);

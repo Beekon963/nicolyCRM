@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { SEED_USERS } from "../../scripts/seed/constants.mts";
-import { cleanupEvent, makeEvent, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, makeEvent, makeStaff, one, sql } from "../helpers/db";
 
 /**
  * Phase 6: 確定していた人がキャンセルになったら、ほかのメンバー（ここでは管理者）の画面に赤いポップアップが出る。
@@ -8,8 +8,9 @@ import { cleanupEvent, makeEvent, one, sql } from "../helpers/db";
  */
 test("キャンセルが出ると赤いポップアップが出て、候補を探す画面へ進める。閉じたら次は出ない（スマホ幅）", async ({ page }) => {
   const ev = await makeEvent("public.jst_today() + 2", { required: 1 });
+  // キャンセルになる人はこのテストで作る
+  const staff = await makeStaff("取消 一郎");
   try {
-    const staff = await one<{ id: string; name: string }>(`select id, name from staff where status = 'active' order by random() limit 1`);
     const a = await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [
       ev.id,
       staff.id,
@@ -39,5 +40,6 @@ test("キャンセルが出ると赤いポップアップが出て、候補を�
     await expect(page.getByRole("dialog", { name: /欠員が出ました/ })).toBeHidden();
   } finally {
     await cleanupEvent(ev.id);
+    await dropStaff(staff.id);
   }
 });

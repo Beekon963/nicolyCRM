@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { type APIRequestContext, expect, test } from "@playwright/test";
 import { SEED_USERS } from "../../scripts/seed/constants.mts";
-import { cleanupEvent, makeEvent, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, makeEvent, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -39,8 +39,8 @@ test.beforeAll(async () => {
   started = (await one<{ t: string }>(`select now()::text as t`)).t;
   before = (await one<{ value: unknown }>(`select value from settings where key = 'line'`)).value;
   await sql(`update settings set value = '{"staffConfirm": true, "reminder": true, "reminderHour": 0, "adminNotify": true}' where key = 'line'`);
-  staff = await one(`select id, name, mypage_token as token from staff s where status = 'active' and line_user_id is null
-       and not exists (select 1 from assignments a where a.staff_id = s.id and a.status = 'offered') order by random() limit 1`);
+  // LINE とつなぐ人はこのテストで作る（ダミーデータの人をつなぐと、ほかのテストの確定でも LINE が送られてしまう）
+  staff = await makeStaff("連携 一郎");
   ev = await makeEvent("public.jst_today() + 1", { required: 1 });
   assignmentId = (await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'offered') returning id`, [ev.id, staff.id, ev.roleId])).id;
   await sql(`update app_users set line_user_id = $1 where id = $2`, [MANAGER_LINE, SEED_USERS.manager.id]);
@@ -48,10 +48,10 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await sql(`update settings set value = $1 where key = 'line'`, [JSON.stringify(before)]);
-  await sql(`update staff set line_user_id = null where id = $1`, [staff.id]);
   await sql(`update app_users set line_user_id = null where id = $1`, [SEED_USERS.manager.id]);
   await sql(`delete from line_outbox where created_at >= $1`, [started]);
   for (const id of [ev.id, ...created]) await cleanupEvent(id);
+  await dropStaff(staff?.id);
 });
 
 test("スタッフがマイページから LINE とつなぐ（コードを公式アカウントに送る）", async ({ browser, request }) => {

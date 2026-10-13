@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { cleanupEvent, freeFutureDate, makeEvent, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, freeFutureDate, makeEvent, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -27,22 +27,14 @@ test.describe("稼働表", () => {
     await sql(`update events set client_id = $1 where id = $2`, [clientId, eventId]);
     venue = ev.venue;
     roleId = ev.roleId;
-    staff = await one(
-      `select s.id, s.name from staff s join staff_roles sr on sr.staff_id = s.id
-        where s.status = 'active' and sr.role_id = $1
-          and not exists (select 1 from staff_ng n where n.staff_id = s.id)
-          and not exists (select 1 from assignments a join events e on e.id = a.event_id where a.staff_id = s.id and e.date = $2)
-          and (select count(*) from staff x where x.name = s.name) = 1
-        order by random() limit 1`,
-      [ev.roleId, date],
-    );
-    await sql(`delete from availability where staff_id = $1 and date = $2`, [staff.id, date]);
+    // 人はこのテストで作る（ほかのテストと同じ人を取り合わないように）
+    staff = await makeStaff("稼働表 一郎");
   });
 
   test.afterEach(async () => {
     await cleanupEvent(eventId);
     await sql(`delete from companies where id = $1`, [clientId]);
-    await sql(`delete from availability where staff_id = $1 and date = $2`, [staff.id, date]);
+    await dropStaff(staff.id);
   });
 
   async function openCell(page: Page) {
@@ -87,15 +79,16 @@ test.describe("稼働表", () => {
     await expect(page.getByTestId("board-gauge")).toBeVisible();
 
     // 別の人を確定にすると、現場のマスは会場の色に変わる
-    const other = await one<{ id: string }>(
-      `select id from staff where status = 'active' and id <> $1 and not exists (select 1 from assignments a where a.staff_id = staff.id and a.event_id = $2) order by random() limit 1`,
-      [staff.id, eventId],
-    );
-    await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [eventId, other.id, roleId]);
-    await page.reload();
-    const filled = clientCell.locator('[data-tile="filled"]', { hasText: venue });
-    await expect(filled).toBeVisible();
-    await expect(filled).not.toHaveCSS("background-color", "rgb(254, 228, 226)");
+    const other = await makeStaff("稼働表 二郎");
+    try {
+      await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [eventId, other.id, roleId]);
+      await page.reload();
+      const filled = clientCell.locator('[data-tile="filled"]', { hasText: venue });
+      await expect(filled).toBeVisible();
+      await expect(filled).not.toHaveCSS("background-color", "rgb(254, 228, 226)");
+    } finally {
+      await dropStaff(other.id);
+    }
   });
 
   test("マスから打診すると、その人のマイページURL入りの文面が出る（PC はコピーだけ）", async ({ page, isMobile }) => {
@@ -207,14 +200,8 @@ test.describe("稼働表をスプレッドシートのように使う（PC）", 
     date = await freeFutureDate();
     // 2日先まで同じ月の表に入るように、月末は避ける
     if (Number(date.slice(8)) > 25) date = `${date.slice(0, 8)}20`;
-    staff = await one(
-      `select s.id, s.name from staff s where s.status = 'active'
-          and not exists (select 1 from assignments a join events e on e.id = a.event_id where a.staff_id = s.id and e.date between $1::date and $1::date + 2)
-          and (select count(*) from staff x where x.name = s.name) = 1
-        order by random() limit 1`,
-      [date],
-    );
-    await sql(`delete from availability where staff_id = $1 and date between $2::date and $2::date + 2`, [staff.id, date]);
+    // 人はこのテストで作る（ほかのテストと同じ人の稼働可能日を取り合わないように）
+    staff = await makeStaff("表操作 一郎");
     await page.goto(`/events/board?month=${date.slice(0, 7)}`);
     await page.evaluate(() => {
       localStorage.removeItem("nicoly.board.layout");
@@ -224,7 +211,7 @@ test.describe("稼働表をスプレッドシートのように使う（PC）", 
   });
 
   test.afterEach(async () => {
-    if (staff) await sql(`delete from availability where staff_id = $1 and date between $2::date and $2::date + 2`, [staff.id, date]);
+    if (staff) await dropStaff(staff.id);
   });
 
   /** マスを押して開いた画面を閉じる（そのマスが選ばれた状態になる） */
