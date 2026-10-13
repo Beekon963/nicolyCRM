@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -59,7 +59,8 @@ test.beforeAll(async () => {
   eventId = ev.id;
   md = ev.md;
   const role = await one<{ id: string }>(`select id from roles where name = 'クローザー'`);
-  staff = await sql(`select id, name, mypage_token as token from staff where status = 'active' order by random() limit 2`);
+  // 2人はこのテストで作る（同じ日にほかのテストの現場が入っている人を選ぶと、マイページに2件出てしまう）
+  staff = [await makeStaff("楽天 一郎"), await makeStaff("楽天 二郎")];
   for (const s of staff) {
     asg.push((await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [eventId, s.id, role.id])).id);
   }
@@ -67,6 +68,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await cleanupEvent(eventId);
+  await dropStaff(...staff.map((s) => s.id));
   await sql(`delete from report_formats where name = $1`, [FORMAT]);
   await sql(`delete from company_items where company_id = $1`, [client.id]);
   await sql(`delete from items where name = any($1)`, [ITEMS]);

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, freeFutureDate, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, freeFutureDate, makeStaff, one, sql } from "../helpers/db";
+import { gotoReady } from "../helpers/layout";
 
 /**
  * Phase 3-2: 単価の設定（オーナーだけ）。
@@ -11,6 +12,7 @@ test.skip(({ isMobile }) => isMobile, "設定の保存は PC で確かめる（�
 let clientId = "";
 let eventId = "";
 let assignmentId = "";
+let staffId = "";
 const name = `テスト請求先${Math.random().toString(36).slice(2, 7)}`;
 
 test.beforeAll(async () => {
@@ -20,7 +22,9 @@ test.beforeAll(async () => {
   const date = await freeFutureDate();
   eventId = (await one<{ id: string }>(`insert into events (client_id, venue_id, date, start_time, end_time) values ($1, $2, $3, '10:00', '19:00') returning id`, [clientId, venue.id, date])).id;
   await sql(`insert into event_requirements (event_id, role_id, required_count) values ($1, $2, 1)`, [eventId, closer.id]);
-  const staff = await one<{ id: string }>(`select id from staff where status = 'active' order by name limit 1`);
+  // 日当を入れる人はこのテストで作る（ダミーデータの人の日当を書きかえないように）
+  const staff = await makeStaff("単価 一郎");
+  staffId = staff.id;
   await sql(`insert into staff_private (staff_id, base_daily_rate) values ($1, 15000) on conflict (staff_id) do update set base_daily_rate = 15000`, [staff.id]);
   assignmentId = (await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [eventId, staff.id, closer.id])).id;
 });
@@ -29,13 +33,14 @@ test.afterAll(async () => {
   await sql(`delete from event_rates where event_id = $1`, [eventId]);
   await sql(`delete from event_incentive_rates where event_id = $1`, [eventId]);
   await cleanupEvent(eventId);
+  await dropStaff(staffId);
   await sql(`delete from client_rates where company_id = $1`, [clientId]);
   await sql(`delete from company_billing where company_id = $1`, [clientId]);
   await sql(`delete from companies where id = $1`, [clientId]);
 });
 
 test("取引先の標準単価を入れると、現場の見込みの請求額に出る", async ({ page }) => {
-  await page.goto(`/sales/${clientId}`);
+  await gotoReady(page, `/sales/${clientId}`);
   const section = page.locator("section", { has: page.getByRole("heading", { name: "請求設定・標準単価（オーナーのみ）" }) }).last();
   await section.getByLabel("クローザー").first().fill("25000");
   await section.getByRole("button", { name: "標準単価を保存" }).click();
@@ -48,7 +53,7 @@ test("取引先の標準単価を入れると、現場の見込みの請求額�
   await section.getByRole("button", { name: "請求設定を保存" }).click();
   await expect(page.getByText("請求設定を保存しました")).toBeVisible();
 
-  await page.goto(`/events/${eventId}`);
+  await gotoReady(page, `/events/${eventId}`);
   const money = page.locator("section", { has: page.getByRole("heading", { name: "単価（この現場だけ・オーナーのみ）" }) }).last();
   await expect(money.getByText("見込み", { exact: true })).toBeVisible();
   await expect(money.getByRole("definition").first()).toHaveText("25,000円");
@@ -56,7 +61,7 @@ test("取引先の標準単価を入れると、現場の見込みの請求額�
 });
 
 test("現場だけの単価・日当を上書きすると、見込みが変わる。空にすると標準に戻る", async ({ page }) => {
-  await page.goto(`/events/${eventId}`);
+  await gotoReady(page, `/events/${eventId}`);
   const money = page.locator("section", { has: page.getByRole("heading", { name: "単価（この現場だけ・オーナーのみ）" }) }).last();
   await money.getByLabel(/^クローザー/).first().fill("30,000");
   await money.locator('input[id^="event-daily-"]').first().fill("18000");
@@ -78,10 +83,10 @@ test("現場だけの単価・日当を上書きすると、見込みが変わ�
 test("管理者には、取引先の請求設定も現場の単価も出ない", async ({ browser }) => {
   const ctx = await browser.newContext({ storageState: "e2e/.auth/manager.json" });
   const page = await ctx.newPage();
-  await page.goto(`/sales/${clientId}`);
+  await gotoReady(page, `/sales/${clientId}`);
   await expect(page.getByRole("heading", { name })).toBeVisible();
   await expect(page.getByText("請求設定・標準単価")).toHaveCount(0);
-  await page.goto(`/events/${eventId}`);
+  await gotoReady(page, `/events/${eventId}`);
   await expect(page.getByText("必要人数").first()).toBeVisible();
   await expect(page.getByText("単価（この現場だけ")).toHaveCount(0);
   const r = await page.goto("/settings/money");
@@ -93,7 +98,7 @@ test("お金の設定: インセンティブ単価と税・源泉・支払日を
   const before = await sql<{ item_id: string; amount: number }>(`select item_id, amount from incentive_rates`);
   const beforeSettings = await sql<{ key: string; value: unknown }>(`select key, value from owner_settings where key in ('consumption_tax', 'withholding', 'payment_day')`);
   try {
-    await page.goto("/settings/money");
+    await gotoReady(page, "/settings/money");
     await expect(page.getByText("税理士に確認してください")).toBeVisible();
     await page.getByLabel("新規", { exact: true }).fill("3000");
     await page.getByRole("button", { name: "インセンティブ単価を保存" }).click();

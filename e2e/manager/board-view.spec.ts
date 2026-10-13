@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, freeFutureDate, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, freeFutureDate, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -20,6 +20,7 @@ let events: { short: string; full: string } = { short: "", full: "" };
 let venues: { short: string; full: string } = { short: "", full: "" };
 let free: { id: string; name: string };
 let busy: { id: string; name: string };
+let people: { id: string; name: string }[] = [];
 
 test.beforeAll(async () => {
   date = await freeFutureDate();
@@ -34,24 +35,17 @@ test.beforeAll(async () => {
     return e.id;
   };
   events = { short: await mk(vs[0].id, 2), full: await mk(vs[1].id, 1) };
-  // その日に予定のない人を3人: 1人目は「欠員の現場」に確定、2人目は「そろう現場」に確定、3人目は○で空いている
-  const people = await sql<{ id: string; name: string }>(
-    `select s.id, s.name from staff s where s.status = 'active'
-       and not exists (select 1 from assignments a join events e on e.id = a.event_id where a.staff_id = s.id and e.date = $1)
-       and (select count(*) from staff x where x.name = s.name) = 1
-     order by random() limit 3`,
-    [date],
-  );
+  // このテストだけの人を3人（ほかのテストと取り合わないように）: 1人目は「欠員の現場」に確定、2人目は「そろう現場」に確定、3人目は○で空いている
+  people = [await makeStaff("見やすく 一郎"), await makeStaff("見やすく 二郎"), await makeStaff("見やすく 三郎")];
   await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed'), ($4, $5, $3, 'confirmed')`, [events.short, people[0].id, role.id, events.full, people[1].id]);
   busy = people[1];
   free = people[2];
-  await sql(`delete from availability where staff_id = any($1) and date = $2`, [people.map((p) => p.id), date]);
   await sql(`insert into availability (staff_id, date, status, source) values ($1, $2, 'ok', 'admin')`, [free.id, date]);
 });
 
 test.afterAll(async () => {
   for (const id of [events.short, events.full]) await cleanupEvent(id);
-  await sql(`delete from availability where staff_id = $1 and date = $2`, [free.id, date]);
+  await dropStaff(...people.map((p) => p.id));
   await sql(`delete from companies where id = $1`, [client.id]);
 });
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, freeFutureDate, makeEvent, one, sql } from "../helpers/db";
+import { cleanupEvent, dropClient, dropStaff, freeFutureDate, makeClient, makeEvent, makeStaff, one, sql } from "../helpers/db";
 
 /**
  * Phase 4-1: 日報のフォーマット。オーナーが取引先ごとの書式を作り、実績確認の「日報」と
@@ -19,10 +19,11 @@ const FORMAT_UI = `E2E画面${tag}`;
 
 test.beforeAll(async () => {
   date = await freeFutureDate();
-  const ev = await makeEvent(`'${date}'::date`, { required: 1 });
+  // 取引先と人はこのテストで作る（書式を付ける取引先を、ほかのテストの現場と分けるため）
+  client = await makeClient("E2E日報先");
+  const ev = await makeEvent(`'${date}'::date`, { required: 1, clientId: client.id });
   eventId = ev.id;
-  client = await one(`select c.id, c.name from events e join companies c on c.id = e.client_id where e.id = $1`, [eventId]);
-  staff = await one(`select id, name, mypage_token as token from staff where status = 'active' order by random() limit 1`);
+  staff = await makeStaff("日報 一郎");
   assignmentId = (await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [eventId, staff.id, ev.roleId])).id;
   const item = await one<{ id: string }>(`select id from items where is_active order by sort_order limit 1`);
   await sql(`insert into reports (assignment_id, submitted_at, comment) values ($1, now(), 'E2Eのコメント')`, [assignmentId]);
@@ -33,6 +34,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await sql(`delete from report_formats where name in ($1, $2)`, [FORMAT, FORMAT_UI]);
   await cleanupEvent(eventId);
+  await dropStaff(staff?.id);
+  await dropClient(client?.id);
 });
 
 test("オーナー: 取引先用のフォーマットを作ると、プレビューが出て保存できる", async ({ page, isMobile }) => {

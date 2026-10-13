@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { freeFutureDate, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, freeFutureDate, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 test("来週の土日2日分の現場（クローザー2名・キャッチャー1名）を1分以内にまとめて作れる", async ({ page }) => {
@@ -24,27 +24,24 @@ test("来週の土日2日分の現場（クローザー2名・キャッチャー
 test.describe("候補を探す → 打診", () => {
   let eventId = "";
   let names: { ok: string; ng: string; venueNg: string; double: string };
+  const events: string[] = [];
+  const staffIds: string[] = [];
 
   test.beforeEach(async () => {
-    // 準備: 未来の日に現場を作り、○・×・会場NG・同日別現場 の人を用意する
+    // 準備: 未来の日に現場を作り、○・×・会場NG・同日別現場 の人を用意する（人はこのテストで作る。ほかのテストと取り合わないように）
     const date = await freeFutureDate();
     const venue = await one<{ id: string }>(`select id from venues where is_active and address <> '' order by random() limit 1`);
     const client = await one<{ id: string }>(`select id from companies where kind = 'client' limit 1`);
     const closer = await one<{ id: string }>(`select id from roles where name = 'クローザー'`);
-    const staff = await sql<{ id: string; name: string }>(
-      `select s.id, s.name from staff s join staff_roles sr on sr.staff_id = s.id
-        where s.status = 'active' and sr.role_id = $1
-          and not exists (select 1 from staff_ng n where n.staff_id = s.id)
-        order by random() limit 4`,
-      [closer.id],
-    );
-    const [ok, ng, venueNg, double] = staff;
+    const [ok, ng, venueNg, double] = [await makeStaff("候補 一郎"), await makeStaff("候補 二郎"), await makeStaff("候補 三郎"), await makeStaff("候補 四郎")];
+    staffIds.push(ok.id, ng.id, venueNg.id, double.id);
     names = { ok: ok.name, ng: ng.name, venueNg: venueNg.name, double: double.name };
     const ev = await one<{ id: string }>(
       `insert into events (client_id, venue_id, date, start_time, end_time) values ($1, $2, $3, '10:00', '19:00') returning id`,
       [client.id, venue.id, date],
     );
     eventId = ev.id;
+    events.push(ev.id);
     await sql(`insert into event_requirements (event_id, role_id, required_count) values ($1, $2, 2)`, [eventId, closer.id]);
     await sql(
       `insert into availability (staff_id, date, status) values ($1, $3, 'ok'), ($2, $3, 'ng')
@@ -56,13 +53,21 @@ test.describe("候補を探す → 打診", () => {
       `insert into events (client_id, venue_id, date) values ($1, (select id from venues where id <> $2 limit 1), $3) returning id`,
       [client.id, venue.id, date],
     );
+    events.push(other.id);
     await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [other.id, double.id, closer.id]);
+  });
+
+  test.afterEach(async () => {
+    for (const id of events.splice(0)) await cleanupEvent(id);
+    await dropStaff(...staffIds.splice(0));
   });
 
   test("×・会場NG・同日に別現場の人は警告付きで下に並ぶ", async ({ page }) => {
     await page.goto(`/events/${eventId}/candidates`);
     await expectNoHorizontalScroll(page);
     const items = page.getByRole("main").getByRole("listitem");
+    // 一覧が出そろってから並び順を読む（出る前に読むと、だれも見つからない）
+    for (const n of Object.values(names)) await expect(items.filter({ hasText: n })).toBeVisible();
     const order = await items.allTextContents();
     const idx = (n: string) => order.findIndex((t) => t.includes(n));
     for (const warned of [names.ng, names.venueNg, names.double]) expect(idx(names.ok)).toBeLessThan(idx(warned));
@@ -104,7 +109,8 @@ test.describe("候補を探す → 打診", () => {
 
   test("欠員は赤で出て、確定にすると消える", async ({ page }) => {
     const closer = await one<{ id: string }>(`select id from roles where name = 'クローザー'`);
-    const staff = await sql<{ id: string; name: string }>(`select id, name from staff where status = 'active' and id not in (select staff_id from assignments where event_id = $1) limit 2`, [eventId]);
+    const staff = [await makeStaff("確定 一郎"), await makeStaff("確定 二郎")];
+    staffIds.push(...staff.map((s) => s.id));
     for (const s of staff) await sql(`insert into assignments (event_id, staff_id, role_id) values ($1, $2, $3)`, [eventId, s.id, closer.id]);
     await page.goto(`/events/${eventId}`);
     const need = page.locator("section", { has: page.getByRole("heading", { name: "必要人数" }) }).last();
