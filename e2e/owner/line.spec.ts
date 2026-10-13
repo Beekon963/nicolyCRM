@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { type APIRequestContext, expect, test } from "@playwright/test";
 import { SEED_USERS } from "../../scripts/seed/constants.mts";
-import { cleanupEvent, dropStaff, makeEvent, makeStaff, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, freeFutureDate, makeEvent, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -110,7 +110,8 @@ test("前日のお知らせは、決めた時刻を過ぎたら1回だけ届く�
 });
 
 test("新しい現場を作ると、社内（自分以外）に LINE で届く", async ({ page, request }) => {
-  const date = (await one<{ d: string }>(`select to_char(public.jst_today() + 250 + floor(random() * 50)::int, 'YYYY-MM-DD') as d`)).d;
+  // まだ現場のない先の日に作る（ほかのテストの日に割り込まないように）
+  const date = await freeFutureDate();
   await page.goto(`/events/new?date=${date}`);
   await page.getByLabel("取引先", { exact: true }).selectOption({ index: 1 });
   await page.getByLabel("会場", { exact: true }).selectOption({ index: 1 });

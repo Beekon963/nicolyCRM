@@ -8,7 +8,7 @@ import { respondOffer } from "./actions";
 export function OfferButtons({ token, assignmentId }: { token: string; assignmentId: string }) {
   const [pending, start] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  // 回答するとこのカードは一覧から消える（「予定」に移る）ので、結果は画面下の通知でも出す
+  // 回答するとこのカードは一覧から消える（「予定」に移る）ので、結果は画面の上の通知でも出す
   const answer = (accept: boolean) =>
     start(async () => {
       const r = await respondOffer(token, assignmentId, accept);
