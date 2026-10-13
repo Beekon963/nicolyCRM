@@ -73,7 +73,17 @@ test("稼働表: オーナーには右端に売上・報酬の列と、その月
 test("管理者はお金の画面を開けず、ホームにも今月の数字が出ない", async ({ browser }) => {
   const ctx = await browser.newContext({ storageState: "e2e/.auth/manager.json" });
   const page = await ctx.newPage();
-  for (const path of ["/money", "/money/invoices", "/money/payments", "/money/closing", "/money/export", "/money/export/file?kind=backup", "/settings/targets"]) {
+  for (const path of [
+    "/money",
+    "/money/invoices",
+    "/money/payments",
+    "/money/closing",
+    "/money/export",
+    "/money/export/file?kind=backup",
+    "/money/statements",
+    "/money/statements/all",
+    "/settings/targets",
+  ]) {
     const r = await page.goto(path);
     expect(r?.status(), path).toBe(404);
   }

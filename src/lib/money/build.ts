@@ -21,7 +21,16 @@ export type MoneyInput = {
   incentiveRates: { itemId: string; amount: number }[];
   eventIncentiveRates: { eventId: string; itemId: string; amount: number }[];
   /** baseDailyRate は人ごとの日当（決まった額と違う人だけ）、rankDailyRate はその人のランクの基準日当 */
-  staff: { id: string; name: string; baseDailyRate: number | null; rankDailyRate?: number | null; method: WithholdingMethod; invoiceNumber: string | null }[];
+  staff: {
+    id: string;
+    name: string;
+    baseDailyRate: number | null;
+    rankDailyRate?: number | null;
+    /** ランクの名前（支払明細書の「業務委託報酬（ランクD）」に使う） */
+    rankName?: string | null;
+    method: WithholdingMethod;
+    invoiceNumber: string | null;
+  }[];
   dailyOverrides: { assignmentId: string; amount: number }[];
   /** 遠方の上乗せの回数（1時間30分を超える30分ごと。0 は渡さなくてよい） */
   travelSteps?: { assignmentId: string; steps: number }[];
@@ -87,6 +96,8 @@ export type StaffAssignmentMoney = {
 export type StaffMoney = {
   id: string;
   name: string;
+  /** ランクの名前（Phase 13 より前に締めた月のスナップショットにはない） */
+  rankName?: string | null;
   method: WithholdingMethod;
   invoiceRegistered: boolean;
   assignments: StaffAssignmentMoney[];
@@ -236,6 +247,7 @@ export function computeMoney(input: MoneyInput): MoneyResult {
       return {
         id,
         name: info?.name ?? "",
+        rankName: info?.rankName ?? null,
         method: info?.method ?? "none",
         invoiceRegistered: Boolean(info?.invoiceNumber),
         assignments: asgs,

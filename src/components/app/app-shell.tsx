@@ -25,7 +25,7 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
   return (
     <div className="flex min-h-dvh w-full">
       {/* PC: 左サイドバー */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-background md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-background md:flex print:hidden">
         <Link href="/" className="flex items-center gap-2 px-4 py-4">
           <Image src="/logo.png" alt="" width={36} height={28} />
           <span className="text-lg font-bold">NICOLY CRM</span>
@@ -64,7 +64,7 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 上部: 横断検索 */}
-        <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur">
+        <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur print:hidden">
           <Link href="/" className="md:hidden" aria-label="ホーム">
             <Image src="/logo.png" alt="" width={36} height={28} />
           </Link>
@@ -77,22 +77,22 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
           <AiAssistant role={user.role} ready={aiReady} />
         </header>
 
-        <main className="flex w-full min-w-0 flex-1 flex-col pb-24 md:pb-8">{children}</main>
+        <main className="flex w-full min-w-0 flex-1 flex-col pb-24 md:pb-8 print:pb-0">{children}</main>
         {/* キャンセル・当日不稼働のお知らせ（ポップアップ） */}
         <DropAlerts />
       </div>
 
       {/* スマホ: 右下の ＋（現場を作る / 活動を記録）。入力画面では保存ボタンと重ならないよう一覧の画面だけに出す */}
-      {(pathname === "/" || pathname === "/events" || pathname === "/sales") && <CreateFab />}
+      {(pathname === "/" || pathname === "/events" || pathname === "/events/board" || pathname === "/sales") && <CreateFab />}
 
       {/* スマホ: 下部タブ */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden print:hidden">
         {tabs.map((t) => {
           const active = t.href === "/more" ? moreActive : isActive(pathname, t.href);
           return (
             <Link
               key={t.href}
-              href={t.href}
+              href={t.go ?? t.href}
               className={cn(
                 "flex h-16 flex-col items-center justify-center gap-0.5 text-xs",
                 active ? "font-bold text-primary" : "text-muted-foreground",
@@ -123,7 +123,7 @@ export { NAV_ITEMS };
 function SideLink({ item: i, active, count }: { item: NavItem; active: boolean; count?: Count }) {
   return (
     <Link
-      href={i.href}
+      href={i.go ?? i.href}
       aria-current={active ? "page" : undefined}
       className={cn(
         // 長い名前（稼働可能日の提出状況など）は2行に折り返す（件数の札があっても切れないように）

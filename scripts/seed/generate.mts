@@ -460,6 +460,41 @@ sql(`insert into public.payment_adjustments (staff_id, month, amount, reason) va
 
 sql(`insert into public.monthly_targets (month, revenue, gross_profit) values (${q(thisMonth)}, 5000000, 1800000);`);
 
+// NICOLY アカデミーの進み具合（Phase 14）。稼働中の人の6割くらい。ランクの高い人ほど進んでいる
+// （ほかのダミーデータの並びを変えないよう、乱数は別にする）
+{
+  const arand = mulberry32(20261013);
+  const aint = (min: number, max: number) => min + Math.floor(arand() * (max - min + 1));
+  const AREAS_ACADEMY = [
+    ["携帯", 8],
+    ["電気・ガス", 6],
+    ["カード", 5],
+    ["光", 7],
+    ["端末", 9],
+  ] as const;
+  const TITLES = ["見習い", "携帯を案内できる", "電気・ガスまで見直せる", "支払いまで整えられる", "家のネットまで見られる", "暮らしをまるごと提案できる"];
+  const rows: string[] = [];
+  activeStaff.slice(0, 24).forEach((s, i) => {
+    const level = Math.max(0, Math.min(5, 5 - s.rank + aint(-1, 1)));
+    const areas = AREAS_ACADEMY.map(([name, total], k) => ({ name, total, done: k < level ? total : k === level ? aint(0, total - 1) : 0, test: k < level }));
+    const done = areas.reduce((n, a) => n + a.done + (a.test ? 1 : 0), 0);
+    const steps = areas.reduce((n, a) => n + a.total + 1, 0);
+    const decision = level >= 2 ? "ready" : level === 1 ? (aint(0, 1) ? "ready" : "hold") : aint(0, 1) ? "hold" : "none";
+    const knowledge = level >= 1 ? "合格" : aint(0, 1) ? "未受験" : "未合格（最新 60点）";
+    const roleplay = level >= 2 ? "実技合格" : aint(0, 1) ? "まだ" : "依頼中（受付待ち）";
+    const field = level >= 2 ? 5 : aint(0, 4);
+    rows.push(
+      `(${q(s.id)}, ${q(`learner${String(i + 1).padStart(2, "0")}`)}, ${q(s.name)}, ${done}, ${steps}, ${q(TITLES[level])}, ${q(JSON.stringify(areas))}::jsonb, ` +
+        `${q(knowledge)}, ${knowledge === "合格"}, ${q(roleplay)}, ${roleplay === "実技合格"}, ${field}, 5, ${q(decision)}, ${aint(0, 3)}, '読了', now() - interval '${aint(0, 30)} days')`,
+    );
+  });
+  sql(
+    `insert into public.academy_progress (staff_id, academy_id, academy_name, roadmap_done, roadmap_steps, title, areas, knowledge, knowledge_ok, roleplay, roleplay_ok, field_done, field_items, decision, hearing_count, guide, last_studied_at) values\n  ` +
+      rows.join(",\n  ") +
+      ";",
+  );
+}
+
 sql("set session_replication_role = origin;");
 
 const file = join(dirname(fileURLToPath(import.meta.url)), "../../supabase/seed.sql");

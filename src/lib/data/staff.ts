@@ -1,4 +1,5 @@
 import "server-only";
+import { type AcademyBadge, decisionOf } from "@/lib/academy";
 import { createClient } from "@/lib/supabase/server";
 import { matchesQuery } from "@/lib/search";
 import type { Masters } from "./masters";
@@ -14,6 +15,8 @@ export type StaffListItem = {
   rank_id: string | null;
   role_ids: string[];
   area_ids: string[];
+  /** NICOLY アカデミーの称号・稼働判断（Phase 14。取り込んでいなければ null） */
+  academy: AcademyBadge | null;
 };
 
 export type StaffFilters = { q?: string; role?: string; rank?: string; area?: string; status?: string };
@@ -22,7 +25,7 @@ export async function listStaff(filters: StaffFilters, masters: Masters): Promis
   const supabase = await createClient();
   const { data } = await supabase
     .from("staff")
-    .select("id, name, kana, phone, nearest_station, status, rank_id, staff_roles(role_id), staff_areas(area_id)");
+    .select("id, name, kana, phone, nearest_station, status, rank_id, staff_roles(role_id), staff_areas(area_id), academy_progress(title, decision)");
   const rows: StaffListItem[] = (data ?? []).map((s) => ({
     id: s.id,
     name: s.name,
@@ -33,6 +36,7 @@ export async function listStaff(filters: StaffFilters, masters: Masters): Promis
     rank_id: s.rank_id,
     role_ids: s.staff_roles.map((r) => r.role_id),
     area_ids: s.staff_areas.map((a) => a.area_id),
+    academy: s.academy_progress ? { title: s.academy_progress.title, decision: decisionOf(s.academy_progress.decision) } : null,
   }));
 
   const status = filters.status ?? "active";

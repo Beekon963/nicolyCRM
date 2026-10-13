@@ -88,3 +88,15 @@ describe("日当は交通費込み（マイページの報告）", () => {
     });
   });
 });
+
+describe("源泉徴収は全員を対象（Phase 13）", () => {
+  it("新しいスタッフの「お金・契約」は最初から「報酬・料金」。源泉は本体価格（税抜）にかける", async () => {
+    await asRole("owner", async (c) => {
+      const s = (await c.query(`insert into public.staff (name) values ('源泉 テスト') returning id`)).rows[0];
+      const p = (await c.query(`insert into public.staff_private (staff_id) values ($1) returning withholding_method`, [s.id])).rows[0];
+      expect(p.withholding_method).toBe("fee");
+      const w = (await c.query(`select value from public.owner_settings where key = 'withholding'`)).rows[0];
+      expect(w.value).toMatchObject({ include_expenses: true, tax_inclusive: false });
+    });
+  });
+});

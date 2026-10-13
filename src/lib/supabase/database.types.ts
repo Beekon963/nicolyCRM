@@ -23,7 +23,32 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "activities": {
+            "academy_progress": {
+                  Row: {
+                    "academy_id": string,"academy_name": string,"active": boolean,"areas": NonNullable<Json>,"decision": string,"field_done": number | null,"field_items": number | null,"guide": string,"hearing_count": number,"imported_at": string,"imported_by": string | null,"knowledge": string,"knowledge_ok": boolean,"last_studied_at": string | null,"roadmap_done": number | null,"roadmap_steps": number | null,"roleplay": string,"roleplay_ok": boolean,"staff_id": string,"title": string
+                  }
+                  Insert: {
+                    "academy_id": string,"academy_name"?: string,"active"?: boolean,"areas"?: NonNullable<Json>,"decision"?: string,"field_done"?: number | null,"field_items"?: number | null,"guide"?: string,"hearing_count"?: number,"imported_at"?: string,"imported_by"?: string | null,"knowledge"?: string,"knowledge_ok"?: boolean,"last_studied_at"?: string | null,"roadmap_done"?: number | null,"roadmap_steps"?: number | null,"roleplay"?: string,"roleplay_ok"?: boolean,"staff_id": string,"title"?: string
+                  }
+                  Update: {
+                    "academy_id"?: string,"academy_name"?: string,"active"?: boolean,"areas"?: NonNullable<Json>,"decision"?: string,"field_done"?: number | null,"field_items"?: number | null,"guide"?: string,"hearing_count"?: number,"imported_at"?: string,"imported_by"?: string | null,"knowledge"?: string,"knowledge_ok"?: boolean,"last_studied_at"?: string | null,"roadmap_done"?: number | null,"roadmap_steps"?: number | null,"roleplay"?: string,"roleplay_ok"?: boolean,"staff_id"?: string,"title"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "academy_progress_imported_by_fkey"
+      columns: ["imported_by"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "academy_progress_staff_id_fkey"
+      columns: ["staff_id"]
+isOneToOne: true
+      referencedRelation: "staff"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"activities": {
                   Row: {
                     "company_id": string,"contact_id": string | null,"created_at": string,"id": string,"kind": Database["public"]['Enums']["activity_kind"],"memo": string,"next_action": string,"next_action_date": string | null,"occurred_at": string,"result": Database["public"]['Enums']["activity_result"] | null,"status": Database["public"]['Enums']["company_status"] | null,"user_id": string | null
                   }

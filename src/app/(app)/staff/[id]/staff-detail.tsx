@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import type { AppUser } from "@/lib/auth";
 import { monthOf, monthRange, nextMonth, todayJst } from "@/lib/date";
 import { holidaysBetween } from "@/lib/date/holidays";
+import { getAcademyProgress } from "@/lib/data/academy";
 import type { Masters } from "@/lib/data/masters";
 import { getReferredStaff } from "@/lib/data/referrals";
 import type { StaffDetail as Detail } from "@/lib/data/staff";
 import { INPUT_SOURCE, STAFF_STATUS } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 import { siteUrl } from "@/lib/supabase/env";
+import { AcademySection } from "./academy-section";
 import { PrivateSection } from "./private-section";
 import { MypageUrlCard, NgSection, NotesSection } from "./staff-sections";
 
@@ -26,7 +28,7 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
   const thisMonth = monthOf(today);
   const months = [thisMonth, nextMonth(thisMonth)];
 
-  const [{ data: venues }, { data: clients }, priv, rankRate, referrer, referred] = await Promise.all([
+  const [{ data: venues }, { data: clients }, priv, rankRate, referrer, referred, academy] = await Promise.all([
     supabase.from("venues").select("id, name").eq("is_active", true).order("name"),
     supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name"),
     // ★ 金額系はオーナーのときだけ取りに行く（管理者は RLS でも 0 件）
@@ -51,6 +53,8 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
           .then((r) => r.data)
       : Promise.resolve(null),
     getReferredStaff(1, staff.id),
+    // NICOLY アカデミーの記録（Phase 14）
+    getAcademyProgress(staff.id),
   ]);
 
   const holidays = holidaysBetween(monthRange(months[0]).start, monthRange(months[1]).end);
@@ -123,6 +127,10 @@ export async function StaffDetail({ detail, masters, user, back }: { detail: Det
             </Field>
           )}
         </dl>
+      </Section>
+
+      <Section title="アカデミー（いまのスキル）">
+        <AcademySection progress={academy} />
       </Section>
 
       <Section

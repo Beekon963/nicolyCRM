@@ -9,4 +9,5 @@ export * from "./pay";
 export * from "./profit";
 export * from "./rates";
 export * from "./round";
+export * from "./statement";
 export * from "./withholding";

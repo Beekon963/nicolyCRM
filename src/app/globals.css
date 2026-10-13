@@ -166,3 +166,15 @@
     background: var(--brand-100);
   }
 }
+
+/* 印刷・PDF に保存（支払明細書など。Phase 13）: A4、白い地。アプリの枠は各部品の print:hidden で出さない */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+}

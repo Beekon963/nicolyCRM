@@ -1,7 +1,7 @@
 /**
  * 最初のオーナーアカウントを作る（docs/setup.md ⑦ の GitHub のボタンからも、付録A のコマンドからも使う）。
  *
- *   node --env-file=.env.production.local scripts/create-owner.mts you@example.com "森部 太陽"
+ *   node --env-file=.env.production.local scripts/create-owner.mts you@example.com "山田 太郎"
  *
  * - 必要な環境変数: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY
  * - すでにそのメールアドレスのユーザーがいれば、オーナーとして登録し直す。

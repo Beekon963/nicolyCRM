@@ -4,6 +4,7 @@ import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { AcademyPill } from "@/components/app/academy-pill";
 import { MessageDialog, type Recipient } from "@/components/app/message-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toaster";
+import type { AcademyBadge } from "@/lib/academy";
 import { ASSIGNMENT_STATUS, AVAILABILITY } from "@/lib/labels";
 import { buildMessage, type MessageEvent } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -35,6 +37,8 @@ export type Candidate = {
   current_status: keyof typeof ASSIGNMENT_STATUS | null;
   sort_group: number;
   mypage_token: string;
+  /** NICOLY アカデミーの称号・稼働判断（Phase 14。札を出すだけで、並び順には使わない） */
+  academy: AcademyBadge | null;
 };
 
 type Role = { id: string; name: string; required: number; confirmed: number };
@@ -154,6 +158,7 @@ export function CandidatePicker({
                     )}
                   </span>
                   <span className="flex flex-wrap gap-1 pt-0.5">
+                    {c.academy && <AcademyPill badge={c.academy} />}
                     {c.double_booking && <Badge tone="alert">同日に別現場（{c.double_booking_venue}）</Badge>}
                     {c.ng_venue && <Badge tone="alert">会場NG</Badge>}
                     {c.ng_client && <Badge tone="alert">取引先NG</Badge>}

@@ -26,15 +26,19 @@ export function MoneyHeader({
   current,
   actions,
   closing,
+  path,
 }: {
   month: string;
   current: (typeof TABS)[number]["href"];
   actions?: React.ReactNode;
   /** 締めの状態（締め済み・ロック解除中のときに1行出す） */
   closing?: ClosingStatus;
+  /** 前の月・次の月で開く画面（タブの中の画面のとき。なければ current） */
+  path?: string;
 }) {
   const { y, m } = parse(`${month}-01`);
   const prev = monthOf(addDays(`${month}-01`, -1));
+  const here = path ?? current;
   return (
     <>
       <PageHeader title="お金" description="オーナーだけが見られます" actions={actions} />
@@ -53,7 +57,7 @@ export function MoneyHeader({
       {/* スマホは両端、PC は真ん中にまとめる（広い画面で「前の月」と「次の月」が離れすぎないように） */}
       <div className="flex items-center justify-between px-4 pb-2 md:justify-center md:gap-8">
         <Button asChild variant="ghost" size="sm">
-          <Link href={`${current}?month=${prev}`}>
+          <Link href={`${here}?month=${prev}`}>
             <ChevronLeftIcon />
             前の月
           </Link>
@@ -62,7 +66,7 @@ export function MoneyHeader({
           {y}年{m}月
         </span>
         <Button asChild variant="ghost" size="sm">
-          <Link href={`${current}?month=${nextMonth(month)}`}>
+          <Link href={`${here}?month=${nextMonth(month)}`}>
             次の月
             <ChevronRightIcon />
           </Link>

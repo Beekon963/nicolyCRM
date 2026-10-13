@@ -143,7 +143,7 @@ https://github.com/Beekon963/nicolyCRM を開いて操作します。
 1. **Actions** タブ → **オーナーを登録** → **Run workflow**
    - Use workflow from: `main`
    - メールアドレス: ログインに使うアドレス（Google でログインするなら、その Google アカウントのアドレス）
-   - 名前: `森部 太陽`
+   - 名前: オーナーの名前（例: `山田 太郎`）
    - **Run workflow** を押す
 2. 緑のチェックが付けば完了です（同じメールアドレスで何度実行しても大丈夫です）
 
@@ -280,7 +280,7 @@ cat > .env.production.local <<'ENV'
 NEXT_PUBLIC_SUPABASE_URL=https://（プロジェクトの英数字）.supabase.co
 SUPABASE_SECRET_KEY=（Secret key）
 ENV
-node --env-file=.env.production.local scripts/create-owner.mts （メールアドレス） "森部 太陽"
+node --env-file=.env.production.local scripts/create-owner.mts （メールアドレス） "（オーナーの名前）"
 ```
 
 ## 付録B: 開発用の Supabase プロジェクト（任意）

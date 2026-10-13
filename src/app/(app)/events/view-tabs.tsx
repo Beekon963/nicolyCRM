@@ -2,12 +2,12 @@ import { CalendarIcon, ListIcon, TableIcon } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/** 現場の見え方の切り替え（リスト / カレンダー / 稼働表） */
+/** 現場の見え方の切り替え（稼働表 / リスト / カレンダー。いちばんよく使う稼働表を先に。Phase 13） */
 export function EventsViewTabs({ current, month }: { current: "list" | "calendar" | "board"; month: string }) {
   const tabs = [
+    { key: "board", label: "稼働表", href: `/events/board?month=${month}`, icon: TableIcon },
     { key: "list", label: "リスト", href: "/events", icon: ListIcon },
     { key: "calendar", label: "カレンダー", href: `/events?view=calendar&month=${month}`, icon: CalendarIcon },
-    { key: "board", label: "稼働表", href: `/events/board?month=${month}`, icon: TableIcon },
   ] as const;
   return (
     <div className="mx-4 mb-2 flex gap-1 rounded-xl bg-muted p-1">

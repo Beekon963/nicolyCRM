@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { requireOwner } from "@/lib/auth";
 import { formatShortJa, paymentDateOf } from "@/lib/date";
 import { getMonthMoney, getMoneySettings, type PaymentState } from "@/lib/data/money";
@@ -31,7 +32,16 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/money/p
 
   return (
     <div className="flex flex-col gap-4 pb-8">
-      <MoneyHeader month={month} current="/money/payments" closing={money.closing} />
+      <MoneyHeader
+        month={month}
+        current="/money/payments"
+        closing={money.closing}
+        actions={
+          <Button asChild size="sm">
+            <Link href={`/money/statements?month=${month}`}>支払明細書（PDF）</Link>
+          </Button>
+        }
+      />
       {referrals.length > 0 && (
         <section aria-label="友達紹介のボーナス" className="mx-4 flex flex-col gap-2 rounded-2xl border border-status-waiting/40 bg-status-waiting-bg p-4">
           <h2 className="font-bold">友達紹介のボーナス（{referrals.length}人）</h2>

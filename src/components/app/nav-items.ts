@@ -31,6 +31,8 @@ export type NavItem = {
   more?: boolean;
   /** まだ作っていない画面（フェーズ） */
   phase?: number;
+  /** 押したときに開く画面（href と違うとき。href はどの画面のときに光らせるかに使う） */
+  go?: string;
   /** サイドバーと「その他」での見出し（毎日の作業 / 管理 / 設定）。下部タブの項目にはない */
   group?: NavGroup;
 };
@@ -45,7 +47,8 @@ export const NAV_GROUPS: { key: NavGroup; label: string }[] = [
 // 要件 §5: スマホは下部タブ「ホーム / 現場 / スタッフ / 営業 / その他」、PC はサイドバーに同じ項目＋お金・設定
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "ホーム", icon: HomeIcon, tab: true, sidebar: true },
-  { href: "/events", label: "現場", icon: CalendarDaysIcon, tab: true, sidebar: true },
+  // 現場は稼働表から開く（稼働表・リスト・カレンダーの順。Phase 13）
+  { href: "/events", go: "/events/board", label: "現場", icon: CalendarDaysIcon, tab: true, sidebar: true },
   { href: "/staff", label: "スタッフ", icon: UsersIcon, tab: true, sidebar: true },
   { href: "/sales", label: "営業", icon: BuildingIcon, tab: true, sidebar: true },
   { href: "/venues", label: "会場", icon: MapPinIcon, sidebar: true, more: true, group: "manage" },

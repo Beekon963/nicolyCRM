@@ -1,5 +1,7 @@
+import { GraduationCapIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AcademyPill } from "@/components/app/academy-pill";
 import { EmptyState, PageHeader } from "@/components/app/page-header";
 import { FilterBar } from "@/components/app/filter-bar";
 import { Badge } from "@/components/ui/badge";
@@ -30,10 +32,18 @@ export function StaffList({
       <PageHeader
         title="スタッフ"
         description={`${staff.length}人`}
+        actionsBelow
         actions={
           <>
             <Button asChild variant="outline" size="sm">
               <Link href="/availability">稼働可能日の提出</Link>
+            </Button>
+            {/* アカデミーの記録の取り込み（スマホでもボタンが1行に収まる短い名前） */}
+            <Button asChild variant="outline" size="sm">
+              <Link href="/staff/academy">
+                <GraduationCapIcon className="max-sm:hidden" />
+                アカデミー
+              </Link>
             </Button>
             <Button asChild size="sm">
               <Link href="/staff/new">＋ 登録</Link>
@@ -73,10 +83,11 @@ export function StaffList({
           {!compact && (
             <div className="hidden px-4 md:block">
               <table className="w-full text-left">
-                <thead className="border-b text-sm text-muted-foreground">
+                <thead className="border-b text-sm whitespace-nowrap text-muted-foreground [&_th]:pr-3">
                   <tr>
                     <th className="py-2 font-medium">氏名</th>
                     <th className="font-medium">ランク</th>
+                    <th className="font-medium">アカデミー</th>
                     <th className="font-medium">役割</th>
                     <th className="font-medium">エリア</th>
                     <th className="font-medium">最寄り駅</th>
@@ -87,17 +98,18 @@ export function StaffList({
                 <tbody>
                   {staff.map((s) => (
                     <tr key={s.id} className="border-b hover:bg-accent">
-                      <td className="py-2">
+                      <td className="py-2 pr-2 whitespace-nowrap">
                         <Link href={href(s.id)} className="font-medium text-primary hover:underline">
                           {s.name}
                         </Link>
                         <div className="text-sm text-muted-foreground">{s.kana}</div>
                       </td>
-                      <td>{masters.rankById.get(s.rank_id ?? "")?.name ?? "−"}</td>
+                      <td className="pr-2 whitespace-nowrap">{masters.rankById.get(s.rank_id ?? "")?.name ?? "−"}</td>
+                      <td className="py-2 pr-2">{s.academy ? <AcademyPill badge={s.academy} className="max-w-60" /> : <span className="text-muted-foreground">−</span>}</td>
                       <td className="text-sm">{names(s.role_ids, masters.roleById)}</td>
                       <td className="text-sm">{names(s.area_ids, masters.areaById)}</td>
-                      <td className="text-sm">{s.nearest_station}</td>
-                      <td className="text-sm">{s.phone}</td>
+                      <td className="pr-2 text-sm whitespace-nowrap">{s.nearest_station}</td>
+                      <td className="pr-2 text-sm whitespace-nowrap">{s.phone}</td>
                       <td>
                         <Badge tone={STAFF_STATUS[s.status].tone}>{STAFF_STATUS[s.status].label}</Badge>
                       </td>
@@ -130,6 +142,11 @@ export function StaffList({
                     <span className="block truncate text-sm text-muted-foreground">
                       {[names(s.role_ids, masters.roleById), s.nearest_station].filter(Boolean).join(" / ")}
                     </span>
+                    {s.academy && (
+                      <span className="mt-0.5 flex">
+                        <AcademyPill badge={s.academy} />
+                      </span>
+                    )}
                   </span>
                 </Link>
               </li>
