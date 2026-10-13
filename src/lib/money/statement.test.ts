@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computeMoney, type MoneyInput } from "./build";
 import { buildStatement, statementNotes, statementTotals, withholdingLabels } from "./statement";
 
-/** いただいた支払明細書と同じ前提: 単価は税込、源泉は本体価格（税込 ÷ 1.1 の円未満切捨て）× 10.21%・控除なし */
+/** 支払明細書の前提: 単価は税込、源泉は本体価格（税込 ÷ 1.1 の円未満切捨て）× 10.21%・控除なし */
 function input(days: number, rate: number, extra: Partial<MoneyInput> = {}): MoneyInput {
   const events = Array.from({ length: days }, (_, i) => ({
     id: `e${i}`,
@@ -34,17 +34,17 @@ function input(days: number, rate: number, extra: Partial<MoneyInput> = {}): Mon
 const itemName = (id: string) => ({ mnp: "MNP" })[id] ?? id;
 
 describe("支払明細書", () => {
-  it("いただいた明細書と同じ数字になる（14,000円 × 5日 → 合計 70,000 / 本体 63,636 / 消費税 6,364 / 源泉 6,497 / お支払額 63,503）", () => {
-    const [s] = computeMoney(input(5, 14000)).staff;
+  it("端数の出る例（14,000円 × 3日 → 合計 42,000 / 本体 38,181 / 消費税 3,819 / 源泉 3,898 / お支払額 38,102）", () => {
+    const [s] = computeMoney(input(3, 14000)).staff;
     const st = buildStatement(s, { itemName, taxRatePercent: 10 });
-    expect(st.lines).toEqual([{ label: "業務委託報酬（ランクD）", unit: 14000, qty: 5, amount: 70000 }]);
-    expect(st).toMatchObject({ worked: 5, total: 70000, base: 63636, tax: 6364, withholdingBase: 63636, withholding: 6497, net: 63503, estimate: false });
+    expect(st.lines).toEqual([{ label: "業務委託報酬（ランクD）", unit: 14000, qty: 3, amount: 42000 }]);
+    expect(st).toMatchObject({ worked: 3, total: 42000, base: 38181, tax: 3819, withholdingBase: 38181, withholding: 3898, net: 38102, estimate: false });
     expect(st.mainUnit).toEqual({ unit: 14000, others: false });
   });
 
-  it("一覧の例: 19,000円 × 18日 → 本体 310,909 / 源泉 31,743 / お支払額 310,257", () => {
-    const [s] = computeMoney(input(18, 19000)).staff;
-    expect(buildStatement(s, { itemName, taxRatePercent: 10 })).toMatchObject({ total: 342000, base: 310909, withholding: 31743, net: 310257 });
+  it("日数の多い例（17,000円 × 12日 → 合計 204,000 / 本体 185,454 / 源泉 18,934 / お支払額 185,066）", () => {
+    const [s] = computeMoney(input(12, 17000)).staff;
+    expect(buildStatement(s, { itemName, taxRatePercent: 10 })).toMatchObject({ total: 204000, base: 185454, withholding: 18934, net: 185066 });
   });
 
   it("日当の違う日・遠方の上乗せ・インセンティブ・調整額・交通費は行を分け、合計は支払いの計算と同じ", () => {
