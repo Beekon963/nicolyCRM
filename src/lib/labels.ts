@@ -38,6 +38,13 @@ export const STAFF_STATUS: Record<Enums["staff_status"], { label: string; tone: 
   ended: { label: "終了", tone: "muted" },
 };
 
+/** NICOLY アカデミーの稼働判断（Phase 14）。稼働可 = 緑・保留 = 黄（待ち）・未判定 = 灰 */
+export const ACADEMY_DECISION: Record<"ready" | "hold" | "none", { label: string; tone: Tone }> = {
+  ready: { label: "稼働可", tone: "done" },
+  hold: { label: "保留", tone: "waiting" },
+  none: { label: "未判定", tone: "muted" },
+};
+
 export const NOTE_KIND: Record<Enums["note_kind"], { label: string; tone: Tone }> = {
   last_minute_cancel: { label: "直前キャンセル", tone: "alert" },
   late: { label: "遅延", tone: "alert" },

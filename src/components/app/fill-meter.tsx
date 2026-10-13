@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * バーは途中は青、全部うまったら緑（緑 = 完了の色なので、足りないうちは使わない）。
  * 足りない分は「あと〇人」の数字を赤で出す（色だけにしない）。
  */
-const BAR = (done: boolean) =>
+export const BAR = (done: boolean) =>
   cn(
     "h-full rounded-full motion-safe:transition-[width] motion-safe:duration-700",
     done ? "bg-gradient-to-r from-[#10b981] to-status-done-solid" : "bg-gradient-to-r from-[#3b82f6] to-primary",

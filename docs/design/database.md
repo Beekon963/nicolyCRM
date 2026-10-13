@@ -544,3 +544,11 @@ erDiagram
 | `owner_settings`（データ） | `withholding.tax_inclusive` を false（源泉は本体価格にかける） |
 | 支払明細書 | テーブルは足していない。`src/lib/money/statement.ts` が支払いの計算（`StaffMoney`）から明細の行・本体価格・消費税を作る。画面は `/money/statements`（オーナーのみ） |
 | `StaffMoney.rankName` | ランクの名前を締めのスナップショットにも残す（明細書の「業務委託報酬（ランクD）」） |
+
+## Phase 14 で足したもの（NICOLY アカデミーの進み具合）
+
+| 対象 | 内容 |
+|---|---|
+| `academy_progress` | スタッフ1人に1行（`staff_id` が主キー）。アカデミーの管理画面の CSV から取り込んだ、いちばん新しい記録。`academy_id`（アカデミーのログイン。1つのログインは1人だけ）・称号・分野（`areas` jsonb: 名前・学習済みの章・全部の章・テスト合格）・知識テスト・総合ロープレ・現場チェック・稼働判断（`ready` / `hold` / `none`）・ヒアリング評価の数・初回ガイド・最後に学習した日時・取り込んだ日時と人（`20261013000002_academy_progress.sql`）。全部の数の列は `roadmap_steps`・`field_items`（金額の列と見分けるため `total` を使わない） |
+| 権限 | お金の情報はないので、オーナー・管理者が読める・取り込める・直せる・外せる（アカデミーの写しなので、結びつけ直すときに消せる）。ログインしていない人・無効化した管理者は読めない |
+| 読み方 | CSV を読むのは `src/lib/import/academy.ts`、DB の行 → 画面は `src/lib/academy.ts`、取り込みは `src/app/(app)/staff/academy/actions.ts` |

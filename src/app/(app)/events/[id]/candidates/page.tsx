@@ -3,6 +3,7 @@ import { CompanyName } from "@/components/app/company-name";
 import { PageHeader } from "@/components/app/page-header";
 import { VenueColorDot } from "@/components/app/venue-color";
 import { requireMember } from "@/lib/auth";
+import { getAcademyBadges } from "@/lib/data/academy";
 import { formatShortJa } from "@/lib/date";
 import { getMasters } from "@/lib/data/masters";
 import { siteUrl } from "@/lib/supabase/env";
@@ -28,7 +29,8 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
     getMasters(),
   ]);
   if (!ev) notFound();
-  const { data: tokens } = await supabase.from("staff").select("id, mypage_token").in("id", (candidates ?? []).map((c) => c.staff_id));
+  const ids = (candidates ?? []).map((c) => c.staff_id);
+  const [{ data: tokens }, academy] = await Promise.all([supabase.from("staff").select("id, mypage_token").in("id", ids), getAcademyBadges(ids)]);
   const tokenMap = new Map((tokens ?? []).map((t) => [t.id, t.mypage_token]));
 
   const roles = masters.roles
@@ -62,12 +64,12 @@ export default async function CandidatesPage({ params }: PageProps<"/events/[id]
       />
       <details className="px-4 pb-2 text-sm text-muted-foreground">
         <summary className="w-fit cursor-pointer select-none hover:text-foreground">並び順について</summary>
-        <p className="pt-1">○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。</p>
+        <p className="pt-1">○ → △ → 未提出 → ×・NG・同日に別現場。同じ順位の中はランク → 平均獲得件数（直近3か月）の順です。帽子の札はアカデミーの称号と稼働判断です（並び順には使いません）。</p>
       </details>
       <CandidatePicker
         eventId={id}
         roles={roles}
-        candidates={(candidates ?? []).map((c) => ({ ...c, mypage_token: tokenMap.get(c.staff_id) ?? "" })) as Candidate[]}
+        candidates={(candidates ?? []).map((c) => ({ ...c, mypage_token: tokenMap.get(c.staff_id) ?? "", academy: academy.get(c.staff_id) ?? null })) as Candidate[]}
         template={tpl?.body ?? ""}
         event={{ ...ev, venue: ev.venue }}
         siteUrl={siteUrl()}

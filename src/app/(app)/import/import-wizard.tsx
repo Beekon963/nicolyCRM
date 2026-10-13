@@ -113,6 +113,13 @@ export function ImportWizard({ roles, defaultSheetUrl }: { roles: { id: string; 
             <span className="font-bold">LINEのトーク履歴（過去の件数の報告）</span>
             <span className="text-sm text-muted-foreground">件数の報告の LINE グループのトーク履歴から、過去の獲得件数と現場詳細を取り込みます</span>
           </Link>
+          <Link
+            href="/staff/academy"
+            className="flex min-h-16 flex-col items-start justify-start rounded-2xl border bg-card p-4 text-left shadow-card transition-colors hover:bg-accent sm:col-span-2"
+          >
+            <span className="font-bold">アカデミーの進み具合</span>
+            <span className="text-sm text-muted-foreground">NICOLY アカデミーの管理画面の CSV から、称号・分野の進み具合・テスト・稼働判断を取り込みます（管理者もスタッフの画面から取り込めます）</span>
+          </Link>
         </div>
       )}
 

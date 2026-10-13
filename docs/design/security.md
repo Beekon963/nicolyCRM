@@ -26,6 +26,7 @@ RLS の判定には次の関数を使う（`security definer`、`app_users` を�
 | ★ 金額系（下の一覧） | 読み書き | **不可（0件が返る）** | 不可 |
 | ★ `audit_logs` | 読むだけ | 不可（実績の履歴だけ専用関数で見られる） | 不可 |
 | `rate_limits` | 不可 | 不可 | 不可（関数だけが使う） |
+| `academy_progress`（NICOLY アカデミーの進み具合。Phase 14） | 読み書き | 読み書き（取り込み・外す） | 不可（マイページには出さない） |
 
 **★ 金額系テーブル（オーナーのみ）**: `staff_private`（日当・源泉・インボイス・契約書・口座）、`rank_rates`（ランクごとの基準日当）、`assignment_private`、`company_billing`、`client_rates`、`event_rates`、`incentive_rates`、`event_incentive_rates`、`payment_adjustments`、`monthly_closings`、`closing_logs`、`payments`、`invoices`、`owner_settings`、`monthly_targets`、`audit_logs`
 
@@ -33,6 +34,7 @@ RLS の判定には次の関数を使う（`security definer`、`app_users` を�
 
 **削除**: 原則どのテーブルも削除の権限を与えない（無効化・アーカイブで対応）。誤登録の取り消しなど、例外は個別に決める。
 例外（Phase 2）: 活動履歴（`activities`）は「元に戻す」のためだけに、**記録した本人が15分以内**に限って消せる。
+例外（Phase 14）: アカデミーの進み具合（`academy_progress`）はアカデミーの記録の写しなので、取り込みで別のスタッフに結びつけ直すときに消せる（オーナー・管理者）。
 
 ## 3. 抜け道をふさぐルール
 
@@ -148,6 +150,14 @@ RLS の判定には次の関数を使う（`security definer`、`app_users` を�
 | 言いかえ表 | `item_aliases` は読むのはメンバー、足す・直す・消すのはオーナーだけ（設定と同じ）。ログインしていない人は読めない。画面の「覚える」もオーナーだけ（サーバーでも `assertOwner` で確かめる） |
 | マイページ | `mypage_report_get` に、言いかえ表（その取引先の分と全取引先の分）と、同じ現場の確定した人の名前・役割・件数・コメントを足した。**電話番号・マイページの鍵・金額は返さない**。ほかの取引先の言いかえは返さない（`tests/db/report-aliases.test.ts`） |
 | 変換 | 貼った文は画面の中だけで直す（DB に残さない）。金額は扱わない |
+
+## 5-2-7. NICOLY アカデミーの進み具合（Phase 14）
+
+| 項目 | 内容 |
+|---|---|
+| 取り込み | アカデミーの管理画面の CSV を画面の中で読み、選んだスタッフの分だけをサーバーに送る（CSV そのものは保存しない）。サーバーでも `assertMember` で確かめ、値をもう一度確かめてから入れる |
+| 出すところ | スタッフの詳細・スタッフ一覧・打診の候補（オーナー・管理者）。**マイページ・見るだけリンク・シートへの書き出し・AI アシスタントには出さない** |
+| テスト | `tests/db/academy.test.ts`（管理者は読み書きできる・ログインしていない人と無効化した管理者は読めない）、`e2e/manager/academy.spec.ts` |
 
 ## 5-3. お金の画面・書き出し（Phase 3）
 

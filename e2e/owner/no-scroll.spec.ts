@@ -33,6 +33,7 @@ test("全画面がスマホ幅 375px で横スクロールしない", async ({ p
     `/events/${ids.past_event}`,
     "/staff",
     "/staff/new",
+    "/staff/academy",
     `/staff/${ids.staff}`,
     `/staff/${ids.staff}/edit`,
     "/availability",

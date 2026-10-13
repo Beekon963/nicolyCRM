@@ -11,6 +11,7 @@ const PAGES = [
   "/",
   "/?basis=reported",
   "/staff",
+  "/staff/academy",
   "/venues",
   "/sales",
   "/sales?kind=partner",
