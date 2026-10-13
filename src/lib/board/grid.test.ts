@@ -8,9 +8,11 @@ import {
   DAY_WIDTH,
   gridColCount,
   gridRows,
+  keySelection,
   moveSelection,
   nextDensity,
   normRange,
+  resolveSelection,
   reverseChanges,
   selectionTsv,
   single,
@@ -61,6 +63,31 @@ describe("稼働表のマスの番地", () => {
   });
   it("現場がない月は、欠員と取引先の行がない", () => {
     expect(gridRows(buildBoard({ ...input, events: [], assignments: [] })).map((r) => r.kind)).toEqual(["header", "staff", "staff"]);
+  });
+});
+
+describe("選んだマスは「どの人の行か」で覚える", () => {
+  // 井上さん（4行目）の 11/5 を選んでいる
+  const sel = keySelection(single({ r: 4, c: 5 }), rows);
+
+  it("行が変わらなければ、同じ番地のまま", () => {
+    expect(resolveSelection(sel, rows, cols)).toEqual(single({ r: 4, c: 5 }));
+  });
+
+  it("入力のあとに表が新しくなり、前に人が増えても、同じ人のマスのまま", () => {
+    const more = gridRows(buildBoard({ ...input, staff: [{ id: "s0", name: "相田 次郎", kana: "あいだ", rank_name: "A", rank_order: 1, nearest_station: "" }, ...input.staff] }));
+    expect(more.flatMap((r) => (r.kind === "staff" ? [r.id] : []))).toEqual(["s0", "s1", "s2"]);
+    expect(resolveSelection(sel, more, cols)).toEqual(single({ r: 5, c: 5 }));
+  });
+
+  it("前の人がいなくなっても、同じ人のマスのまま", () => {
+    const fewer = gridRows(buildBoard({ ...input, staff: input.staff.slice(1), assignments: input.assignments.slice(1) }));
+    expect(resolveSelection(sel, fewer, cols)).toEqual(single({ r: 3, c: 5 }));
+  });
+
+  it("その人がいなくなったときは、前の番地を表の中に収める", () => {
+    const gone = gridRows(buildBoard({ ...input, staff: input.staff.slice(0, 1), assignments: input.assignments.slice(0, 1) }));
+    expect(resolveSelection(sel, gone, cols)).toEqual(single({ r: 3, c: 5 }));
   });
 });
 

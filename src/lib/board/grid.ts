@@ -31,6 +31,28 @@ export function rowKey(row: GridRow) {
   return row.kind === "client" || row.kind === "staff" ? `${row.kind}:${row.id}` : row.kind;
 }
 
+/**
+ * 選んだマスを「何行目か」ではなく「どの行か（どの人・どの取引先か）」で覚える形。
+ * 入力のあとに表が新しくなり、ほかの人が登録・削除されて行がずれても、同じ人のマスに入り続けるようにする
+ */
+type KeyedPos = Pos & { key: string };
+export type KeyedSelection = { anchor: KeyedPos; focus: KeyedPos };
+
+export function keySelection(sel: Selection, rows: GridRow[]): KeyedSelection {
+  const k = (p: Pos): KeyedPos => ({ ...p, key: rows[p.r] ? rowKey(rows[p.r]) : "" });
+  return { anchor: k(sel.anchor), focus: k(sel.focus) };
+}
+
+/** 覚えたマスを、いまの行の並びの番地に戻す（その行がなくなっていたら、前の番地を表の中に収める） */
+export function resolveSelection(sel: KeyedSelection, rows: GridRow[], cols: number): Selection {
+  const keys = rows.map(rowKey);
+  const at = (p: KeyedPos): Pos => {
+    const r = keys.indexOf(p.key);
+    return clampPos({ r: r >= 0 ? r : p.r, c: p.c }, rows.length, cols);
+  };
+  return { anchor: at(sel.anchor), focus: at(sel.focus) };
+}
+
 export function single(p: Pos): Selection {
   return { anchor: p, focus: p };
 }
