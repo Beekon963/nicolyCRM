@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, freeFutureDate, one, sql } from "../helpers/db";
+import { cleanupEvent, dropStaff, freeFutureDate, makeStaff, one, sql } from "../helpers/db";
 import { gotoReady } from "../helpers/layout";
 
 /**
@@ -12,6 +12,7 @@ test.skip(({ isMobile }) => isMobile, "設定の保存は PC で確かめる（�
 let clientId = "";
 let eventId = "";
 let assignmentId = "";
+let staffId = "";
 const name = `テスト請求先${Math.random().toString(36).slice(2, 7)}`;
 
 test.beforeAll(async () => {
@@ -21,7 +22,9 @@ test.beforeAll(async () => {
   const date = await freeFutureDate();
   eventId = (await one<{ id: string }>(`insert into events (client_id, venue_id, date, start_time, end_time) values ($1, $2, $3, '10:00', '19:00') returning id`, [clientId, venue.id, date])).id;
   await sql(`insert into event_requirements (event_id, role_id, required_count) values ($1, $2, 1)`, [eventId, closer.id]);
-  const staff = await one<{ id: string }>(`select id from staff where status = 'active' order by name limit 1`);
+  // 日当を入れる人はこのテストで作る（ダミーデータの人の日当を書きかえないように）
+  const staff = await makeStaff("単価 一郎");
+  staffId = staff.id;
   await sql(`insert into staff_private (staff_id, base_daily_rate) values ($1, 15000) on conflict (staff_id) do update set base_daily_rate = 15000`, [staff.id]);
   assignmentId = (await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [eventId, staff.id, closer.id])).id;
 });
@@ -30,6 +33,7 @@ test.afterAll(async () => {
   await sql(`delete from event_rates where event_id = $1`, [eventId]);
   await sql(`delete from event_incentive_rates where event_id = $1`, [eventId]);
   await cleanupEvent(eventId);
+  await dropStaff(staffId);
   await sql(`delete from client_rates where company_id = $1`, [clientId]);
   await sql(`delete from company_billing where company_id = $1`, [clientId]);
   await sql(`delete from companies where id = $1`, [clientId]);

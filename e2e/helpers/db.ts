@@ -17,10 +17,17 @@ export async function one<T = Record<string, unknown>>(text: string, params: unk
   return rows[0];
 }
 
-/** 他のテストとぶつからない未来の日付（今日から 120〜300 日後） */
+/**
+ * 他のテストとぶつからない未来の日付（今日から 120〜1500 日後のうち、まだ現場のない日をくじ引き）。
+ * 幅が狭いと、同時に動くテストが同じ日を選び、稼働表の日ごとのリストなどに相手の現場が割り込むため
+ */
 export async function freeFutureDate(): Promise<string> {
-  const offset = 120 + Math.floor(Math.random() * 180);
-  const r = await one<{ d: string }>(`select to_char(public.jst_today() + $1::int, 'YYYY-MM-DD') as d`, [offset]);
+  const r = await one<{ d: string }>(
+    `select to_char(g::date, 'YYYY-MM-DD') as d
+       from generate_series((public.jst_today() + 120)::timestamp, (public.jst_today() + 1500)::timestamp, interval '1 day') as g
+      where not exists (select 1 from events e where e.date = g::date)
+      order by random() limit 1`,
+  );
   return r.d;
 }
 
