@@ -21,9 +21,9 @@ describe("社内向けの LINE のお知らせ", () => {
 
   it("新しい現場: 日付の順に並べ、10件を超えたら「ほか〇件」にまとめる", () => {
     const ev = (d: number) => ({ date: `2026-10-${String(d).padStart(2, "0")}`, venue: "DS中央", client: "テスト通信", requirements: [{ role: "クローザー", count: 2 }, { role: "キャッチャー", count: 1 }] });
-    const t = adminEventsText([ev(12), ev(11), ...Array.from({ length: 10 }, (_, i) => ev(13 + i))], "森部");
+    const t = adminEventsText([ev(12), ev(11), ...Array.from({ length: 10 }, (_, i) => ev(13 + i))], "山田");
     const lines = t.split("\n");
-    expect(lines[0]).toBe("【新しい現場】12件（森部さんが登録）");
+    expect(lines[0]).toBe("【新しい現場】12件（山田さんが登録）");
     expect(lines[1]).toBe("10/11(日) DS中央（テスト通信）クローザー2・キャッチャー1");
     expect(lines.at(-1)).toBe("ほか2件");
     expect(t).not.toMatch(/円/);

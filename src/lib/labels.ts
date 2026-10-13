@@ -111,9 +111,9 @@ export const INPUT_SOURCE: Record<Enums["input_source"], string> = { self: "本�
 export const USER_ROLE: Record<Enums["user_role"], string> = { owner: "オーナー", manager: "管理者" };
 
 export const WITHHOLDING_METHOD: Record<Enums["withholding_method"], string> = {
-  none: "なし",
-  fee: "報酬・料金",
-  sales_agent: "外交員報酬",
+  fee: "報酬・料金（10.21%・全員の基本）",
+  none: "なし（対象外の人だけ。会社など）",
+  sales_agent: "外交員報酬（12万円を引いて10.21%）",
 };
 
 export const ACCOUNT_TYPE: Record<Enums["account_type"], string> = { ordinary: "普通", checking: "当座" };

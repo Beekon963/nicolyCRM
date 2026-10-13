@@ -535,3 +535,12 @@ erDiagram
 | `settings`（データ） | `transport_included`（日当は交通費込み。初期値 true）。`availability_deadline_day` は 20 のままなら 10 にした |
 | `setting_bool(key, default)` | 設定の true / false を読む（DB 関数の中で使う。anon は実行できない） |
 | `mypage_report_get` / `mypage_report_save` | 交通費込みのあいだは `transport_included: true` を返し、交通費を受け取らない（その他の経費は今までどおり） |
+
+## Phase 13 で変えたもの（支払明細書・源泉は全員）
+
+| 対象 | 内容 |
+|---|---|
+| `staff_private.withholding_method` | 初期値を `fee`（報酬・料金）にした。今 `none` の人も `fee` に。まだ「お金・契約」の行がない人には行を作った（`20261013000001_withholding_everyone.sql`）。行がないスタッフも計算では `fee` |
+| `owner_settings`（データ） | `withholding.tax_inclusive` を false（源泉は本体価格にかける） |
+| 支払明細書 | テーブルは足していない。`src/lib/money/statement.ts` が支払いの計算（`StaffMoney`）から明細の行・本体価格・消費税を作る。画面は `/money/statements`（オーナーのみ） |
+| `StaffMoney.rankName` | ランクの名前を締めのスナップショットにも残す（明細書の「業務委託報酬（ランクD）」） |

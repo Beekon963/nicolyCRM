@@ -58,6 +58,10 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
         actions={
           // 見出しと同じ行に小さく並べる（表を少しでも上に出すため）
           <div className="flex gap-2 max-md:[&_button]:gap-1.5 max-md:[&_button]:px-2.5">
+            {/* 現場は稼働表から開くので、ここからも作れるように（スマホは右下の ＋）。Phase 13 */}
+            <Button asChild size="sm" className="hidden md:inline-flex">
+              <Link href="/events/new">＋ 現場を作る</Link>
+            </Button>
             <ShareLink link={share ? { url: `${siteUrl()}/s/${share.token}`, active: share.is_active } : null} isOwner={isOwner} />
             <SheetExport
               isOwner={isOwner}

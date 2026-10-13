@@ -46,8 +46,8 @@ export async function getHomeData() {
     supabase.from("expenses").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("staff").select("id", { count: "exact", head: true }).eq("status", "active"),
     supabase.from("availability_submissions").select("staff_id, staff:staff!inner(status)").eq("month", `${next}-01`).not("submitted_at", "is", null).eq("staff.status", "active"),
-    // 埋まり具合のゲージ（今日・今日から7日間）
-    supabase.from("event_overview").select("date, required_total, shortage_total").gte("date", today).lte("date", addDays(today, 6)).is("cancelled_at", null),
+    // 埋まり具合のゲージ（明日・明日から7日間。今日の分はもう決まっているので見ない。Phase 13）
+    supabase.from("event_overview").select("date, required_total, shortage_total").gte("date", tomorrow).lte("date", addDays(tomorrow, 6)).is("cancelled_at", null),
   ]);
   const weekRows = (week.data ?? []).map((e) => ({ date: e.date, required: e.required_total ?? 0, shortage: e.shortage_total ?? 0 }));
 
@@ -59,7 +59,7 @@ export async function getHomeData() {
     today,
     tomorrow,
     todayTomorrow: todayTomorrow.data ?? [],
-    fill: { today: fillOf(weekRows.filter((e) => e.date === today)), week: fillOf(weekRows) },
+    fill: { tomorrow: fillOf(weekRows.filter((e) => e.date === tomorrow)), week: fillOf(weekRows) },
     shortages: shortages.data ?? [],
     offers: offerRows.map((o) => ({ ...o, overdue: now - new Date(o.offered_at).getTime() > 24 * 3600_000 })),
     unreported: unreportedRows,

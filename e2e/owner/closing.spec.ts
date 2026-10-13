@@ -50,7 +50,10 @@ test("締める: チェックを確かめて締めると、締め済みになり
   const mc = await one<{ status: string }>(`select status from monthly_closings where month = $1`, [`${month}-01`]);
   expect(mc.status).toBe("closed");
   const p = await one<{ status: string; net_amount: number }>(`select status, net_amount from payments where month = $1 and staff_id = $2`, [`${month}-01`, staff.id]);
-  expect([p.status, p.net_amount]).toEqual(["confirmed", 5000]);
+  // 源泉は全員が対象（Phase 13）: 調整額 5,000円 → 本体価格 4,545円 × 10.21% = 464円 を引く（対象外の人なら 5,000円）
+  const m = await one<{ method: string }>(`select coalesce((select withholding_method::text from staff_private where staff_id = $1), 'fee') as method`, [staff.id]);
+  const net = m.method === "fee" ? 5000 - Math.floor((Math.floor((5000 * 100) / 110) * 1021) / 10000) : 5000;
+  expect([p.status, p.net_amount]).toEqual(["confirmed", net]);
 });
 
 test("支払い: 締めた月は調整額を変えられず、支払済みにできる（元に戻せる）", async ({ page }) => {

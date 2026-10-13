@@ -83,8 +83,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </Link>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <FillMeter label="今日" fill={d.fill.today} />
-          <FillMeter label="今日から7日間" fill={d.fill.week} />
+          <FillMeter label="明日" fill={d.fill.tomorrow} />
+          <FillMeter label="明日から7日間" fill={d.fill.week} />
         </CardContent>
       </Card>
 

@@ -27,7 +27,8 @@ export const DEFAULT_MONEY_SETTINGS: MoneySettings = {
   taxRatePercent: 10,
   taxRounding: "floor",
   withholdingIncludeExpenses: true,
-  withholdingTaxInclusive: true,
+  // 源泉徴収は本体価格（税抜）にかける（Phase 13。今の支払明細書と同じ）
+  withholdingTaxInclusive: false,
   paymentDay: 25,
   travelStepAmount: null,
   referralBonus: { amount: null, after: 5 },
@@ -150,7 +151,7 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
       supabase.from("incentive_rates").select("item_id, amount").then((r) => r.data ?? []),
       chunked(clientIds, 200, (ids) => supabase.from("company_billing").select("company_id, bill_transport").in("company_id", ids)),
       chunked(staffIds, 200, (ids) => supabase.from("staff_private").select("staff_id, base_daily_rate, withholding_method, invoice_number").in("staff_id", ids)),
-      chunked(staffIds, 200, (ids) => supabase.from("staff").select("id, name, rank_id").in("id", ids)),
+      chunked(staffIds, 200, (ids) => supabase.from("staff").select("id, name, rank_id, rank:ranks(name)").in("id", ids)),
       range
         ? supabase.from("payment_adjustments").select("id, staff_id, amount, reason").eq("month", range.start).then((r) => r.data ?? [])
         : Promise.resolve([] as { id: string; staff_id: string; amount: number; reason: string }[]),
@@ -164,7 +165,7 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
   const adjStaff = adjustments.map((a) => a.staff_id).filter((id) => !staffIds.includes(id));
   const extraStaff = adjStaff.length
     ? await chunked([...new Set(adjStaff)], 200, (ids) =>
-        supabase.from("staff").select("id, name, rank_id, private:staff_private(base_daily_rate, withholding_method, invoice_number)").in("id", ids),
+        supabase.from("staff").select("id, name, rank_id, rank:ranks(name), private:staff_private(base_daily_rate, withholding_method, invoice_number)").in("id", ids),
       )
     : [];
 
@@ -201,7 +202,8 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
           name: s.name,
           baseDailyRate: p?.base_daily_rate ?? null,
           rankDailyRate: rankDaily(s.rank_id),
-          method: p?.withholding_method ?? "none",
+          rankName: s.rank?.name ?? null,
+          method: p?.withholding_method ?? "fee",
           invoiceNumber: p?.invoice_number ?? null,
         };
       }),
@@ -212,7 +214,8 @@ export async function loadMoneyInput(scope: { month: string } | { eventId: strin
           name: s.name,
           baseDailyRate: p?.base_daily_rate ?? null,
           rankDailyRate: rankDaily(s.rank_id),
-          method: p?.withholding_method ?? "none",
+          rankName: s.rank?.name ?? null,
+          method: p?.withholding_method ?? "fee",
           invoiceNumber: p?.invoice_number ?? null,
         };
       }),

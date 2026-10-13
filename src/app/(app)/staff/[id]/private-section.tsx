@@ -40,7 +40,8 @@ export function PrivateSection({
   const [form, setForm] = useState<StaffPrivateInput>({
     staffId,
     base_daily_rate: initial?.base_daily_rate ?? null,
-    withholding_method: initial?.withholding_method ?? "none",
+    // 源泉徴収は全員が対象（報酬・料金）。対象外の人だけ「なし」にする（Phase 13）
+    withholding_method: initial?.withholding_method ?? "fee",
     invoice_number: initial?.invoice_number ?? "",
     contract_date: initial?.contract_date ?? "",
     bank_name: initial?.bank_name ?? "",

@@ -4,8 +4,8 @@ import { expectNoHorizontalScroll } from "../helpers/layout";
 
 const uniq = () => Math.random().toString(36).slice(2, 7);
 
-test("欠員がホームに赤で出て、埋まると消える", async ({ page }) => {
-  const ev = await makeEvent("jst_today()", { required: 1 });
+test("欠員がホームに赤で出て、埋まると消える（埋まり具合は明日の分）", async ({ page }) => {
+  const ev = await makeEvent("jst_today() + 1", { required: 1 });
   try {
     await page.goto("/");
     await expectNoHorizontalScroll(page);
@@ -13,8 +13,9 @@ test("欠員がホームに赤で出て、埋まると消える", async ({ page 
     await expect(row).toContainText(ev.venue);
     await expect(row).toContainText("欠1");
     await expect(row).toHaveAttribute("data-alert", "true");
-    // 埋まり具合のゲージ: 今日の欠員があるので「あと〇人」が赤で出る
-    await expect(page.getByTestId("home-fill").getByRole("meter", { name: "今日の埋まり具合" })).toBeVisible();
+    // 埋まり具合のゲージ: 明日の欠員があるので「あと〇人」が赤で出る（今日の分はもう見ない。Phase 13）
+    await expect(page.getByTestId("home-fill").getByRole("meter", { name: "明日の埋まり具合" })).toBeVisible();
+    await expect(page.getByTestId("home-fill").getByRole("meter", { name: "今日の埋まり具合" })).toHaveCount(0);
     await expect(page.getByTestId("home-fill")).toContainText("あと");
     const staff = await one<{ id: string }>(`select id from staff where status = 'active' order by random() limit 1`);
     await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [ev.id, staff.id, ev.roleId]);
