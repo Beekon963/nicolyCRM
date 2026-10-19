@@ -350,6 +350,31 @@ isOneToOne: true
       referencedColumns: ["id"]
     }
                   ]
+                },"company_expenses": {
+                  Row: {
+                    "amount": number,"attendees": string,"category": string,"created_at": string,"created_by": string | null,"id": string,"item": string,"memo": string,"paid_by": string | null,"purpose": string,"receipt_path": string | null,"receipt_url": string,"spent_on": string,"updated_at": string,"vendor": string,"voided_at": string | null
+                  }
+                  Insert: {
+                    "amount": number,"attendees"?: string,"category"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"item"?: string,"memo"?: string,"paid_by"?: string | null,"purpose"?: string,"receipt_path"?: string | null,"receipt_url"?: string,"spent_on": string,"updated_at"?: string,"vendor"?: string,"voided_at"?: string | null
+                  }
+                  Update: {
+                    "amount"?: number,"attendees"?: string,"category"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"item"?: string,"memo"?: string,"paid_by"?: string | null,"purpose"?: string,"receipt_path"?: string | null,"receipt_url"?: string,"spent_on"?: string,"updated_at"?: string,"vendor"?: string,"voided_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "company_expenses_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "company_expenses_paid_by_fkey"
+      columns: ["paid_by"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"company_items": {
                   Row: {
                     "company_id": string,"item_id": string

@@ -35,6 +35,10 @@ const PAGES = [
   "/trainings",
   "/notifications",
   "/more",
+  // 会社の経費（オーナーだけ。管理者には「見つかりません」）
+  "/company-expenses",
+  "/company-expenses/new",
+  "/company-expenses/import",
 ];
 
 test("管理者が開くどの画面の通信にも金額・口座が含まれない", async ({ page }) => {

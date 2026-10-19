@@ -10,6 +10,7 @@ import {
   MapPinIcon,
   MenuIcon,
   ReceiptIcon,
+  ReceiptJapaneseYenIcon,
   SettingsIcon,
   UploadIcon,
   UsersIcon,
@@ -59,6 +60,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/trainings", label: "研修の予約", icon: VideoIcon, sidebar: true, more: true, group: "manage" },
   { href: "/notifications", label: "LINE の通知", icon: BellIcon, sidebar: true, more: true, group: "manage" },
   { href: "/money", label: "お金", icon: WalletIcon, ownerOnly: true, sidebar: true, more: true, group: "manage" },
+  // 会社の経費（オーナーが立て替えた経費。Phase 16）。スタッフの「交通費・経費の承認」とは別のもの
+  { href: "/company-expenses", label: "会社の経費", icon: ReceiptJapaneseYenIcon, ownerOnly: true, sidebar: true, more: true, group: "manage" },
   { href: "/import", label: "データ取り込み", icon: UploadIcon, ownerOnly: true, sidebar: true, more: true, group: "admin" },
   { href: "/audit", label: "変更履歴", icon: FileClockIcon, ownerOnly: true, sidebar: true, more: true, group: "admin" },
   { href: "/settings", label: "設定", icon: SettingsIcon, ownerOnly: true, sidebar: true, more: true, group: "admin" },

@@ -552,3 +552,12 @@ erDiagram
 | `academy_progress` | スタッフ1人に1行（`staff_id` が主キー）。アカデミーの管理画面の CSV から取り込んだ、いちばん新しい記録。`academy_id`（アカデミーのログイン。1つのログインは1人だけ）・称号・分野（`areas` jsonb: 名前・学習済みの章・全部の章・テスト合格）・知識テスト・総合ロープレ・現場チェック・稼働判断（`ready` / `hold` / `none`）・ヒアリング評価の数・初回ガイド・最後に学習した日時・取り込んだ日時と人（`20261013000002_academy_progress.sql`）。全部の数の列は `roadmap_steps`・`field_items`（金額の列と見分けるため `total` を使わない） |
 | 権限 | お金の情報はないので、オーナー・管理者が読める・取り込める・直せる・外せる（アカデミーの写しなので、結びつけ直すときに消せる）。ログインしていない人・無効化した管理者は読めない |
 | 読み方 | CSV を読むのは `src/lib/import/academy.ts`、DB の行 → 画面は `src/lib/academy.ts`、取り込みは `src/app/(app)/staff/academy/actions.ts` |
+
+## Phase 16 で足したもの（会社の経費）
+
+| 対象 | 内容 |
+|---|---|
+| `company_expenses` | ★ オーナーが立て替えた会社の経費。1件1行（`20261019000001_company_expenses.sql`）。払った人（`paid_by` → `app_users`。空は「まだ決めていない」）・使った日・店・支払先（`vendor`）・買ったもの（`item`。どちらかは必須）・用途・区分（決まった一覧にしない。30文字まで）・金額（税込・円。1〜99,999,999）・参加者・メモ・領収書の写真（`receipt_path`）・今のシートから取り込んだ領収書のリンク（`receipt_url`）・取り消した日時（`voided_at`）・入れた人 |
+| 権限 | ★ オーナーだけが読める・入れる・直せる（管理者・無効化した管理者・ログインしていない人は 0 件）。**消すポリシーはない**（取り消しは `voided_at`。合計に入れない）。入れる・直す・取り消すは変更履歴に残る（`audit_trigger('id')`） |
+| `receipts` バケット | 領収書の写真（非公開・5MB まで・JPEG / PNG / WebP）。オーナーだけが読める・入れる。消すのは、経費の登録に失敗したときに入れたばかりの写真を片付けるときだけ。写真を差しかえても前の写真は残す（変更履歴から追えるように）。全データの一括ダウンロード（ZIP）には写真は入らない（表だけ） |
+| 読み方 | 合計（払った人ごと・区分ごと）は `src/lib/money/company-expenses.ts`、今のシートを読むのは `src/lib/import/expense-sheet.ts`、レシートの読み取りは `src/lib/ai/receipt.ts`、書き出しの CSV は `src/lib/export/company-expenses-csv.ts` |

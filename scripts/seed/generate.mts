@@ -495,6 +495,25 @@ sql(`insert into public.monthly_targets (month, revenue, gross_profit) values ($
   );
 }
 
+// 会社の経費（Phase 16。★オーナーだけが見る）。お店の名前はすべて架空。1件は払った人を「まだ決めていない」にする
+{
+  const owner = q(SEED_USERS.owner.id);
+  const rows: [number, string, string, string, string, string, number, string][] = [
+    [-1, owner, "飲食", "カフェ さくら", "打ち合わせのお茶代", "取引先との打ち合わせ", 1980, "テスト オーナー、取引先2名"],
+    [-3, owner, "交通", "タクシー", "現場への移動", "会場の下見", 3450, ""],
+    [-6, owner, "通信・ソフト", "クラウドソフト", "月額の利用料", "", 3278, ""],
+    [-10, "null", "消耗品・備品", "文具の森", "コピー用紙・ペン", "", 2640, ""],
+    [-15, owner, "飲食", "居酒屋 ひなた", "スタッフとの懇親会", "", 23500, "スタッフ6名"],
+    [-25, owner, "その他", "レンタルスペース 青空", "研修の会場代", "新人研修", 16500, ""],
+    [-40, owner, "通信・ソフト", "ソフトの店 みなと", "業務用ソフト（年間）", "事務所用", SENTINELS.companyExpense, ""],
+  ];
+  sql(
+    `insert into public.company_expenses (paid_by, spent_on, category, vendor, item, purpose, amount, attendees, created_by) values\n  ` +
+      rows.map(([d, by, cat, vendor, item, purpose, amount, who]) => `(${by}, ${q(addDays(today, d))}, ${q(cat)}, ${q(vendor)}, ${q(item)}, ${q(purpose)}, ${amount}, ${q(who)}, ${owner})`).join(",\n  ") +
+      ";",
+  );
+}
+
 sql("set session_replication_role = origin;");
 
 const file = join(dirname(fileURLToPath(import.meta.url)), "../../supabase/seed.sql");

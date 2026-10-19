@@ -11,6 +11,8 @@ export const SENTINELS = {
   incentiveRate: 3141592,
   rankRate: 1928374,
   adjustment: 5550123,
+  // 会社の経費（Phase 16。オーナーだけが見る）
+  companyExpense: 7654321,
 } as const;
 
 export const SEED_USERS = {

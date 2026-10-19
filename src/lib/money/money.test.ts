@@ -238,6 +238,9 @@ describe("金額の表示と入力", async () => {
   it("入力は全角・カンマ・「円」付きでも読む。空は null、数字でなければ NaN", () => {
     expect(parseYen("25,000")).toBe(25000);
     expect(parseYen("２５０００円")).toBe(25000);
+    // スプレッドシートの通貨の書き方（￥ は全角）
+    expect(parseYen("¥152,800")).toBe(152800);
+    expect(parseYen("￥1,450")).toBe(1450);
     expect(parseYen("")).toBeNull();
     expect(parseYen("abc")).toBeNaN();
     expect(parseYen("1.5")).toBeNaN();

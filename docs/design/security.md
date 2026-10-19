@@ -28,7 +28,7 @@ RLS の判定には次の関数を使う（`security definer`、`app_users` を�
 | `rate_limits` | 不可 | 不可 | 不可（関数だけが使う） |
 | `academy_progress`（NICOLY アカデミーの進み具合。Phase 14） | 読み書き | 読み書き（取り込み・外す） | 不可（マイページには出さない） |
 
-**★ 金額系テーブル（オーナーのみ）**: `staff_private`（日当・源泉・インボイス・契約書・口座）、`rank_rates`（ランクごとの基準日当）、`assignment_private`、`company_billing`、`client_rates`、`event_rates`、`incentive_rates`、`event_incentive_rates`、`payment_adjustments`、`monthly_closings`、`closing_logs`、`payments`、`invoices`、`owner_settings`、`monthly_targets`、`audit_logs`
+**★ 金額系テーブル（オーナーのみ）**: `staff_private`（日当・源泉・インボイス・契約書・口座）、`rank_rates`（ランクごとの基準日当）、`assignment_private`、`company_billing`、`client_rates`、`event_rates`、`incentive_rates`、`event_incentive_rates`、`payment_adjustments`、`monthly_closings`、`closing_logs`、`payments`、`invoices`、`owner_settings`、`monthly_targets`、`company_expenses`（会社の経費。Phase 16）、`audit_logs`
 
 **例外**: 交通費・経費の申請額（`expenses.amount`）は、要件 §3 のとおり管理者も見て承認できる。
 
@@ -158,6 +158,17 @@ RLS の判定には次の関数を使う（`security definer`、`app_users` を�
 | 取り込み | アカデミーの管理画面の CSV を画面の中で読み、選んだスタッフの分だけをサーバーに送る（CSV そのものは保存しない）。サーバーでも `assertMember` で確かめ、値をもう一度確かめてから入れる |
 | 出すところ | スタッフの詳細・スタッフ一覧・打診の候補（オーナー・管理者）。**マイページ・見るだけリンク・シートへの書き出し・AI アシスタントには出さない** |
 | テスト | `tests/db/academy.test.ts`（管理者は読み書きできる・ログインしていない人と無効化した管理者は読めない）、`e2e/manager/academy.spec.ts` |
+
+## 5-2-8. 会社の経費（Phase 16）
+
+| 項目 | 内容 |
+|---|---|
+| 画面 | `/company-expenses`（一覧・入れる・直す・取り込み・書き出し）はオーナーだけ（管理者は 404。`layout.tsx` で `requireOwner()`）。書き出しの `/company-expenses/export` は自分でオーナーか確かめる（それ以外は 404）。メニューと右下の ＋ の「経費を入れる」もオーナーにだけ出す |
+| データ | ★ `company_expenses` はオーナーだけ（RLS）。サーバーの処理は最初に `assertOwner`。ログイン中のオーナーの権限で読む・書く（秘密キーは使わない）。検索・AI アシスタントの道具・見るだけリンク・シートへの書き出しには出さない |
+| 領収書の写真 | 非公開の `receipts` バケット（オーナーだけ）。見るときは1時間だけ使えるリンクを作る。画面で小さくした写真（約150万画素・900KB まで）だけを送る |
+| レシートの読み取り | 写真を Anthropic の AI に送って、日付・店・買ったもの・金額・区分だけを返してもらう（答えの形を決めて読む）。**AI は値を返すだけで、登録はオーナーが確かめて「登録する」を押したとき**。キーはサーバーだけで使う |
+| 取り込み | 今のシートは画面の中で読み（CSV そのものは保存しない）、サーバーで値をもう一度確かめてから入れる。URL から読むときはシートへの書き出しと同じサービスアカウント（読むだけ） |
+| テスト | `tests/db/company-expenses.test.ts`（管理者・無効化した管理者・ログインしていない人は読めない・書けない、消せない、写真もオーナーだけ）、`tests/db/money-tables.ts`、`e2e/owner/company-expenses.spec.ts`（管理者は 404）、`e2e/manager/money-leak.spec.ts` |
 
 ## 5-3. お金の画面・書き出し（Phase 3）
 
