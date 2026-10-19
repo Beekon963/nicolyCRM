@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, makeEvent, one, sql } from "../helpers/db";
-import { expectNoHorizontalScroll } from "../helpers/layout";
+import { cleanupEvent, dropStaff, makeEvent, makeStaff, one, sql } from "../helpers/db";
+import { expectNoHorizontalScroll, gotoReady } from "../helpers/layout";
 
 const uniq = () => Math.random().toString(36).slice(2, 7);
 
 test("欠員がホームに赤で出て、埋まると消える（埋まり具合は明日の分）", async ({ page }) => {
   const ev = await makeEvent("jst_today() + 1", { required: 1 });
+  const staff = await makeStaff("欠員 一郎");
   try {
     await page.goto("/");
     await expectNoHorizontalScroll(page);
@@ -17,38 +18,39 @@ test("欠員がホームに赤で出て、埋まると消える（埋まり具�
     await expect(page.getByTestId("home-fill").getByRole("meter", { name: "明日の埋まり具合" })).toBeVisible();
     await expect(page.getByTestId("home-fill").getByRole("meter", { name: "今日の埋まり具合" })).toHaveCount(0);
     await expect(page.getByTestId("home-fill")).toContainText("あと");
-    const staff = await one<{ id: string }>(`select id from staff where status = 'active' order by random() limit 1`);
     await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [ev.id, staff.id, ev.roleId]);
     await page.reload();
     await expect(page.getByRole("heading", { name: "要対応" })).toBeVisible();
     await expect(page.locator(`a[href="/events/${ev.id}/candidates"]`)).toHaveCount(0);
   } finally {
     await cleanupEvent(ev.id);
+    await dropStaff(staff.id);
   }
 });
 
 test("実績の未報告がホームに出る", async ({ page }) => {
   const ev = await makeEvent("jst_today() - 1", { required: 1 });
+  const staff = await makeStaff("未報告 一郎");
   try {
-    const staff = await one<{ id: string; name: string }>(`select id, name from staff where status = 'active' order by random() limit 1`);
     await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [ev.id, staff.id, ev.roleId]);
     await page.goto("/");
     await expect(page.getByRole("link", { name: new RegExp(`${staff.name} — .*${ev.venue}`) }).first()).toBeVisible();
   } finally {
     await cleanupEvent(ev.id);
+    await dropStaff(staff.id);
   }
 });
 
 test("管理者が速報 → 確定を入力でき、差分理由と履歴が残る", async ({ page }) => {
   const ev = await makeEvent("jst_today()", { required: 1 });
+  const staff = await makeStaff("速報 一郎");
   try {
-    const staff = await one<{ id: string; name: string }>(`select id, name from staff where status = 'active' order by random() limit 1`);
     const a = await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [ev.id, staff.id, ev.roleId]);
     const mnp = await one<{ id: string }>(`select id from items where name = 'MNP'`);
     await sql(`insert into reports (assignment_id, submitted_at, source, comment) values ($1, now(), 'self', '好調')`, [a.id]);
     await sql(`insert into report_items (assignment_id, item_id, reported_count) values ($1, $2, 3)`, [a.id, mnp.id]);
 
-    await page.goto(`/results?event=${ev.id}`);
+    await gotoReady(page, `/results?event=${ev.id}`);
     await expectNoHorizontalScroll(page);
     await expect(page.getByText("「好調」")).toBeVisible();
     // 3件 → 2件に（1件は否認）
@@ -71,24 +73,21 @@ test("管理者が速報 → 確定を入力でき、差分理由と履歴が残
     await expect(dialog.getByText("理由: 否認")).toBeVisible();
   } finally {
     await cleanupEvent(ev.id);
+    await dropStaff(staff.id);
   }
 });
 
 test("2人で分けた 0.5 件のような件数も、そのまま確定できる（Phase 11）", async ({ page }) => {
   const ev = await makeEvent("jst_today() - 4", { required: 1 });
+  // このテストだけの人（ほかのテストと同じ日に同じ人を確定にしない）
+  const staff = await makeStaff("分け 一郎");
   try {
-    // ほかのテストと同じ日に同じ人を確定にしない（同じ日の確定は1つまで）
-    const staff = await one<{ id: string; name: string }>(
-      `select id, name from staff s where status = 'active'
-          and not exists (select 1 from assignments a join events e on e.id = a.event_id where a.staff_id = s.id and e.date between public.jst_today() - 5 and public.jst_today())
-        order by random() limit 1`,
-    );
     const a = await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [ev.id, staff.id, ev.roleId]);
     const mnp = await one<{ id: string }>(`select id from items where name = 'MNP'`);
     await sql(`insert into reports (assignment_id, submitted_at, source) values ($1, now(), 'self')`, [a.id]);
     await sql(`insert into report_items (assignment_id, item_id, reported_count) values ($1, $2, 0.5)`, [a.id, mnp.id]);
 
-    await page.goto(`/results?event=${ev.id}`);
+    await gotoReady(page, `/results?event=${ev.id}`);
     await expect(page.getByText("速報 0.5")).toBeVisible();
     await page.getByRole("textbox", { name: `${staff.name}のMNPの確定件数`, exact: true }).fill("1.5");
     await page.getByLabel("MNPの差分の理由").selectOption("input_error");
@@ -98,13 +97,14 @@ test("2人で分けた 0.5 件のような件数も、そのまま確定でき�
     expect(ri.confirmed_count).toBe(1.5);
   } finally {
     await cleanupEvent(ev.id);
+    await dropStaff(staff.id);
   }
 });
 
 test("交通費を承認でき、元に戻せる", async ({ page }) => {
   const ev = await makeEvent("jst_today() - 2", { required: 1 });
+  const staff = await makeStaff("交通 一郎");
   try {
-    const staff = await one<{ id: string; name: string }>(`select id, name from staff where status = 'active' order by random() limit 1`);
     const a = await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [ev.id, staff.id, ev.roleId]);
     const memo = `テスト区間${uniq()}`;
     const x = await one<{ id: string }>(`insert into expenses (assignment_id, staff_id, kind, amount, memo) values ($1, $2, 'transport', 1230, $3) returning id`, [a.id, staff.id, memo]);
@@ -119,22 +119,26 @@ test("交通費を承認でき、元に戻せる", async ({ page }) => {
     await expect.poll(async () => (await one<{ status: string }>(`select status from expenses where id = $1`, [x.id])).status).toBe("pending");
   } finally {
     await cleanupEvent(ev.id);
+    await dropStaff(staff.id);
   }
 });
 
 test("稼働可能日を管理者が代理入力でき、入力元が「管理者」で残る", async ({ page }) => {
-  const staff = await one<{ id: string; name: string }>(`select id, name from staff where status = 'active' order by random() limit 1`);
-  const next = await one<{ m: string }>(`select to_char(date_trunc('month', jst_today()) + interval '1 month', 'YYYY-MM') as m`);
-  await sql(`delete from availability where staff_id = $1 and date = $2::date`, [staff.id, `${next.m}-15`]);
-  await page.goto(`/availability/${staff.id}?month=${next.m}`);
-  await expectNoHorizontalScroll(page);
-  await page.getByRole("button", { name: new RegExp(`^${Number(next.m.slice(5))}月15日 `) }).click();
-  await page.getByRole("button", { name: "代理で提出する" }).click();
-  await expect(page.getByText("代理で提出しました")).toBeVisible();
-  const av = await one<{ status: string; source: string }>(`select status, source from availability where staff_id = $1 and date = $2::date`, [staff.id, `${next.m}-15`]);
-  expect(av).toEqual({ status: "ok", source: "admin" });
-  const sub = await one<{ source: string }>(`select source from availability_submissions where staff_id = $1 and month = $2::date`, [staff.id, `${next.m}-01`]);
-  expect(sub.source).toBe("admin");
+  const staff = await makeStaff("代理 一郎");
+  try {
+    const next = await one<{ m: string }>(`select to_char(date_trunc('month', jst_today()) + interval '1 month', 'YYYY-MM') as m`);
+    await gotoReady(page, `/availability/${staff.id}?month=${next.m}`);
+    await expectNoHorizontalScroll(page);
+    await page.getByRole("button", { name: new RegExp(`^${Number(next.m.slice(5))}月15日 `) }).click();
+    await page.getByRole("button", { name: "代理で提出する" }).click();
+    await expect(page.getByText("代理で提出しました")).toBeVisible();
+    const av = await one<{ status: string; source: string }>(`select status, source from availability where staff_id = $1 and date = $2::date`, [staff.id, `${next.m}-15`]);
+    expect(av).toEqual({ status: "ok", source: "admin" });
+    const sub = await one<{ source: string }>(`select source from availability_submissions where staff_id = $1 and month = $2::date`, [staff.id, `${next.m}-01`]);
+    expect(sub.source).toBe("admin");
+  } finally {
+    await dropStaff(staff.id);
+  }
 });
 
 test("横断検索: カタカナで探してもひらがなの かな に一致し、電話番号はハイフンなしでも見つかる", async ({ page }) => {

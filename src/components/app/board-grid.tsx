@@ -11,11 +11,12 @@ import {
   type AvailabilityChange,
   availabilityChanges,
   availabilityFromKey,
-  clampPos,
   clampWidth,
   DAY_WIDTH,
   gridColCount,
   gridRows,
+  type KeyedSelection,
+  keySelection,
   MOVE_KEYS,
   type MoveKey,
   moveSelection,
@@ -23,6 +24,7 @@ import {
   nextDensity,
   normRange,
   type Pos,
+  resolveSelection,
   ROW_DENSITY,
   type RowDensity,
   type Selection,
@@ -324,8 +326,9 @@ export function BoardGrid({
   const table = useRef<HTMLTableElement>(null);
   // 全画面: 画面の上に表だけを重ねて出す（ページの上にもう1枚ページを重ねる形）
   const [full, setFull] = useState(false);
-  // 選んでいるマス（月を変えたら消す。行が減ったときは表の中に収める）
-  const [selRaw, setSelRaw] = useState<{ month: string; sel: Selection } | null>(null);
+  // 選んでいるマス（月を変えたら消す）。「どの人・どの取引先の行か」で覚えるので、
+  // 入力のあとに表が新しくなって行がずれても同じ人のまま（その行がなくなったときは表の中に収める）
+  const [selRaw, setSelRaw] = useState<{ month: string; sel: KeyedSelection } | null>(null);
   const drag = useRef<{ start: Pos; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
   const scope = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -334,11 +337,8 @@ export function BoardGrid({
   const cols = gridColCount(board);
   const lastDay = board.days.length;
   const density = ROW_DENSITY[layout.density];
-  const sel: Selection | null =
-    selRaw && selRaw.month === board.month
-      ? { anchor: clampPos(selRaw.sel.anchor, rows.length, cols), focus: clampPos(selRaw.sel.focus, rows.length, cols) }
-      : null;
-  const setSel = (next: Selection | null) => setSelRaw(next ? { month: board.month, sel: next } : null);
+  const sel: Selection | null = selRaw && selRaw.month === board.month ? resolveSelection(selRaw.sel, rows, cols) : null;
+  const setSel = (next: Selection | null) => setSelRaw(next ? { month: board.month, sel: keySelection(next, rows) } : null);
   const free = showFree ? freeCountByDate(board) : null;
   // 「＋N件」を開いたマス（押して開けないとき＝見るだけリンクで使う）
   const [opened, setOpened] = useState<Set<string>>(() => new Set());

@@ -18,3 +18,12 @@ export async function openFirst(page: Page, listPath: string, q: string) {
   await page.waitForURL(new RegExp(`${listPath}/[^/?]+`));
   await page.getByRole("main").getByRole("heading", { level: 1 }).last().waitFor();
 }
+
+/**
+ * 開いて、読み込み（メニューの先読みを含む）が落ち着くまで待つ。
+ * 開いた直後に入力・クリックすると、まれにブラウザーが止まったまま待ち時間を使い切ることがあるため、入力する画面はこれで開く
+ */
+export async function gotoReady(page: Page, url: string) {
+  await page.goto(url);
+  await page.waitForLoadState("networkidle");
+}

@@ -3,6 +3,7 @@
  * 金額は整数（円）。率は分子・分母の整数。
  */
 export * from "./build";
+export * from "./company-expenses";
 export * from "./format";
 export * from "./invoice";
 export * from "./pay";

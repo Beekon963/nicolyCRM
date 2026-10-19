@@ -5,6 +5,7 @@
  * - 「探して:名前」→ search を使う → 結果の名前を「見つかった人: …」と答える
  * - 画像付きで「名前:〇〇」→ search → propose_availability（150日後を○）→「確認カードを出しました」
  * - 「道具」→ 渡された道具の名前を答える（管理者に金額の道具が渡っていないかの確認用）
+ * - 会社の経費のレシートの読み取り（Phase 16。答えの形を決めた問い合わせ）→ 写真があれば、決まった値（今日・テスト食堂 駅前店・2,750円・飲食）
  *
  * 本物と同じく、答えの先頭に AI の考えの記録（署名つき）を付ける。次の問い合わせでその記録が
  * そのまま返ってこないとき・設定（drop_block・fallbacks など）が違うときは、そう答える（画面テストが失敗する）。
@@ -96,6 +97,27 @@ function reply(body, res, betaHeader) {
   return text(res, "こんにちは。何をお手伝いしましょうか。");
 }
 
+/** レシートの読み取り（Phase 16）。ストリーミングではなく1回で答える。写真の中身は見ずに決まった値を返す */
+function receipt(body, res) {
+  const image = body.messages.some((m) => Array.isArray(m.content) && m.content.some((b) => b.type === "image"));
+  const out = image
+    ? { is_receipt: true, date: jstPlusDays(0), vendor: "テスト食堂 駅前店", item: "飲食代", amount: 2750, category: "飲食" }
+    : { is_receipt: false, date: null, vendor: null, item: null, amount: null, category: null };
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({
+      id: `msg_${Date.now()}`,
+      type: "message",
+      role: "assistant",
+      model: "e2e-mock",
+      content: [{ type: "text", text: JSON.stringify(out) }],
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage: { input_tokens: 1, output_tokens: 1 },
+    }),
+  );
+}
+
 http
   .createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") return res.end("ok");
@@ -107,7 +129,9 @@ http
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       try {
-        reply(JSON.parse(raw), res, req.headers["anthropic-beta"]);
+        const body = JSON.parse(raw);
+        if (body.output_config?.format?.type === "json_schema" && String(body.system ?? "").includes("レシートを読み取る係")) return receipt(body, res);
+        reply(body, res, req.headers["anthropic-beta"]);
       } catch (e) {
         res.writeHead(500, { "content-type": "application/json" });
         res.end(JSON.stringify({ type: "error", error: { type: "api_error", message: String(e) } }));

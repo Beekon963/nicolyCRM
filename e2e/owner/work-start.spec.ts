@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { cleanupEvent, makeEvent, one, sql } from "../helpers/db";
+import { cleanupEvent, dropClient, dropStaff, makeClient, makeEvent, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -13,13 +13,16 @@ let eventId = "";
 let venue = "";
 let staff: { id: string; name: string; token: string }[] = [];
 let assignmentId = "";
+let clientId = "";
 
 test.beforeAll(async () => {
-  const ev = await makeEvent("jst_today()", { required: 2 });
+  // 取引先と人はこのテストで作る（「稼働開始の報告」の書式を、ほかのテストの現場に付けないため）
+  const client = await makeClient("E2E稼働開始先");
+  clientId = client.id;
+  const ev = await makeEvent("jst_today()", { required: 2, clientId });
   eventId = ev.id;
   venue = ev.venue;
-  const client = await one<{ id: string }>(`select client_id as id from events where id = $1`, [eventId]);
-  staff = await sql(`select id, name, mypage_token as token from staff where status = 'active' order by random() limit 2`);
+  staff = [await makeStaff("開始 一郎"), await makeStaff("開始 二郎")];
   assignmentId = (await one<{ id: string }>(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed') returning id`, [eventId, staff[0].id, ev.roleId])).id;
   await sql(`insert into assignments (event_id, staff_id, role_id, status) values ($1, $2, $3, 'confirmed')`, [eventId, staff[1].id, ev.roleId]);
   await sql(`insert into report_formats (name, company_id, for_staff, event_block, start_block) values ($1, $2, true, '{会場}', E'{会場}\\n稼働者：{稼働者}\\n稼働します')`, [FORMAT, client.id]);
@@ -28,6 +31,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await sql(`delete from report_formats where name = $1`, [FORMAT]);
   await cleanupEvent(eventId);
+  await dropStaff(...staff.map((s) => s.id));
+  await dropClient(clientId);
 });
 
 test("当日の予定に「稼働します」の報告が出て、2人の現場は全員の名前が入る", async ({ browser }) => {

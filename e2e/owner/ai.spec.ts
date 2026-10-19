@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { one, sql } from "../helpers/db";
+import { dropStaff, makeStaff, one, sql } from "../helpers/db";
 import { expectNoHorizontalScroll } from "../helpers/layout";
 
 /**
@@ -17,31 +17,36 @@ async function openAi(page: import("@playwright/test").Page) {
 }
 
 test("AI に聞くと、CRM を調べて答える（スマホ幅で横スクロールしない）", async ({ page }) => {
-  const staff = await one<{ name: string }>(`select name from staff where status = 'active' order by random() limit 1`);
-  const ai = await openAi(page);
-  await expect(ai.getByText("このアプリのデータの質問")).toBeVisible();
-  await expectNoHorizontalScroll(page);
-  await ai.getByLabel("AI に送る文").fill(`探して:${staff.name}`);
-  await ai.getByRole("button", { name: "送る" }).click();
-  await expect(ai.getByText(/見つかった人: .*/)).toContainText(staff.name);
-  await expect(ai.getByText("名前を探しています")).toBeVisible();
-  await expectNoHorizontalScroll(page);
+  // 探す人はこのテストで作る（ほかのテストと同じ人を取り合わないように）
+  const staff = await makeStaff("相談 一郎");
+  try {
+    const ai = await openAi(page);
+    await expect(ai.getByText("このアプリのデータの質問")).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await ai.getByLabel("AI に送る文").fill(`探して:${staff.name}`);
+    await ai.getByRole("button", { name: "送る" }).click();
+    await expect(ai.getByText(/見つかった人: .*/)).toContainText(staff.name);
+    await expect(ai.getByText("名前を探しています")).toBeVisible();
+    await expectNoHorizontalScroll(page);
 
-  // 同じ会話で続けて聞ける（前の答えの考えの記録をそのまま返している。違うと偽の AI が「設定がちがいます」と答える）
-  await ai.getByLabel("AI に送る文").fill("道具");
-  await ai.getByRole("button", { name: "送る" }).click();
-  await expect(ai.getByText(/道具: /)).toBeVisible();
-  await expect(ai.getByText(/設定がちがいます/)).toHaveCount(0);
+    // 同じ会話で続けて聞ける（前の答えの考えの記録をそのまま返している。違うと偽の AI が「設定がちがいます」と答える）
+    await ai.getByLabel("AI に送る文").fill("道具");
+    await ai.getByRole("button", { name: "送る" }).click();
+    await expect(ai.getByText(/道具: /)).toBeVisible();
+    await expect(ai.getByText(/設定がちがいます/)).toHaveCount(0);
 
-  // 「新しい会話」で消える
-  await ai.getByRole("button", { name: "新しい会話" }).click();
-  await expect(ai.getByText(/見つかった人/)).toHaveCount(0);
+    // 「新しい会話」で消える
+    await ai.getByRole("button", { name: "新しい会話" }).click();
+    await expect(ai.getByText(/見つかった人/)).toHaveCount(0);
+  } finally {
+    await dropStaff(staff.id);
+  }
 });
 
 test("画像を付けて送ると確認カードが出て、「登録する」で稼働可能日が入る", async ({ page }) => {
-  const staff = await one<{ id: string; name: string }>(`select id, name from staff where status = 'active' order by random() limit 1`);
+  // 稼働可能日を入れる人はこのテストで作る
+  const staff = await makeStaff("画像 一郎");
   const date = await one<{ d: string }>(`select to_char(public.jst_today() + 150, 'YYYY-MM-DD') as d`);
-  await sql(`delete from availability where staff_id = $1 and date = $2`, [staff.id, date.d]);
   try {
     const ai = await openAi(page);
     await ai.locator('input[type="file"]').setInputFiles({ name: "line.png", mimeType: "image/png", buffer: PNG });
@@ -62,7 +67,7 @@ test("画像を付けて送ると確認カードが出て、「登録する」�
     const row = await one<{ status: string; source: string }>(`select status, source from availability where staff_id = $1 and date = $2`, [staff.id, date.d]);
     expect(row).toEqual({ status: "ok", source: "admin" });
   } finally {
-    await sql(`delete from availability where staff_id = $1 and date = $2`, [staff.id, date.d]);
+    await dropStaff(staff.id);
   }
 });
 

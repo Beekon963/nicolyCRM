@@ -21,5 +21,7 @@ export const MONEY_TABLES = [
   "monthly_targets",
   // 友達紹介のボーナス（どの調整額がどの紹介の分か。Phase 12）
   "referral_bonuses",
+  // 会社の経費（オーナーが立て替えた経費。Phase 16）
+  "company_expenses",
   "audit_logs",
 ] as const;

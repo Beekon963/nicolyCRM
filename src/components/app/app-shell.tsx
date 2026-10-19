@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlusIcon, ClipboardPasteIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
+import { CalendarPlusIcon, ClipboardPasteIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, ReceiptJapaneseYenIcon, SearchIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -83,7 +83,7 @@ export function AppShell({ user, aiReady, children }: { user: AppUser; aiReady: 
       </div>
 
       {/* スマホ: 右下の ＋（現場を作る / 活動を記録）。入力画面では保存ボタンと重ならないよう一覧の画面だけに出す */}
-      {(pathname === "/" || pathname === "/events" || pathname === "/events/board" || pathname === "/sales") && <CreateFab />}
+      {(pathname === "/" || pathname === "/events" || pathname === "/events/board" || pathname === "/sales") && <CreateFab owner={user.role === "owner"} />}
 
       {/* スマホ: 下部タブ */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden print:hidden">
@@ -138,8 +138,8 @@ function SideLink({ item: i, active, count }: { item: NavItem; active: boolean; 
   );
 }
 
-/** 右下の ＋。押すと「現場を作る」「活動を記録」を出す（画面一覧 §1） */
-function CreateFab() {
+/** 右下の ＋。押すと「現場を作る」「活動を記録」（オーナーは「経費を入れる」も）を出す（画面一覧 §1） */
+function CreateFab({ owner }: { owner: boolean }) {
   const [menu, setMenu] = useState(false);
   const [record, setRecord] = useState(false);
   const hidden = useHideOnScrollDown();
@@ -168,6 +168,12 @@ function CreateFab() {
             <MessageSquarePlusIcon className="size-5 text-primary" />
             活動を記録
           </button>
+          {owner && (
+            <Link href="/company-expenses/new" className={item} onClick={() => setMenu(false)}>
+              <ReceiptJapaneseYenIcon className="size-5 text-primary" />
+              経費を入れる
+            </Link>
+          )}
         </div>
       )}
       <button

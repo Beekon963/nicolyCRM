@@ -23,6 +23,7 @@ export const TABLE_LABEL: Record<string, string> = {
   invoices: "請求",
   owner_settings: "税・源泉の設定",
   monthly_targets: "月次目標",
+  company_expenses: "会社の経費",
 };
 
 export const FIELD_LABEL: Record<string, string> = {
@@ -71,6 +72,17 @@ export const FIELD_LABEL: Record<string, string> = {
   invoice_note: "請求書送付先メモ",
   reason: "理由",
   value: "値",
+  // 会社の経費（Phase 16）
+  paid_by: "払った人",
+  spent_on: "日付",
+  vendor: "店・支払先",
+  item: "買ったもの",
+  purpose: "用途",
+  category: "区分",
+  attendees: "参加者",
+  receipt_path: "領収書の写真",
+  receipt_url: "領収書のリンク",
+  voided_at: "取り消し",
 };
 
 const VALUE_LABEL: Record<string, Record<string, string>> = {
