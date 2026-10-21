@@ -223,7 +223,7 @@ export function BoardDayList({ board, filters, onStaffDay }: { board: Board; fil
   );
 }
 
-/** リストの1現場（表の現場のマスと同じ見た目: 欠員は赤い地、そろったら会場の色に緑の ✓） */
+/** リストの1現場（表の現場のマスと同じ見た目（Phase 17）: 欠員は赤く塗る、そろったら会場の色に白い ✓） */
 function EventRow({ e, free }: { e: DayEvent; free: number }) {
   if (e.cancelled)
     return (
@@ -240,25 +240,31 @@ function EventRow({ e, free }: { e: DayEvent; free: number }) {
       data-tile={short ? "shortage" : "filled"}
       className={cn(
         "flex min-h-11 flex-col gap-1 rounded-xl px-3 py-2 motion-safe:active:translate-y-px",
-        short
-          ? "bg-status-alert-tint text-[#912018] shadow-[inset_4px_0_0_var(--status-alert-solid)]"
-          : "bg-(--v-tint) text-(--v-fg) shadow-[inset_4px_0_0_var(--v-bar)]",
+        short ? "bg-status-alert-solid text-white motion-safe:animate-board-short" : "bg-(--v-solid) text-(--v-on)",
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
-        {short && <span aria-hidden className="inline-block size-2.5 shrink-0 rounded-full bg-(--v-bar) ring-2 ring-white" />}
+        {short && <span aria-hidden className="inline-block size-3 shrink-0 rounded-full bg-(--v-solid) ring-2 ring-white" />}
         <span className="min-w-0 flex-1 truncate font-bold">{e.venueName}</span>
-        <ChevronRightIcon aria-hidden className="size-4 shrink-0 opacity-60" />
+        <ChevronRightIcon aria-hidden className="size-4 shrink-0 opacity-70" />
       </span>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <SeatBar required={e.required} confirmed={e.confirmed} offered={e.offered} />
+        <SeatBar required={e.required} confirmed={e.confirmed} offered={e.offered} onColor />
         <span className="text-sm font-semibold tabular-nums">
           {e.confirmed}/{e.required}人
         </span>
-        {short ? <StatusPill tone="alert">欠{e.shortage}</StatusPill> : <StatusPill tone="done">✓</StatusPill>}
+        {short ? (
+          <StatusPill tone="alert" onColor>
+            欠{e.shortage}
+          </StatusPill>
+        ) : (
+          <StatusPill tone="done" onColor>
+            ✓
+          </StatusPill>
+        )}
         {e.offered > 0 && <StatusPill tone="waiting">打{e.offered}</StatusPill>}
-        {short && free > 0 && <span className="text-sm font-bold text-status-done">○{free}</span>}
-        <span className="ml-auto min-w-0 truncate text-sm opacity-80">{e.clientName}</span>
+        {short && free > 0 && <span className="text-sm font-bold">○{free}</span>}
+        <span className="ml-auto min-w-0 truncate text-sm opacity-85">{e.clientName}</span>
       </span>
     </Link>
   );
