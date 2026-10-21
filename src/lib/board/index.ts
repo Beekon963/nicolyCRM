@@ -73,6 +73,7 @@ export type BoardDay = {
 
 export type BoardEventChip = {
   id: string;
+  venueId: string;
   venueName: string;
   venueColor: string;
   required: number;
@@ -88,6 +89,7 @@ export type BoardStaffAssignment = {
   id: string;
   eventId: string;
   roleId: string;
+  venueId: string;
   venueName: string;
   venueColor: string;
   clientName: string;
@@ -150,6 +152,7 @@ export function buildBoard(input: BoardInput): Board {
     const row = clientMap.get(e.client_id) ?? { id: e.client_id, name: e.client_name, cells: {} };
     (row.cells[e.date] ??= []).push({
       id: e.id,
+      venueId: e.venue_id,
       venueName: e.venue_name,
       venueColor: e.venue_color ?? "",
       required: e.required_total,
@@ -171,7 +174,7 @@ export function buildBoard(input: BoardInput): Board {
     const key = `${a.staff_id}|${e.date}`;
     asgByStaffDate.set(key, [
       ...(asgByStaffDate.get(key) ?? []),
-      { id: a.id, eventId: e.id, roleId: a.role_id, venueName: e.venue_name, venueColor: e.venue_color ?? "", clientName: e.client_name, status: a.status },
+      { id: a.id, eventId: e.id, roleId: a.role_id, venueId: e.venue_id, venueName: e.venue_name, venueColor: e.venue_color ?? "", clientName: e.client_name, status: a.status },
     ]);
   }
   const staff = [...input.staff]

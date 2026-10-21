@@ -97,7 +97,7 @@ describe("稼働表を組み立てる", () => {
     const row = b.staff[0];
     expect(row.cells["2026-11-07"]).toEqual({
       availability: "ok",
-      assignments: [{ id: "a1", eventId: "e1", roleId: "r1", venueName: "DSテスト中央", venueColor: "sky", clientName: "テスト通信", status: "confirmed" }],
+      assignments: [{ id: "a1", eventId: "e1", roleId: "r1", venueId: "v1", venueName: "DSテスト中央", venueColor: "sky", clientName: "テスト通信", status: "confirmed" }],
     });
     expect(row.cells["2026-11-08"].assignments[0]).toMatchObject({ status: "offered", venueName: "DSテスト北" });
     expect(row.cells["2026-11-09"].assignments).toEqual([]);

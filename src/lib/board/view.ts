@@ -82,3 +82,63 @@ export function sortChips(chips: BoardEventChip[]): BoardEventChip[] {
 export function clientFill(cells: Record<string, BoardEventChip[]>, days: BoardDay[]): Fill {
   return fillOf(days.flatMap((d) => (cells[d.date] ?? []).filter((e) => !e.cancelled)));
 }
+
+/** この月に現場のある会場（現場の多い順 → 名前順）。会場のボタン（押すと同じ会場のマスが光る）に出す */
+export type BoardVenue = { id: string; name: string; color: string; events: number };
+export function venuesOf(board: Board): BoardVenue[] {
+  const m = new Map<string, BoardVenue>();
+  for (const c of board.clients)
+    for (const chips of Object.values(c.cells))
+      for (const e of chips) {
+        if (e.cancelled) continue;
+        const v = m.get(e.venueId) ?? { id: e.venueId, name: e.venueName, color: e.venueColor, events: 0 };
+        v.events += 1;
+        m.set(e.venueId, v);
+      }
+  return [...m.values()].sort((a, b) => b.events - a.events || a.name.localeCompare(b.name, "ja"));
+}
+
+/** 欠員のある現場のマスの数（「次の欠員へ」の件数） */
+export function shortageTileCount(board: Board): number {
+  return board.clients.reduce((n, c) => n + Object.values(c.cells).reduce((m, chips) => m + chips.filter(short).length, 0), 0);
+}
+
+/**
+ * つながりの強調（Phase 17）: マスを押す・マウスを乗せると、同じ現場のマス（上の段の現場と下の段の人）が光り、
+ * 同じ会場のマスには点線の枠、ほかは薄くなる。欠員の現場なら、その日○で空いている人も光る（打診の候補）。
+ * マスが 2,000 以上あるので、マスごとに描き直さず CSS だけを差し替える（selectionCss と同じやり方）
+ */
+export type BoardLink = { event?: string; venue?: string; col?: number; short?: boolean };
+
+export function linkCss(scope: string, l: BoardLink | null): string {
+  if (!l || (!l.event && !l.venue)) return "";
+  const S = `[data-board="${scope}"]`;
+  const ring = "position: relative; z-index: 2; box-shadow: 0 0 0 2px var(--background), 0 0 0 5px var(--primary);";
+  const head = (sel: string) => `${sel} { background-color: var(--brand-50); box-shadow: inset 4px 0 0 var(--primary); color: var(--primary); font-weight: 700; }`;
+  const glow = (sel: string) => `@media (prefers-reduced-motion: no-preference) { ${sel} { animation: board-link 1.3s ease-in-out infinite; } }`;
+  const out: string[] = [];
+  if (l.event) {
+    const X = `[data-event="${l.event}"]`;
+    const V = l.venue ? `[data-venue="${l.venue}"]` : "";
+    // 同じ現場は光り、同じ会場は点線の枠で残し、ほかは薄く
+    out.push(`${S} [data-event]:not(${X})${V ? `:not(${V})` : ""} { opacity: 0.28; }`);
+    // 同じ会場の点線は、塗りの上で見えるよう文字の色（白か濃い紺）で
+    if (V) out.push(`${S} ${V}:not(${X}) { outline: 2px dashed var(--v-on); outline-offset: -3px; }`);
+    out.push(`${S} ${X} { ${ring} }`, glow(`${S} ${X}`));
+    out.push(head(`${S} tr:has(${X}) > th[data-c="0"]`));
+    if (l.col != null) out.push(`${S} thead th[data-c="${l.col}"] { background-color: var(--brand-100); box-shadow: inset 0 -4px 0 var(--primary); }`);
+    out.push(`${S} [data-avail] { opacity: 0.3; }`);
+    if (l.short && l.col != null) {
+      // 欠員の現場: その日○で空いている人（打診できる候補）を緑の枠で
+      const ok = `${S} tr[data-kind="staff"] > td[data-c="${l.col}"] [data-avail="ok"]`;
+      out.push(`${ok} { opacity: 1; box-shadow: 0 0 0 3px var(--status-done-solid); }`, glow(ok));
+      out.push(head(`${S} tr[data-kind="staff"]:has(td[data-c="${l.col}"] [data-avail="ok"]) > th[data-c="0"]`));
+    }
+  } else if (l.venue) {
+    const V = `[data-venue="${l.venue}"]`;
+    out.push(`${S} [data-event]:not(${V}), ${S} [data-avail] { opacity: 0.28; }`);
+    out.push(`${S} ${V} { ${ring} }`);
+    out.push(head(`${S} tr:has(${V}) > th[data-c="0"]`));
+  }
+  return out.join("\n");
+}

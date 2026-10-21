@@ -62,7 +62,7 @@ test.describe("稼働表", () => {
     expect(await sql(`select 1 from assignments where event_id = $1 and staff_id = $2`, [eventId, staff.id])).toHaveLength(0);
   });
 
-  test("キャンセルになった人のマスと、欠員のある現場はマスごと赤。そろった現場は会場の色", async ({ page }) => {
+  test("キャンセルになった人のマスと、欠員のある現場はマスごと赤く塗る。そろった現場は会場の色", async ({ page }) => {
     // 確定 → キャンセルの「変更」はお知らせ（ポップアップ）が出てほかのテストの邪魔になるので、最初からキャンセルで入れる
     await sql(`insert into assignments (event_id, staff_id, role_id, status, cancel_reason_code) values ($1, $2, $3, 'cancelled', 'self')`, [eventId, staff.id, roleId]);
     await page.goto(`/events/board?month=${date.slice(0, 7)}`);
@@ -70,11 +70,11 @@ test.describe("稼働表", () => {
     const staffCell = page.getByRole("button", { name: `${staff.name} ${day}日`, exact: true });
     const dropped = staffCell.locator('[data-tile="cancelled"]');
     await expect(dropped).toContainText("キャンセル");
-    await expect(dropped).toHaveCSS("background-color", "rgb(254, 228, 226)");
+    await expect(dropped).toHaveCSS("background-color", "rgb(217, 45, 32)");
     const client = await one<{ name: string }>(`select c.name from events e join companies c on c.id = e.client_id where e.id = $1`, [eventId]);
     const clientCell = page.getByRole("button", { name: `${client.name} ${day}日`, exact: true });
     const shortage = clientCell.locator('[data-tile="shortage"]', { hasText: venue });
-    await expect(shortage).toHaveCSS("background-color", "rgb(254, 228, 226)");
+    await expect(shortage).toHaveCSS("background-color", "rgb(217, 45, 32)");
     await expect(shortage).toContainText("欠1");
     await expect(page.getByTestId("board-gauge")).toBeVisible();
 
@@ -85,7 +85,7 @@ test.describe("稼働表", () => {
       await page.reload();
       const filled = clientCell.locator('[data-tile="filled"]', { hasText: venue });
       await expect(filled).toBeVisible();
-      await expect(filled).not.toHaveCSS("background-color", "rgb(254, 228, 226)");
+      await expect(filled).not.toHaveCSS("background-color", "rgb(217, 45, 32)");
     } finally {
       await dropStaff(other.id);
     }
