@@ -688,6 +688,25 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"line_inbox": {
+                  Row: {
+                    "app_user_id": string,"created_at": string,"done_at": string | null,"id": string,"text": string
+                  }
+                  Insert: {
+                    "app_user_id": string,"created_at"?: string,"done_at"?: string | null,"id"?: string,"text": string
+                  }
+                  Update: {
+                    "app_user_id"?: string,"created_at"?: string,"done_at"?: string | null,"id"?: string,"text"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "line_inbox_app_user_id_fkey"
+      columns: ["app_user_id"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"line_link_codes": {
                   Row: {
                     "app_user_id": string | null,"code": string,"created_at": string,"expires_at": string,"staff_id": string | null,"used_at": string | null
@@ -1027,6 +1046,51 @@ isOneToOne: false
                   }
                   Update: {
                     "id"?: never,"message"?: string,"ok"?: boolean,"ran_at"?: string,"source"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"sheet_name_aliases": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"id": string,"kind": string,"sheet_name": string,"target_id": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"kind": string,"sheet_name": string,"target_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"kind"?: string,"sheet_name"?: string,"target_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "sheet_name_aliases_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "app_users"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"sheet_sync_items": {
+                  Row: {
+                    "first_seen_at": string,"id": number,"key": string,"kind": string,"last_seen_at": string,"month": string,"ref_id": string | null
+                  }
+                  Insert: {
+                    "first_seen_at"?: string,"id"?: never,"key": string,"kind": string,"last_seen_at"?: string,"month": string,"ref_id"?: string | null
+                  }
+                  Update: {
+                    "first_seen_at"?: string,"id"?: never,"key"?: string,"kind"?: string,"last_seen_at"?: string,"month"?: string,"ref_id"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"sheet_syncs": {
+                  Row: {
+                    "id": number,"message": string,"ok": boolean,"ran_at": string,"report": NonNullable<Json>,"source": string
+                  }
+                  Insert: {
+                    "id"?: never,"message"?: string,"ok": boolean,"ran_at"?: string,"report"?: NonNullable<Json>,"source": string
+                  }
+                  Update: {
+                    "id"?: never,"message"?: string,"ok"?: boolean,"ran_at"?: string,"report"?: NonNullable<Json>,"source"?: string
                   }
                   Relationships: [
                     

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlusIcon, ClipboardPasteIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, ReceiptJapaneseYenIcon, SearchIcon, XIcon } from "lucide-react";
+import { CalendarPlusIcon, ClipboardPasteIcon, LogOutIcon, MessageSquarePlusIcon, PlusIcon, ReceiptJapaneseYenIcon, SearchIcon, XIcon, MessageSquareTextIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -149,6 +149,10 @@ function CreateFab({ owner }: { owner: boolean }) {
       {menu && <button type="button" aria-label="閉じる" className="fixed inset-0 z-40 bg-black/20" onClick={() => setMenu(false)} />}
       {menu && (
         <div className="fixed right-4 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-40 flex flex-col items-end gap-2">
+          <Link href="/inbox" className={item} onClick={() => setMenu(false)}>
+            <MessageSquareTextIcon className="size-5 text-primary" />
+            LINE の文を貼る
+          </Link>
           <Link href="/events/new" className={item} onClick={() => setMenu(false)}>
             <CalendarPlusIcon className="size-5 text-primary" />
             現場を作る

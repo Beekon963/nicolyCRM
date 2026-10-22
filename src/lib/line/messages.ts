@@ -65,3 +65,8 @@ export function linkedText(name: string, kind: "staff" | "user"): string {
 }
 
 export const LINK_FAILED_TEXT = "コードが見つからないか、期限（30分）が切れています。マイページ（または CRM の「LINE の通知」）から、もう一度コードを出してください。";
+
+/** 転送された文を受信箱に入れたときの返事（Phase 18。金額なし） */
+export function inboxReceivedText(url: string): string {
+  return `受け取りました。CRM の「LINE から入れる」で読み取って登録できます。\n${url}`;
+}

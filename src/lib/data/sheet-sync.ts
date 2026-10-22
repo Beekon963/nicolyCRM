@@ -1,0 +1,72 @@
+import "server-only";
+import { createClient } from "@/lib/supabase/server";
+import { EMPTY_UNMATCHED, type SyncReport } from "@/lib/sheet-sync";
+import type { Unmatched } from "@/lib/import/sheet-sync-plan";
+
+export type SheetSyncRun = { ranAt: string; ok: boolean; message: string; report: SyncReport };
+
+export type SheetSyncStatus = {
+  enabled: boolean;
+  /** 読む元（空なら書き出し先と同じ） */
+  spreadsheetId: string | null;
+  /** 書き出し先（読む元が空のときに使う） */
+  exportSpreadsheetId: string | null;
+  roleId: string | null;
+  last: SheetSyncRun | null;
+  unmatched: Unmatched;
+  unmatchedCount: number;
+};
+
+function asReport(v: unknown): SyncReport {
+  const r = (v ?? {}) as Partial<SyncReport>;
+  return { months: Array.isArray(r.months) ? r.months : [], unmatched: { ...EMPTY_UNMATCHED, ...(r.unmatched ?? {}) } };
+}
+
+/** シートの自動の読み取りの設定と、最後の結果（ログイン中の人の権限で読む。金額なし） */
+export async function getSheetSyncStatus(): Promise<SheetSyncStatus> {
+  const supabase = await createClient();
+  const [{ data: settings }, { data: last }] = await Promise.all([
+    supabase.from("settings").select("key, value").in("key", ["sheet_sync", "sheet_export"]),
+    supabase.from("sheet_syncs").select("ran_at, ok, message, report").order("ran_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const map = new Map((settings ?? []).map((r) => [r.key, (r.value ?? {}) as Record<string, unknown>]));
+  const sync = map.get("sheet_sync") ?? {};
+  const exp = map.get("sheet_export") ?? {};
+  const id = (v: unknown) => (typeof v === "string" && v ? v : null);
+  const run: SheetSyncRun | null = last ? { ranAt: last.ran_at, ok: last.ok, message: last.message, report: asReport(last.report) } : null;
+  const unmatched = run?.report.unmatched ?? EMPTY_UNMATCHED;
+  return {
+    enabled: sync.enabled === true,
+    spreadsheetId: id(sync.spreadsheet_id),
+    exportSpreadsheetId: id(exp.spreadsheet_id),
+    roleId: id(sync.role_id),
+    last: run,
+    unmatched,
+    unmatchedCount: unmatched.clients.length + unmatched.venues.length + unmatched.staff.length + unmatched.places.length,
+  };
+}
+
+export type SheetAliasRow = { id: string; kind: "client" | "venue" | "staff" | "place"; sheetName: string; targetName: string | null };
+export type NameOption = { id: string; name: string };
+
+/** 自動の読み取りの画面に出すもの（設定・最後の結果・覚えた対応づけ・選べる名前の一覧） */
+export async function getSheetSyncPanelData(): Promise<{ status: SheetSyncStatus; aliases: SheetAliasRow[]; options: { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] } }> {
+  const supabase = await createClient();
+  const [status, { data: aliases }, { data: clients }, { data: venues }, { data: staff }] = await Promise.all([
+    getSheetSyncStatus(),
+    supabase.from("sheet_name_aliases").select("id, kind, sheet_name, target_id").order("created_at", { ascending: false }).limit(200),
+    supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name"),
+    supabase.from("venues").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("staff").select("id, name").eq("status", "active").order("kana"),
+  ]);
+  const nameOf = (kind: SheetAliasRow["kind"], id: string | null) => {
+    if (!id) return null;
+    const list = kind === "staff" ? staff : kind === "venue" ? venues : clients;
+    return (list ?? []).find((x) => x.id === id)?.name ?? "（消えたもの）";
+  };
+  return {
+    status,
+    aliases: (aliases ?? []).map((a) => ({ id: a.id, kind: a.kind as SheetAliasRow["kind"], sheetName: a.sheet_name, targetName: nameOf(a.kind as SheetAliasRow["kind"], a.target_id) })),
+    options: { clients: clients ?? [], venues: venues ?? [], staff: staff ?? [] },
+  };
+}

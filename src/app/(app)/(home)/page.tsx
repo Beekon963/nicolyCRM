@@ -13,6 +13,10 @@ import { listDueCompanies } from "@/lib/data/companies";
 import { getMonthMoney, getTarget } from "@/lib/data/money";
 import { formatYen } from "@/lib/money";
 import { getHomeData, getMonthRanking, type Ranking } from "@/lib/data/home";
+import { getSheetSyncStatus } from "@/lib/data/sheet-sync";
+import { createClient } from "@/lib/supabase/server";
+import { InboxClient } from "@/app/(app)/inbox/inbox-client";
+import { OfferRow } from "./offer-row";
 import { formatTimeRange } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
@@ -57,13 +61,19 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const isOwner = user.role === "owner";
   const thisMonth = monthOf(todayJst());
   // ★ 今月の数字はオーナーのときだけ取りに行く（管理者はデータ自体を取得しない。要件 §4.1）
-  const [d, ranking, due, money, target] = await Promise.all([
+  const supabase = await createClient();
+  const [d, ranking, due, money, target, { data: staffOpts }, { data: venueOpts }, sync] = await Promise.all([
     getHomeData(),
     getMonthRanking(basis),
     listDueCompanies(),
     isOwner ? getMonthMoney(thisMonth) : Promise.resolve(null),
     isOwner ? getTarget(thisMonth) : Promise.resolve(null),
+    supabase.from("staff").select("id, name").eq("status", "active").order("kana"),
+    supabase.from("venues").select("id, name").eq("is_active", true).order("name"),
+    isOwner ? getSheetSyncStatus() : Promise.resolve(null),
   ]);
+  // シートを自動で読んでいて、合わない名前がある・読めなかったとき（オーナーだけ）
+  const syncAttention = sync?.enabled && (sync.unmatchedCount > 0 || (sync.last && !sync.last.ok)) ? sync : null;
   const overdueOffers = d.offers.filter((o) => o.overdue);
   const todo =
     d.shortages.length + d.offers.length + d.unreported.length + d.pendingExpenses + d.reminderPending.length + (d.availability.missing > 0 ? 1 : 0);
@@ -90,6 +100,30 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
 
       {/* 左の列（PC）: 要対応。スマホでは display: contents で並び順（order）に従う */}
       <div className="contents lg:col-start-1 lg:row-start-3 lg:flex lg:flex-col lg:gap-4 [&>*]:mx-4 lg:[&>*]:mx-0">
+      {/* 0. LINE の文を貼るだけ（スマホでは一番上。Phase 18）: 件数・稼働可能日・現場・案件詳細・返事がここから入る */}
+      <Card className="order-0" data-testid="home-paste">
+        <CardHeader>
+          <CardTitle>LINE の文を貼るだけ</CardTitle>
+          <Link href="/inbox" className="text-sm text-primary">
+            転送された文を見る
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <InboxClient compact staff={staffOpts ?? []} venues={venueOpts ?? []} />
+        </CardContent>
+      </Card>
+      {syncAttention && (
+        <Card className="order-3 border-status-waiting-border" data-testid="home-sync">
+          <CardContent className="pt-4">
+            <Link href="/import#sheet-sync" className="flex min-h-11 items-center gap-2">
+              <span className="min-w-0 flex-1 font-semibold">
+                {syncAttention.unmatchedCount > 0 ? `シートの名前が CRM と合わないものがあります（${syncAttention.unmatchedCount}件）。対応づけると次から自動で入ります` : `シートを読めませんでした: ${syncAttention.last?.message ?? ""}`}
+              </span>
+              <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground" />
+            </Link>
+          </CardContent>
+        </Card>
+      )}
       {/* 2. 要対応（スマホでは今日・明日の下） */}
       <Card className="order-3">
         <CardHeader>
@@ -134,12 +168,10 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
               <SubHead tone={overdueOffers.length ? "alert" : "waiting"} count={overdueOffers.length > 0 ? `${d.offers.length}件（24時間以上 ${overdueOffers.length}件）` : `${d.offers.length}件`}>
                 未回答の打診
               </SubHead>
+              <p className="mb-1 text-sm text-muted-foreground">LINE で返事が来たら、ここで押すだけ（元に戻せます）</p>
               <ul className="divide-y">
                 {d.offers.slice(0, 6).map((o) => (
-                  <Row key={o.id} href={`/events/${o.event.id}`} alert={o.overdue} bar={false}>
-                    {o.staff?.name} — {formatShortJa(o.event.date)} {o.event.venue?.name}
-                    {o.overdue && <Badge tone="alert" className="ml-2">24時間以上</Badge>}
-                  </Row>
+                  <OfferRow key={o.id} id={o.id} staffName={o.staff?.name ?? ""} date={o.event.date} venue={o.event.venue?.name ?? ""} eventId={o.event.id} overdue={o.overdue} />
                 ))}
               </ul>
             </div>
@@ -165,7 +197,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
               </SubHead>
               <ul className="divide-y">
                 {d.unreported.slice(0, 6).map((a) => (
-                  <Row key={a.id} href={`/events/${a.event.id}`} alert>
+                  <Row key={a.id} href={`/results?event=${a.event.id}`} alert>
                     {a.staff?.name} — {formatShortJa(a.event.date)} {a.event.venue?.name}
                   </Row>
                 ))}

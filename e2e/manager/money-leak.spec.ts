@@ -23,6 +23,7 @@ const PAGES = [
   "/events/bulk",
   "/availability",
   "/results",
+  "/inbox",
   "/results/daily",
   "/results/convert",
   "/events/from-text",

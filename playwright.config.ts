@@ -41,6 +41,8 @@ export default defineConfig({
     { command: "node e2e/mock-anthropic.mjs", url: "http://127.0.0.1:4010/health", reuseExistingServer: true },
     // LINE のお知らせは本物に送らず、偽の LINE（e2e/mock-line.mjs）に送る
     { command: "node e2e/mock-line.mjs", url: "http://127.0.0.1:4011/health", reuseExistingServer: true },
+    // シートの自動の読み取りは本物の Google を読まず、偽のスプレッドシート（e2e/mock-sheets.mjs）を読む
+    { command: "node e2e/mock-sheets.mjs", url: "http://127.0.0.1:4012/health", reuseExistingServer: true },
     {
       command: `npm run build && npm run start:e2e -- --port ${PORT}`,
       url: `http://localhost:${PORT}/login`,

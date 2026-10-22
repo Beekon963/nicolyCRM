@@ -65,6 +65,18 @@ Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`
 - 書き出しは秘密キーで動くが、読むのは `board_snapshot()` と書き出し先の設定だけにする（テーブルを直接読まない）。
 - anon が実行できる関数は `mypage_*` と `share_board`、研修の予約用の `training_public_*` だけ（`tests/db/rls.test.ts`・`tests/db/mypage.test.ts` で確認）。
 
+## シートの自動の読み取り（`src/lib/sheet-sync.ts`。Phase 18）
+
+- いつもの管理用シートが正。10分ごとの定期実行（`/api/cron/sheet-sync`）が今月・来月のタブを読み、画面の「月の稼働表」の取り込みと**同じ計算**（`month-sheet-plan` / `month-sheet-apply`）で入れる。読み方を変えるときは両方に効くことを確かめる。
+- 秘密キーで書くが、やるのはこの取り込みだけ。**名簿にない人・ない会場・取引先は自動で作らない**（`sheet_name_aliases` で対応づけてから）。シートから消えたものを外すのは、台帳（`sheet_sync_items`）にあるもののうち、今日以降・報告や実績のないものだけ。本人が出した稼働可能日（`source = self`）は上書きしない。
+- Google の設定がなくても、リンク共有のシートを CSV（`gviz/tq?tqx=out:csv`）で読める。テストは偽のスプレッドシート（`e2e/mock-sheets.mjs`、`GOOGLE_DOCS_BASE`）に向ける。結果は `sheet_syncs` に残す（金額は入れない）。
+
+## LINE の文を貼るだけ（`src/lib/inbox`・`/inbox`）
+
+- 貼った文の見分けと読み取り（`classify.ts`）は DB を使わない純粋な関数にしてテストを書く。CRM への当てはめ（現場・人・項目）は `inbox/actions.ts` で、ログイン中の人の権限で行う。
+- 登録は AI と同じ確認カード（`proposal-card.tsx` → `runAiProposal` → `executeProposal`）だけ。**読み取りが直接書き込む道具を作らない**。AI に渡すのは読めない文だけ。
+- 公式アカウントの受け口が受信箱（`line_inbox`）に入れるのは、つないだオーナー・管理者からの文だけ。文をそのまま入れるだけで、登録はしない。
+
 ## AI アシスタント（`src/lib/ai`）
 
 - 道具（`tools.ts`・`proposals.ts`）は**ログイン中の人の権限（`createClient()`）だけ**で読む・書く。秘密キーを使わない。

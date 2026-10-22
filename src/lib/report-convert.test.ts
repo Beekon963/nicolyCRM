@@ -278,3 +278,11 @@ describe("件数をまとめる・CRM の項目名を直す", () => {
     ]);
   });
 });
+
+describe("見出しと中身が同じ行の所感", () => {
+  it("「所感: 〇〇」を所感として読む（項目にはしない）", () => {
+    const r = parseReportText("10/21 DSサンプル\n【実績】\n新規 2\n所感: 午後から混みました\n雨でした");
+    expect(r.lines.map((l) => `${l.raw}${l.count}`)).toEqual(["新規2"]);
+    expect(r.comment).toBe("午後から混みました\n雨でした");
+  });
+});
