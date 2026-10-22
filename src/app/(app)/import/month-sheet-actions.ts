@@ -54,7 +54,7 @@ async function loadPlanContext(month: string): Promise<PlanContext> {
   const [clients, venues, staff, events] = await Promise.all([
     selectAll((f, t) => supabase.from("companies").select("id, name").eq("kind", "client").order("id").range(f, t)),
     selectAll((f, t) => supabase.from("venues").select("id, name").order("id").range(f, t)),
-    selectAll((f, t) => supabase.from("staff").select("id, name").order("id").range(f, t)),
+    selectAll((f, t) => supabase.from("staff").select("id, name, kana, line_name").order("id").range(f, t)),
     selectAll((f, t) => supabase.from("events").select("id, date, client_id, venue_id").gte("date", start).lte("date", end).is("cancelled_at", null).order("id").range(f, t)),
   ]);
   return { today: todayJst(), clients, venues, staff, events };

@@ -11,10 +11,11 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toaster";
 import type { NameOption, SheetAliasRow, SheetSyncStatus } from "@/lib/data/sheet-sync";
+import { type Suggestion, type Suggestions, suggestionCount } from "@/lib/import/name-match";
 import { formatShortJa, formatTimeJst, toJstDateString } from "@/lib/date";
 import type { AliasKind } from "@/lib/import/sheet-sync-plan";
 import { cn } from "@/lib/utils";
-import { deleteSheetAlias, saveSheetAlias, saveSheetSyncSettings, syncSheetNow, writebackNow } from "./sheet-sync-actions";
+import { deleteSheetAlias, saveSheetAlias, saveSheetAliases, saveSheetSyncSettings, syncSheetNow, writebackNow } from "./sheet-sync-actions";
 
 const KIND_LABEL: Record<AliasKind, string> = { client: "取引先", venue: "会場", staff: "スタッフ", place: "下の段にだけある場所（研修など）" };
 
@@ -23,13 +24,17 @@ export function ranAtLabel(iso: string): string {
   return `${formatShortJa(toJstDateString(d))} ${formatTimeJst(d)}`;
 }
 
+type Options = { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] };
+
 /**
  * シートを自動で読む（Phase 18）: 設定・最後の結果・合わない名前の対応づけ。オーナーだけ。
  * 読む元が空なら、書き出し先（いつもの管理用シート）をそのまま読む。
+ * 合わない名前には CRM の中で近いもの（候補。Phase 20）を最初から選んでおく。決めるのはオーナー。
  */
-export function SheetSyncPanel({ status, aliases, options, roles }: { status: SheetSyncStatus; aliases: SheetAliasRow[]; options: { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] }; roles: NameOption[] }) {
+export function SheetSyncPanel({ status, aliases, options, suggestions, roles }: { status: SheetSyncStatus; aliases: SheetAliasRow[]; options: Options; suggestions: Suggestions; roles: NameOption[] }) {
   const [enabled, setEnabled] = useState(status.enabled);
   const [writeback, setWriteback] = useState(status.writeback);
+  const [addRows, setAddRows] = useState(status.addRows);
   const [url, setUrl] = useState(status.spreadsheetId ? `https://docs.google.com/spreadsheets/d/${status.spreadsheetId}/edit` : "");
   const [roleId, setRoleId] = useState(status.roleId ?? roles[0]?.id ?? "");
   const [pending, start] = useTransition();
@@ -37,9 +42,9 @@ export function SheetSyncPanel({ status, aliases, options, roles }: { status: Sh
   const last = status.last;
   const source = status.spreadsheetId ?? status.exportSpreadsheetId;
 
-  const save = (next?: Partial<{ enabled: boolean; writeback: boolean }>) =>
+  const save = (next?: Partial<{ enabled: boolean; writeback: boolean; addRows: boolean }>) =>
     start(async () => {
-      const r = await saveSheetSyncSettings({ enabled: next?.enabled ?? enabled, url, roleId, writeback: next?.writeback ?? writeback });
+      const r = await saveSheetSyncSettings({ enabled: next?.enabled ?? enabled, url, roleId, writeback: next?.writeback ?? writeback, addRows: next?.addRows ?? addRows });
       if (r.ok) toast.success(r.message);
       else toast.error(r.message);
     });
@@ -161,7 +166,7 @@ export function SheetSyncPanel({ status, aliases, options, roles }: { status: Sh
         <p className="text-sm text-muted-foreground">Google の設定（docs/setup.md ⑨）がなくても、「リンクを知っている全員」が見られるシートなら読めます。シートの単価の列も入るので、読めるのはオーナーだけです。</p>
 
         {/* 合わない名前 */}
-        {status.unmatchedCount > 0 && <UnmatchedList status={status} options={options} />}
+        {status.unmatchedCount > 0 && <UnmatchedList status={status} options={options} suggestions={suggestions} />}
 
         {/* 書き戻し（Phase 19） */}
         <div className="flex flex-col gap-3 border-t pt-4" data-testid="sheet-writeback">
@@ -170,7 +175,7 @@ export function SheetSyncPanel({ status, aliases, options, roles }: { status: Sh
             {writeback ? <Badge tone="done">2分ごと</Badge> : <Badge>止めている</Badge>}
           </p>
           <p className="text-sm text-muted-foreground">
-            CRM で確定・辞退・現場を作る・人数を直す・○△×を入れると、いつものシートの同じマス（場所・シフト・現場・人数）にも2分以内に書きます（単価の行は書きません）。シートに行がない人・取引先は書けないので、下に出ます。
+            CRM で確定・辞退・現場を作る・人数を直す・○△×を入れると、いつものシートの同じマス（場所・シフト・現場・人数）にも2分以内に書きます（単価の行は書きません）。シートに行がない人・取引先は、下の「行を足す」がオンなら行を足してから書き、オフなら書けなかったものとして下に出ます。
           </p>
           {!status.googleConfigured && (
             <p className="text-sm text-status-alert">Google の設定（docs/setup.md ⑨ のサービスアカウント。シートに「編集者」で共有）がまだないので、オンにしてもシートには書けません。</p>
@@ -192,6 +197,23 @@ export function SheetSyncPanel({ status, aliases, options, roles }: { status: Sh
               今すぐ書く
             </Button>
             {status.pendingWrites > 0 && writeback && <span className="text-sm text-muted-foreground">まだ書いていないマス: {status.pendingWrites}</span>}
+          </div>
+          <div className="flex flex-col gap-1" data-testid="sheet-add-rows">
+            <label className="flex min-h-11 items-center gap-2">
+              <Switch
+                checked={addRows}
+                disabled={pending}
+                aria-label="行を足す"
+                onCheckedChange={(v) => {
+                  setAddRows(v);
+                  save({ addRows: v });
+                }}
+              />
+              <span className="font-semibold">シートに行がない人・取引先は、行を足す</span>
+            </label>
+            <p className="text-sm text-muted-foreground">
+              オンにすると、書くときにその人・取引先の行がなければ、その段のいちばん下に3行の組（単価 / 場所 / シフト、単価 / 現場 / 人数）を足してから書きます。見た目と右側の計算式（出勤日数など）はすぐ上の組を写し、単価の行は空のままです。名字だけなど似た名前の行がもうあるときは足さずに知らせます（上の「合わない名前」で決めてください）。
+            </p>
           </div>
           {status.recentWrites.length > 0 && (
             <ul className="divide-y rounded-md border text-sm" data-testid="sheet-writeback-recent">
@@ -217,14 +239,26 @@ export function SheetSyncPanel({ status, aliases, options, roles }: { status: Sh
   );
 }
 
-function UnmatchedList({ status, options }: { status: SheetSyncStatus; options: { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] } }) {
+function UnmatchedList({ status, options, suggestions }: { status: SheetSyncStatus; options: Options; suggestions: Suggestions }) {
   const u = status.unmatched;
-  const rows: { kind: AliasKind; name: string; note?: string }[] = [
-    ...u.clients.map((name) => ({ kind: "client" as const, name })),
-    ...u.venues.map((name) => ({ kind: "venue" as const, name })),
-    ...u.staff.map((name) => ({ kind: "staff" as const, name })),
-    ...u.places.map((p) => ({ kind: "place" as const, name: p.place, note: `${p.days.join("・")}日` })),
+  const rows: { kind: AliasKind; name: string; note?: string; suggestion?: Suggestion }[] = [
+    ...u.clients.map((name) => ({ kind: "client" as const, name, suggestion: suggestions.clients[name] })),
+    ...u.venues.map((name) => ({ kind: "venue" as const, name, suggestion: suggestions.venues[name] })),
+    ...u.staff.map((name) => ({ kind: "staff" as const, name, suggestion: suggestions.staff[name] })),
+    ...u.places.map((p) => ({ kind: "place" as const, name: p.place, note: `${p.days.join("・")}日`, suggestion: suggestions.places[p.place] })),
   ];
+  // 決めたもの（行ごとの結果の文）。まとめて決めたときも1件ずつ決めたときも、ここに入る
+  const [done, setDone] = useState<Record<string, string>>({});
+  const [pending, start] = useTransition();
+  const key = (r: { kind: AliasKind; name: string }) => `${r.kind}:${r.name}`;
+  const withSuggestion = rows.filter((r) => r.suggestion && !done[key(r)]);
+  const decideAll = () =>
+    start(async () => {
+      const r = await saveSheetAliases(withSuggestion.map((x) => ({ kind: x.kind, sheetName: x.name, target: x.suggestion!.id })));
+      if (!r.ok) return void toast.error(r.message);
+      toast.success(r.message);
+      setDone((d) => ({ ...d, ...Object.fromEntries(withSuggestion.map((x) => [key(x), `${x.suggestion!.name} に決めました`])) }));
+    });
   return (
     <div className="flex flex-col gap-2 rounded-md border border-status-waiting-border bg-status-waiting-bg p-3" data-testid="sheet-sync-unmatched">
       <p className="flex items-center gap-2 font-semibold">
@@ -232,20 +266,27 @@ function UnmatchedList({ status, options }: { status: SheetSyncStatus; options: 
         シートの名前が CRM と合わないもの
         <Badge tone="waiting">{rows.length}件</Badge>
       </p>
-      <p className="text-sm text-muted-foreground">どれのことか決めると覚えておき、次に読むときから入ります（まだ入っていません）。</p>
+      <p className="text-sm text-muted-foreground">
+        どれのことか決めると覚えておき、次に読むときから入ります（まだ入っていません）。
+        {suggestionCount(suggestions) > 0 && "近いものがあるときは「候補」として先に選んであります。違うときは選び直してください。"}
+      </p>
+      {withSuggestion.length > 0 && (
+        <Button variant="outline" disabled={pending} onClick={decideAll} className="self-start">
+          候補どおりにまとめて決める（{withSuggestion.length}件）
+        </Button>
+      )}
       <ul className="flex flex-col gap-2">
         {rows.map((r) => (
-          <UnmatchedRow key={`${r.kind}:${r.name}`} row={r} options={options} />
+          <UnmatchedRow key={key(r)} row={r} options={options} done={done[key(r)]} onDone={(msg) => setDone((d) => ({ ...d, [key(r)]: msg }))} />
         ))}
       </ul>
     </div>
   );
 }
 
-function UnmatchedRow({ row, options }: { row: { kind: AliasKind; name: string; note?: string }; options: { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] } }) {
-  const [target, setTarget] = useState("");
+function UnmatchedRow({ row, options, done, onDone }: { row: { kind: AliasKind; name: string; note?: string; suggestion?: Suggestion }; options: Options; done?: string; onDone: (message: string) => void }) {
+  const [target, setTarget] = useState(row.suggestion?.id ?? "");
   const [pending, start] = useTransition();
-  const [done, setDone] = useState<string | null>(null);
   // place（下の段にだけある場所）は「その現場の取引先」を選ぶ
   const list = row.kind === "staff" ? options.staff : row.kind === "venue" ? options.venues : options.clients;
   const canCreate = row.kind === "venue" || row.kind === "client";
@@ -254,7 +295,7 @@ function UnmatchedRow({ row, options }: { row: { kind: AliasKind; name: string; 
       const r = await saveSheetAlias({ kind: row.kind, sheetName: row.name, target });
       if (!r.ok) return void toast.error(r.message);
       toast.success(r.message);
-      setDone(r.message ?? "決めました");
+      onDone(r.message ?? "決めました");
     });
   return (
     <li className="flex flex-col gap-1.5 rounded-md bg-background p-2 sm:flex-row sm:items-center sm:gap-2">
@@ -262,6 +303,12 @@ function UnmatchedRow({ row, options }: { row: { kind: AliasKind; name: string; 
         <Badge className="mr-1.5">{KIND_LABEL[row.kind]}</Badge>
         <span className="font-semibold break-words">{row.name}</span>
         {row.note && <span className="ml-1 text-sm text-muted-foreground">{row.note}</span>}
+        {row.suggestion && !done && (
+          <span className="mt-0.5 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+            <Badge tone="waiting">候補</Badge>
+            {row.suggestion.name}（{row.suggestion.why}）
+          </span>
+        )}
       </span>
       {done ? (
         <span className="text-sm text-status-done">{done}</span>

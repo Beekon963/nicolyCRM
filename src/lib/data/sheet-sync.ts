@@ -2,6 +2,7 @@ import "server-only";
 import { readServiceAccount } from "@/lib/google/sheets";
 import { createClient } from "@/lib/supabase/server";
 import { EMPTY_UNMATCHED, type SyncReport } from "@/lib/sheet-sync";
+import { EMPTY_SUGGESTIONS, suggestForUnmatched, type Suggestions } from "@/lib/import/name-match";
 import type { Unmatched } from "@/lib/import/sheet-sync-plan";
 
 export type SheetSyncRun = { ranAt: string; ok: boolean; message: string; report: SyncReport };
@@ -12,6 +13,8 @@ export type SheetSyncStatus = {
   enabled: boolean;
   /** CRM で入れたものをシートにも書く（書き戻し。Phase 19） */
   writeback: boolean;
+  /** 書き戻しで、シートに行がない人・取引先の行を足す（Phase 20） */
+  addRows: boolean;
   /** Google の設定（サービスアカウント）があるか。書き戻しに必要 */
   googleConfigured: boolean;
   /** まだ書いていないマスの数 */
@@ -51,6 +54,7 @@ export async function getSheetSyncStatus(): Promise<SheetSyncStatus> {
   return {
     enabled: sync.enabled === true,
     writeback: sync.writeback === true,
+    addRows: sync.add_rows === true,
     googleConfigured: readServiceAccount() != null,
     pendingWrites: pendingWrites ?? 0,
     recentWrites: collapseWrites(writes ?? []),
@@ -66,25 +70,38 @@ export async function getSheetSyncStatus(): Promise<SheetSyncStatus> {
 export type SheetAliasRow = { id: string; kind: "client" | "venue" | "staff" | "place"; sheetName: string; targetName: string | null };
 export type NameOption = { id: string; name: string };
 
-/** 自動の読み取りの画面に出すもの（設定・最後の結果・覚えた対応づけ・選べる名前の一覧） */
-export async function getSheetSyncPanelData(): Promise<{ status: SheetSyncStatus; aliases: SheetAliasRow[]; options: { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] } }> {
+export type SheetSyncPanelData = { status: SheetSyncStatus; aliases: SheetAliasRow[]; options: { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] }; suggestions: Suggestions };
+
+/**
+ * 自動の読み取りの画面に出すもの（設定・最後の結果・覚えた対応づけ・選べる名前の一覧）。
+ * 「合わない名前」には CRM の中で近いもの（候補。Phase 20）を付けて、画面で最初から選んでおく（決めるのはオーナー）
+ */
+export async function getSheetSyncPanelData(): Promise<SheetSyncPanelData> {
   const supabase = await createClient();
   const [status, { data: aliases }, { data: clients }, { data: venues }, { data: staff }] = await Promise.all([
     getSheetSyncStatus(),
     supabase.from("sheet_name_aliases").select("id, kind, sheet_name, target_id").order("created_at", { ascending: false }).limit(200),
     supabase.from("companies").select("id, name").eq("kind", "client").eq("is_active", true).order("name"),
     supabase.from("venues").select("id, name").eq("is_active", true).order("name"),
-    supabase.from("staff").select("id, name").eq("status", "active").order("kana"),
+    supabase.from("staff").select("id, name, kana, line_name").eq("status", "active").order("kana"),
   ]);
   const nameOf = (kind: SheetAliasRow["kind"], id: string | null) => {
     if (!id) return null;
     const list = kind === "staff" ? staff : kind === "venue" ? venues : clients;
     return (list ?? []).find((x) => x.id === id)?.name ?? "（消えたもの）";
   };
+  // 下の段にだけある場所（研修など）の候補: その場所に合う会場で、いちばん多く現場をしている取引先
+  let events: { client_id: string; venue_id: string }[] = [];
+  if (status.unmatched.places.length) {
+    const { data } = await supabase.from("events").select("client_id, venue_id").is("cancelled_at", null).order("date", { ascending: false }).limit(2000);
+    events = data ?? [];
+  }
+  const suggestions = status.unmatchedCount ? suggestForUnmatched(status.unmatched, { clients: clients ?? [], venues: venues ?? [], staff: staff ?? [], events }) : EMPTY_SUGGESTIONS;
   return {
     status,
     aliases: (aliases ?? []).map((a) => ({ id: a.id, kind: a.kind as SheetAliasRow["kind"], sheetName: a.sheet_name, targetName: nameOf(a.kind as SheetAliasRow["kind"], a.target_id) })),
-    options: { clients: clients ?? [], venues: venues ?? [], staff: staff ?? [] },
+    options: { clients: clients ?? [], venues: venues ?? [], staff: (staff ?? []).map((s) => ({ id: s.id, name: s.name })) },
+    suggestions,
   };
 }
 

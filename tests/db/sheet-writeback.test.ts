@@ -20,9 +20,13 @@ let venue2Id = "";
 let staffId = "";
 let roleId = "";
 
-/** 偽のタブ（書き込みは反映する） */
+/** 偽のタブ（書き込みは反映する。行を足す指示も反映する） */
 let tab: string[][] = [];
 let batchBodies: unknown[] = [];
+/** 行を足す・書式を写す指示（values 以外の batchUpdate） */
+let structureBodies: { requests: Record<string, unknown>[] }[] = [];
+/** values:batchUpdate の valueInputOption（計算式は USER_ENTERED で書く） */
+let inputOptions: string[] = [];
 function freshTab(): string[][] {
   const cols = Array.from({ length: 31 }, (_, i) => `5/${i + 1}`);
   const row = (head: string[], cells: Record<number, string> = {}) => {
@@ -35,7 +39,8 @@ function freshTab(): string[][] {
     ["", "", "", "日付", ...cols, "出勤日数"],
     ["ランク", "名前", "最寄り駅", "曜日", ...cols.map(() => "月")],
     row([names.client, "", "", "単価"]),
-    row(["", "", "", "現場"]),
+    // 右端（AJ 列）に手本の計算式（足した組に行をずらして写される）
+    [...row(["", "", "", "現場"]), "=COUNTA(E4:AI4)"],
     row(["", "", "", "人数"]),
     row(["A", names.staff, "大宮", "単価"]),
     row(["", "", "", "場所"]),
@@ -52,9 +57,11 @@ const fakeFetch: typeof fetch = async (input, init) => {
   const url = String(input instanceof Request ? input.url : input);
   if (url.startsWith("https://oauth2.googleapis.com/")) return Response.json({ access_token: "ya29.test" });
   if (url.includes("?fields=sheets.properties.title")) return Response.json({ sheets: [{ properties: { title: "203105" } }] });
+  if (url.includes("?fields=sheets(properties(sheetId,title))")) return Response.json({ sheets: [{ properties: { title: "203105", sheetId: 77 } }] });
   if (url.includes("/values:batchUpdate")) {
-    const body = JSON.parse(String(init?.body)) as { data: { range: string; values: string[][] }[] };
+    const body = JSON.parse(String(init?.body)) as { valueInputOption: string; data: { range: string; values: string[][] }[] };
     batchBodies.push(body);
+    inputOptions.push(body.valueInputOption);
     for (const d of body.data) {
       const { r, c } = a1ToRc(d.range.split("!")[1]);
       tab[r] ??= [];
@@ -62,6 +69,21 @@ const fakeFetch: typeof fetch = async (input, init) => {
     }
     return Response.json({});
   }
+  if (url.split("?")[0].endsWith(":batchUpdate")) {
+    const body = JSON.parse(String(init?.body)) as { requests: Record<string, unknown>[] };
+    structureBodies.push(body);
+    for (const r of body.requests) {
+      const ins = r.insertDimension as { range: { startIndex: number; endIndex: number } } | undefined;
+      if (ins) {
+        const width = tab[0]?.length ?? 0;
+        tab.splice(ins.range.startIndex, 0, ...Array.from({ length: ins.range.endIndex - ins.range.startIndex }, () => Array<string>(width).fill("")));
+      }
+    }
+    return Response.json({});
+  }
+  // 行の範囲を計算式のまま読む（'203105'!6:8）
+  const range = url.match(/\/values\/'203105'!(\d+):(\d+)\?valueRenderOption=FORMULA/);
+  if (range) return Response.json({ values: tab.slice(Number(range[1]) - 1, Number(range[2])) });
   if (url.includes("/values/'203105'")) return Response.json({ values: tab });
   return Response.json({}, { status: 404 });
 };
@@ -75,7 +97,8 @@ async function run(source: "cron" | "button" = "button", now: Date = NOW) {
 }
 const q = (text: string, params: unknown[] = []) => getPool().query(text, params);
 const pendingFor = async (kind: string, ref: string, d: string) => (await q(`select count(*)::int as n from public.sheet_writes where status = 'pending' and kind = $1 and ref_id = $2 and date = $3`, [kind, ref, d])).rows[0].n as number;
-const setSettings = (writeback: boolean) => q(`insert into public.settings (key, value) values ('sheet_sync', $1) on conflict (key) do update set value = excluded.value`, [{ enabled: false, spreadsheet_id: SHEET_ID, role_id: null, writeback }]);
+const setSettings = (writeback: boolean, extra: Record<string, unknown> = {}) =>
+  q(`insert into public.settings (key, value) values ('sheet_sync', $1) on conflict (key) do update set value = excluded.value`, [{ enabled: false, spreadsheet_id: SHEET_ID, role_id: null, writeback, ...extra }]);
 
 async function cleanupMonth() {
   const c = await getPool().connect();
@@ -204,6 +227,68 @@ describe("書き戻し", () => {
       await q(`delete from public.sheet_writes where ref_id = $1`, [other]);
       await q(`delete from public.availability where staff_id = $1`, [other]);
       await q(`delete from public.staff where id = $1`, [other]);
+    }
+  });
+
+  it("行がない人・取引先は、設定がオンなら組を足してから書く。似た名前の行があるときは足さない（Phase 20）", async () => {
+    await setSettings(true, { add_rows: true });
+    tab = freshTab();
+    batchBodies = [];
+    structureBodies = [];
+    inputOptions = [];
+    const newbie = (await q(`insert into public.staff (name, kana, nearest_station) values ($1, 'かきもどし しんじん', '浦和') returning id`, [`書戻 新人${tag}`])).rows[0].id;
+    const twin = (await q(`insert into public.staff (name, kana) values ($1, 'べっせい はなこ') returning id`, [`別姓${tag} 花子`])).rows[0].id;
+    const newClient = (await q(`insert into public.companies (kind, name, status) values ('client', $1, 'active') returning id`, [`書戻テスト新規取引先${tag}`])).rows[0].id;
+    try {
+      // 名字だけの行（別姓…）がある → 花子の行は足さない
+      tab.push(...[["B", `別姓${tag}`, "", "単価"], ["", "", "", "場所"], ["", "", "", "シフト"]].map((h) => [...h, ...Array<string>(31).fill("")]));
+      await q(`insert into public.availability (staff_id, date, status, source) values ($1, $2, 'ok', 'admin')`, [newbie, day(17)]);
+      await q(`insert into public.availability (staff_id, date, status, source) values ($1, $2, 'ok', 'admin')`, [twin, day(18)]);
+      const ev = (await q(`insert into public.events (client_id, venue_id, date) values ($1, $2, $3) returning id`, [newClient, venueId, day(19)])).rows[0].id;
+      await q(`insert into public.event_requirements (event_id, role_id, required_count) values ($1, $2, 2)`, [ev, roleId]);
+
+      const before = tab.length;
+      const r = await run("button");
+      expect(r.failed).toBe(1);
+      expect(tab.length).toBe(before + 6);
+      // 上の段のいちばん下（5〜7行目）に取引先の組。見出し・名前・現場・人数
+      expect(tab[5][0]).toBe(`書戻テスト新規取引先${tag}`);
+      expect(tab[5][3]).toBe("単価");
+      expect(tab[6][3]).toBe("現場");
+      expect(tab[7][3]).toBe("人数");
+      expect(cellOf("W7")).toBe(names.venue); // 19日 = 4 + 19 列目 → W
+      expect(cellOf("W8")).toBe("2");
+      // 手本（4行目）の右端の計算式が、行をずらして写る（計算式として書く）
+      expect(cellOf("AJ7")).toBe("=COUNTA(E7:AI7)");
+      expect(inputOptions).toContain("USER_ENTERED");
+      expect(cellOf("AJ8")).toBe("");
+      // 下の段のいちばん下（別姓…の組の下。12〜14行目）にスタッフの組。名前・最寄り駅・シフト
+      expect(tab[11][1]).toBe(`書戻 新人${tag}`);
+      expect(tab[11][2]).toBe("浦和");
+      expect(tab[11][3]).toBe("単価");
+      expect(tab[12][3]).toBe("場所");
+      expect(tab[13][3]).toBe("シフト");
+      expect(cellOf("U14")).toBe("⭕️"); // 17日 = 4 + 17 列目 → U
+      // 行を足す指示: 上の段は 5 行目の前に3行、書式は手本（3〜5行目）から
+      expect(structureBodies[0].requests[0]).toEqual({ insertDimension: { range: { sheetId: 77, dimension: "ROWS", startIndex: 5, endIndex: 8 }, inheritFromBefore: true } });
+      expect(structureBodies[0].requests[1]).toMatchObject({ copyPaste: { source: { startRowIndex: 2, endRowIndex: 5 }, destination: { startRowIndex: 5, endRowIndex: 8 }, pasteType: "PASTE_FORMAT" } });
+      // 単価の行の日付のマスには何も書かない
+      expect(tab[5].slice(4, 35).every((c) => c === "")).toBe(true);
+      expect(tab[11].slice(4, 35).every((c) => c === "")).toBe(true);
+
+      const { rows } = await q(`select ref_id, status, message from public.sheet_writes where ref_id = any($1) and status <> 'pending' order by id`, [[newbie, twin, newClient]]);
+      const by = Object.fromEntries(rows.map((x) => [x.ref_id, x]));
+      expect(by[newbie].status).toBe("done");
+      expect(by[newbie].message).toContain("行を足しました。");
+      expect(by[newClient].status).toBe("done");
+      expect(by[twin].status).toBe("failed");
+      expect(by[twin].message).toContain(`「別姓${tag}」の行がこの人かもしれないので、行は足しませんでした`);
+    } finally {
+      await q(`delete from public.sheet_writes where ref_id = any($1)`, [[newbie, twin, newClient]]);
+      await q(`delete from public.availability where staff_id = any($1)`, [[newbie, twin]]);
+      await cleanupMonth();
+      await q(`delete from public.staff where id = any($1)`, [[newbie, twin]]);
+      await q(`delete from public.companies where id = $1`, [newClient]);
     }
   });
 

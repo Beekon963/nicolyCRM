@@ -21,7 +21,7 @@ export default async function ImportPage() {
       <PageHeader title="データ取り込み" description="スタッフ名簿・取引先・協力会社・会場・月の稼働表を CSV でまとめて登録します" />
       {/* シートを自動で読む（Phase 18）。月の稼働表を手で取り込まなくてよい */}
       <div className="px-4 pb-4">
-        <SheetSyncPanel status={sync.status} aliases={sync.aliases} options={sync.options} roles={roles} />
+        <SheetSyncPanel status={sync.status} aliases={sync.aliases} options={sync.options} suggestions={sync.suggestions} roles={roles} />
       </div>
       <ImportWizard roles={roles} defaultSheetUrl={sheetId ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit` : ""} />
     </>

@@ -5,6 +5,8 @@
  * - 待ち行列 sheet_writes（トリガーが入れた「書き直すマス」）のうち、印が付いてから1分たったものを見る
  * - CRM の今の状態を読み直し、今月・来月のタブの同じマス（場所・シフト・現場・人数）と比べて、違うときだけ書く
  *   （sheet-writeback-plan.ts。シートから読んだ分は同じなので何も書かない）
+ * - 設定「行がない人・取引先は行を足す」（Phase 20）がオンなら、シートに行がない人・取引先の組（3行）を
+ *   その段のいちばん下に足してから書く。似た名前の行がもうあるとき（名字だけなど）は足さずに知らせる
  * - Google の設定（サービスアカウント。編集者）が必要。ないときは書かずに「書けなかった」と残す
  * 単価の行には触らない。金額は扱わない。
  */
@@ -12,15 +14,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayJst } from "@/lib/date";
 import { getAccessToken, readServiceAccount, SheetError, SheetsClient } from "@/lib/google/sheets";
 import { venueKey } from "@/lib/import/line-plan";
-import { layoutMonthSheet, NO_HEADER_WARNING, NO_LABELS_WARNING } from "@/lib/import/month-sheet";
+import { layoutMonthSheet, NO_HEADER_WARNING, NO_LABELS_WARNING, type SheetLayout } from "@/lib/import/month-sheet";
+import { type Named, nearClientRows, nearStaffRows, type StaffNamed } from "@/lib/import/name-match";
 import { syncMonths, tabTitle } from "@/lib/import/sheet-sync-plan";
-import { type CellWrite, detectSymbols, type ItemResult, planCellWrites, type WriteItem } from "@/lib/import/sheet-writeback-plan";
+import { type CellWrite, copiedFormulas, detectSymbols, findClientBlocks, findStaffBlock, type ItemResult, planCellWrites, planNewBlock, type WriteItem } from "@/lib/import/sheet-writeback-plan";
 import { getSheetSyncSettings } from "@/lib/sheet-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Db = SupabaseClient<Database>;
 type Pending = { id: number; kind: "staff_day" | "availability" | "client_day"; ref_id: string; date: string };
+type AliasRow = { kind: string; sheet_name: string; target_id: string | null };
+type StaffRow = StaffNamed & { station: string; rank: string };
 
 export type WritebackResult = { ok: boolean; message: string; done: number; skipped: number; failed: number; written: number };
 
@@ -41,9 +46,89 @@ async function settle(db: Db, results: ItemResult[]) {
 }
 
 /** 名前の候補（覚えた対応づけのシートの書き方 → CRM の名前の順） */
-function spellings(aliases: { kind: string; sheet_name: string; target_id: string | null }[], kind: "staff" | "venue" | "client", id: string, crmName: string): string[] {
+function spellings(aliases: AliasRow[], kind: "staff" | "venue" | "client", id: string, crmName: string): string[] {
   const fromAlias = aliases.filter((a) => a.kind === kind && a.target_id === id).map((a) => a.sheet_name);
   return [...new Set([...fromAlias, crmName])].filter(Boolean);
+}
+
+type AddRowsInput = {
+  client: SheetsClient;
+  tab: string;
+  values: string[][];
+  lay: SheetLayout;
+  rows: Pending[];
+  staff: Map<string, StaffRow>;
+  clients: Map<string, Named>;
+  aliases: AliasRow[];
+};
+
+/**
+ * シートに行がない人・取引先の組を足す（Phase 20）。足せなかったものは理由を結果に入れ、そのマスは書かない。
+ * 足したあとはタブを読み直す（行の位置が変わるため）
+ */
+async function addMissingRows(input: AddRowsInput): Promise<{ values: string[][]; lay: SheetLayout; results: ItemResult[]; added: Set<string> }> {
+  const { client, tab, rows, staff, clients, aliases } = input;
+  let { values, lay } = input;
+  const results: ItemResult[] = [];
+  const added = new Set<string>();
+  const aliased = new Set(aliases.map((a) => a.sheet_name));
+  const roster: StaffNamed[] = [...staff.values()];
+  const clientList: Named[] = [...clients.values()];
+  const spell = (kind: "staff" | "client", id: string) => spellings(aliases, kind, id, (kind === "staff" ? staff.get(id)?.name : clients.get(id)?.name) ?? "");
+  const itemsOf = (ref: string, kind: "staff" | "client") => rows.filter((p) => p.ref_id === ref && (kind === "client") === (p.kind === "client_day"));
+  const failAll = (ref: string, kind: "staff" | "client", message: string) => results.push(...itemsOf(ref, kind).map((p) => ({ id: p.id, status: "failed" as const, message })));
+  let sheetId: number | null | undefined;
+
+  const refs: { kind: "staff" | "client"; id: string }[] = [
+    ...[...new Set(rows.filter((p) => p.kind === "client_day").map((p) => p.ref_id))].map((id) => ({ kind: "client" as const, id })),
+    ...[...new Set(rows.filter((p) => p.kind !== "client_day").map((p) => p.ref_id))].map((id) => ({ kind: "staff" as const, id })),
+  ];
+  for (const { kind, id } of refs) {
+    const names = spell(kind, id);
+    if (kind === "client" ? findClientBlocks(lay, names).length > 0 : findStaffBlock(lay, names)) continue;
+    // 足す行に書く名前は CRM の名前（覚えた書き方ではなく）
+    const name = (kind === "staff" ? staff.get(id)?.name : clients.get(id)?.name) ?? "";
+    if (!name) continue;
+    const label = kind === "staff" ? `${name}さん` : `取引先「${name}」`;
+    // 似た名前の行（名字だけ・「株式会社」の違いなど）があるときは足さない（二重の行を作らないため）
+    const near = kind === "staff" ? nearStaffRows(id, lay.staffBlocks.map((b) => b.name), roster, aliased) : nearClientRows(id, lay.clientBlocks.map((b) => b.name), clientList, aliased);
+    if (near.length) {
+      failAll(id, kind, `${name}: シートの「${near.join("」「")}」の行が${kind === "staff" ? "この人" : "この取引先"}かもしれないので、行は足しませんでした（合わない名前の対応づけで決めてください）`);
+      continue;
+    }
+    const s = kind === "staff" ? staff.get(id) : null;
+    const nb = planNewBlock(values, lay, kind === "staff" ? { kind, name, rank: s?.rank ?? "", station: s?.station ?? "" } : { kind, name });
+    if (!nb) {
+      failAll(id, kind, `${name}: シートに${kind === "staff" ? "スタッフ" : "取引先"}の行が1組もないので、行を足せません（最初の1組はシートで作ってください）`);
+      continue;
+    }
+    try {
+      sheetId ??= await client.sheetIdOf(tab);
+      if (sheetId == null) throw new SheetError(`「${tab}」タブが見つかりません`);
+      const template = await client.readFormulas(tab, nb.templateRow, 3);
+      await client.insertRows(sheetId, nb.at, 3, nb.templateRow);
+      await client.writeCells(tab, nb.cells);
+      const formulas = copiedFormulas(template, lay, nb.templateRow, nb.at);
+      if (formulas.length) await client.writeCells(tab, formulas, { formulas: true });
+      values = await client.readValues(tab);
+      const next = layoutMonthSheet(values);
+      if ("error" in next) throw new SheetError("行を足したあとのタブが読めませんでした");
+      lay = next;
+      added.add(id);
+    } catch (e) {
+      failAll(id, kind, `${label}の行を足せませんでした: ${e instanceof SheetError ? e.message : "シートに書けませんでした。時間をおいてもう一度試してください"}`);
+      // 途中で止まったときは、いまのタブを読み直してから残りを書く
+      try {
+        values = await client.readValues(tab);
+        const next = layoutMonthSheet(values);
+        if (!("error" in next)) lay = next;
+      } catch {
+        /* 読めなければ、前に読んだ中身のまま進む */
+      }
+      break;
+    }
+  }
+  return { values, lay, results, added };
 }
 
 export async function runSheetWriteback(source: "cron" | "button", opts: { fetchImpl?: typeof fetch; now?: Date } = {}): Promise<WritebackResult> {
@@ -79,18 +164,16 @@ export async function runSheetWriteback(source: "cron" | "button", opts: { fetch
     return skipAll(e instanceof SheetError ? e.message : "Google にログインできませんでした");
   }
 
-  // 名前・対応づけ
-  const staffIds = [...new Set(pending.filter((p) => p.kind !== "client_day").map((p) => p.ref_id))];
-  const clientIds = [...new Set(pending.filter((p) => p.kind === "client_day").map((p) => p.ref_id))];
+  // 名前・対応づけ（名簿と取引先は全員分。似た名前の行があるかの確認に使う）
   const [{ data: staffRows }, { data: clientRows }, { data: venueRows }, { data: aliasRows }] = await Promise.all([
-    staffIds.length ? admin.from("staff").select("id, name").in("id", staffIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    clientIds.length ? admin.from("companies").select("id, name").in("id", clientIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    admin.from("staff").select("id, name, kana, line_name, nearest_station, rank:ranks(name)"),
+    admin.from("companies").select("id, name").eq("kind", "client"),
     admin.from("venues").select("id, name"),
     admin.from("sheet_name_aliases").select("kind, sheet_name, target_id"),
   ]);
-  const aliases = aliasRows ?? [];
-  const staffName = new Map((staffRows ?? []).map((s) => [s.id, s.name]));
-  const clientName = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
+  const aliases: AliasRow[] = aliasRows ?? [];
+  const staff = new Map<string, StaffRow>((staffRows ?? []).map((s) => [s.id, { id: s.id, name: s.name, kana: s.kana, line_name: s.line_name, station: s.nearest_station ?? "", rank: one(s.rank)?.name ?? "" }]));
+  const clients = new Map<string, Named>((clientRows ?? []).map((c) => [c.id, { id: c.id, name: c.name }]));
   const venueName = new Map((venueRows ?? []).map((v) => [v.id, v.name]));
   const venueSpelling = (id: string) => spellings(aliases, "venue", id, venueName.get(id) ?? "")[0] ?? "";
   const knownVenueKeys = new Set([...(venueRows ?? []).map((v) => venueKey(v.name)), ...aliases.filter((a) => a.kind === "venue").map((a) => venueKey(a.sheet_name))].filter((k) => k.length >= 2));
@@ -113,16 +196,28 @@ export async function runSheetWriteback(source: "cron" | "button", opts: { fetch
       continue;
     }
     try {
-      const values = await client.readValues(tab);
-      const lay = layoutMonthSheet(values);
-      if ("error" in lay) {
-        results.push(...rows.map((p) => ({ id: p.id, status: "skipped" as const, message: `「${tab}」: ${lay.error === "no_header" ? NO_HEADER_WARNING : NO_LABELS_WARNING}` })));
+      let values = await client.readValues(tab);
+      const first = layoutMonthSheet(values);
+      if ("error" in first) {
+        results.push(...rows.map((p) => ({ id: p.id, status: "skipped" as const, message: `「${tab}」: ${first.error === "no_header" ? NO_HEADER_WARNING : NO_LABELS_WARNING}` })));
         continue;
       }
+      let lay: SheetLayout = first;
+      // 行がない人・取引先の組を足す（設定がオンのとき）
+      const added = new Set<string>();
+      if (settings.addRows) {
+        const r = await addMissingRows({ client, tab, values, lay, rows, staff, clients, aliases });
+        values = r.values;
+        lay = r.lay;
+        results.push(...r.results);
+        for (const id of r.added) added.add(id);
+      }
+      const settled = new Set(results.map((r) => r.id));
+      const todo = rows.filter((p) => !settled.has(p.id));
       // CRM の今の状態
-      const dates = [...new Set(rows.map((p) => p.date))];
-      const sIds = [...new Set(rows.filter((p) => p.kind !== "client_day").map((p) => p.ref_id))];
-      const cIds = [...new Set(rows.filter((p) => p.kind === "client_day").map((p) => p.ref_id))];
+      const dates = [...new Set(todo.map((p) => p.date))];
+      const sIds = [...new Set(todo.filter((p) => p.kind !== "client_day").map((p) => p.ref_id))];
+      const cIds = [...new Set(todo.filter((p) => p.kind === "client_day").map((p) => p.ref_id))];
       const [{ data: asg }, { data: av }, { data: ev }] = await Promise.all([
         sIds.length
           ? admin.from("assignments").select("staff_id, event:events!inner(date, venue_id, cancelled_at)").eq("status", "confirmed").in("staff_id", sIds).in("event.date", dates).is("event.cancelled_at", null)
@@ -144,17 +239,18 @@ export async function runSheetWriteback(source: "cron" | "button", opts: { fetch
         const required = (Array.isArray(e.requirements) ? e.requirements : []).reduce((s, r) => s + (r.required_count ?? 0), 0);
         evOf.set(k, [...(evOf.get(k) ?? []), { venue: venueSpelling(e.venue_id), required }]);
       }
-      const items: WriteItem[] = rows.map((p) => {
+      const items: WriteItem[] = todo.map((p) => {
         const k = `${p.ref_id}|${p.date}`;
-        if (p.kind === "staff_day") return { id: p.id, kind: "staff_day", date: p.date, staffNames: spellings(aliases, "staff", p.ref_id, staffName.get(p.ref_id) ?? ""), venues: [...new Set(placeOf.get(k) ?? [])] };
-        if (p.kind === "availability") return { id: p.id, kind: "availability", date: p.date, staffNames: spellings(aliases, "staff", p.ref_id, staffName.get(p.ref_id) ?? ""), status: avOf.get(k) ?? null };
-        return { id: p.id, kind: "client_day", date: p.date, clientNames: spellings(aliases, "client", p.ref_id, clientName.get(p.ref_id) ?? ""), events: evOf.get(k) ?? [] };
+        if (p.kind === "staff_day") return { id: p.id, kind: "staff_day", date: p.date, staffNames: spellings(aliases, "staff", p.ref_id, staff.get(p.ref_id)?.name ?? ""), venues: [...new Set(placeOf.get(k) ?? [])] };
+        if (p.kind === "availability") return { id: p.id, kind: "availability", date: p.date, staffNames: spellings(aliases, "staff", p.ref_id, staff.get(p.ref_id)?.name ?? ""), status: avOf.get(k) ?? null };
+        return { id: p.id, kind: "client_day", date: p.date, clientNames: spellings(aliases, "client", p.ref_id, clients.get(p.ref_id)?.name ?? ""), events: evOf.get(k) ?? [] };
       });
       const plan = planCellWrites(values, lay, items, { symbols: detectSymbols(values, lay), knownVenueKeys });
       const writes: CellWrite[] = plan.writes;
       for (let i = 0; i < writes.length; i += 500) await client.writeCells(tab, writes.slice(i, i + 500));
       written += writes.length;
-      results.push(...plan.results);
+      const refOf = new Map(todo.map((p) => [p.id, p.ref_id]));
+      results.push(...plan.results.map((r) => (added.has(refOf.get(r.id) ?? "") ? { ...r, message: `行を足しました。${r.message}` } : r)));
     } catch (e) {
       const message = e instanceof SheetError ? e.message : "シートに書けませんでした。時間をおいてもう一度試してください";
       results.push(...rows.filter((p) => !results.some((r) => r.id === p.id)).map((p) => ({ id: p.id, status: "failed" as const, message })));

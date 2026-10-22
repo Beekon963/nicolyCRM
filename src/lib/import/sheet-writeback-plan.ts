@@ -8,7 +8,7 @@
  * - 単価の行には触らない
  * - シートの書き方が CRM の会場と合わないマス（合わない名前）は消さない・上書きしない
  * - ○△× は消さない（CRM で消しても、シートの印はそのまま。消すのはシートで）
- * - 行は足さない（ない人・ない取引先は「行がありません」）
+ * - 行は設定（行がない人・取引先は行を足す。Phase 20）がオンのときだけ足す。足す位置と書くマスは planNewBlock で決める
  */
 import { companyKey, searchNorm } from "@/lib/search";
 import { venueKey } from "./line-plan";
@@ -43,6 +43,96 @@ export type PlanResult = { writes: CellWrite[]; results: ItemResult[] };
 
 const staffKey = (s: string) => searchNorm(s);
 
+/** 下の段で、名前（CRM の名前・覚えた書き方のどれか）が合う組 */
+export function findStaffBlock(lay: SheetLayout, names: string[]): SheetLayout["staffBlocks"][number] | null {
+  const keys = names.map(staffKey).filter(Boolean);
+  return lay.staffBlocks.find((b) => b.name && keys.includes(staffKey(b.name))) ?? null;
+}
+
+/** 上の段で、取引先名が合う組（同じ取引先が何組もあることがある） */
+export function findClientBlocks(lay: SheetLayout, names: string[]): SheetLayout["clientBlocks"] {
+  const ckeys = names.map(companyKey).filter(Boolean);
+  return lay.clientBlocks.filter((b) => b.name && ckeys.includes(companyKey(b.name)));
+}
+
+export type NewBlockItem = { kind: "staff"; name: string; rank: string; station: string } | { kind: "client"; name: string };
+
+export type NewBlock = {
+  /** 足す3行の最初の行（0 始まり。この位置に入れる） */
+  at: number;
+  /** 見た目と計算式の手本（その段のいちばん下の組の最初の行） */
+  templateRow: number;
+  /** 見出し（単価 / 場所 / シフト など）と名前のマス。足したあとに書く（行の番号は足したあとのもの） */
+  cells: CellWrite[];
+};
+
+/**
+ * 足す組の位置と、名前・見出しのマス（Phase 20）。その段のいちばん下の組のすぐ下に足す。
+ * その段に1組もないときは足せない（null）。日付のマス・単価の行は空のまま
+ */
+export function planNewBlock(rows: string[][], lay: SheetLayout, item: NewBlockItem): NewBlock | null {
+  if (item.kind === "staff") {
+    const last = lay.staffBlocks.at(-1);
+    if (!last) return null;
+    const at = last.shiftRow + 1;
+    const cells: CellWrite[] = [
+      { row: at, col: lay.labelCol, value: "単価" },
+      { row: at + 1, col: lay.labelCol, value: "場所" },
+      { row: at + 2, col: lay.labelCol, value: "シフト" },
+      { row: at, col: lay.nameCol, value: item.name },
+    ];
+    if (item.rank && lay.rankCol !== lay.nameCol) cells.push({ row: at, col: lay.rankCol, value: item.rank });
+    if (item.station && lay.stationCol !== lay.nameCol) cells.push({ row: at, col: lay.stationCol, value: item.station });
+    return { at, templateRow: last.rateRow, cells };
+  }
+  const last = lay.clientBlocks.at(-1);
+  if (!last) return null;
+  const at = last.countRow + 1;
+  // 取引先名の列: 名前が書いてある組の、単価の行で最初に文字があるマスの列（なければ左端）
+  let nameCol = 0;
+  for (const b of lay.clientBlocks) {
+    const i = (rows[b.rateRow] ?? []).slice(0, lay.labelCol).findIndex((c) => c.trim());
+    if (i >= 0) nameCol = i;
+  }
+  return {
+    at,
+    templateRow: last.rateRow,
+    cells: [
+      { row: at, col: lay.labelCol, value: "単価" },
+      { row: at + 1, col: lay.labelCol, value: "現場" },
+      { row: at + 2, col: lay.labelCol, value: "人数" },
+      { row: at, col: nameCol, value: item.name },
+    ],
+  };
+}
+
+/**
+ * 計算式の中の「E7」「E7:AI7」のような番地の行を delta だけずらす（$7 のように固定した行はそのまま。文字列の中は触らない）。
+ * 手本の組の計算式を足した組に写すときに使う
+ */
+export function shiftFormulaRows(formula: string, delta: number): string {
+  if (!formula.startsWith("=") || !delta) return formula;
+  return formula.replace(/("[^"]*")|(?<![A-Za-z_\d])(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(A-Za-z_])/g, (m, str: string | undefined, cAbs: string, col: string, rAbs: string, row: string) => {
+    if (str) return str;
+    if (rAbs) return m;
+    const n = Number(row) + delta;
+    return n > 0 ? `${cAbs}${col}${n}` : m;
+  });
+}
+
+/** 手本の組（3行）の計算式を、足した組に写すマス（日付の列は写さない。計算式でないマスも写さない） */
+export function copiedFormulas(template: string[][], lay: SheetLayout, templateRow: number, at: number): CellWrite[] {
+  const dayCols = new Set(lay.dayCols.map((d) => d.col));
+  const out: CellWrite[] = [];
+  template.forEach((r, i) =>
+    r.forEach((v, col) => {
+      if (!v.startsWith("=") || dayCols.has(col) || col === lay.labelCol) return;
+      out.push({ row: at + i, col, value: shiftFormulaRows(v, at - templateRow) });
+    }),
+  );
+  return out;
+}
+
 export function planCellWrites(rows: string[][], lay: SheetLayout, items: WriteItem[], opts: { symbols: ShiftSymbols; knownVenueKeys: Set<string> }): PlanResult {
   const writes = new Map<string, CellWrite>();
   const results: ItemResult[] = [];
@@ -61,11 +151,10 @@ export function planCellWrites(rows: string[][], lay: SheetLayout, items: WriteI
     }
 
     if (it.kind === "staff_day" || it.kind === "availability") {
-      const keys = it.staffNames.map(staffKey).filter(Boolean);
-      const block = lay.staffBlocks.find((b) => b.name && keys.includes(staffKey(b.name)));
+      const block = findStaffBlock(lay, it.staffNames);
       const who = it.staffNames[0] ?? "";
       if (!block) {
-        results.push({ id: it.id, status: "failed", message: `${who} ${md(it.date)}: シートに${who}さんの行がありません（行を足すと次から書けます）` });
+        results.push({ id: it.id, status: "failed", message: `${who} ${md(it.date)}: シートに${who}さんの行がありません（「行を足す」をオンにすると自動で足します）` });
         continue;
       }
       if (it.kind === "staff_day") {
@@ -114,11 +203,10 @@ export function planCellWrites(rows: string[][], lay: SheetLayout, items: WriteI
     }
 
     // client_day
-    const ckeys = it.clientNames.map(companyKey).filter(Boolean);
-    const blocks = lay.clientBlocks.filter((b) => b.name && ckeys.includes(companyKey(b.name)));
+    const blocks = findClientBlocks(lay, it.clientNames);
     const client = it.clientNames[0] ?? "";
     if (!blocks.length) {
-      results.push({ id: it.id, status: "failed", message: `${client} ${md(it.date)}: シートに取引先「${client}」の行がありません（行を足すと次から書けます）` });
+      results.push({ id: it.id, status: "failed", message: `${client} ${md(it.date)}: シートに取引先「${client}」の行がありません（「行を足す」をオンにすると自動で足します）` });
       continue;
     }
     const cells = blocks.map((b) => ({ b, venue: current(b.venueRow, col), count: current(b.countRow, col), used: false }));

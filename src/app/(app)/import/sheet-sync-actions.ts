@@ -11,7 +11,7 @@ import { runSheetWriteback } from "@/lib/sheet-writeback";
 import { createClient } from "@/lib/supabase/server";
 
 /** シートを自動で読む設定（オーナーのみ。金額なし） */
-export async function saveSheetSyncSettings(input: { enabled: boolean; url: string; roleId: string; writeback?: boolean }): Promise<ActionResult> {
+export async function saveSheetSyncSettings(input: { enabled: boolean; url: string; roleId: string; writeback?: boolean; addRows?: boolean }): Promise<ActionResult> {
   await assertOwner();
   const supabase = await createClient();
   let spreadsheetId: string | null = null;
@@ -21,12 +21,13 @@ export async function saveSheetSyncSettings(input: { enabled: boolean; url: stri
   }
   const roleId = z.uuid().safeParse(input.roleId).success ? input.roleId : null;
   const writeback = input.writeback === true;
-  const { error } = await supabase.from("settings").upsert({ key: "sheet_sync", value: { enabled: input.enabled, spreadsheet_id: spreadsheetId, role_id: roleId, writeback } });
+  const addRows = input.addRows === true;
+  const { error } = await supabase.from("settings").upsert({ key: "sheet_sync", value: { enabled: input.enabled, spreadsheet_id: spreadsheetId, role_id: roleId, writeback, add_rows: addRows } });
   if (error) return fail(dbErrorMessage(error));
   revalidatePath("/import");
   revalidatePath("/events/board");
   revalidatePath("/");
-  return ok(`${input.enabled ? "自動で読むようにしました（10分ごと）" : "自動で読むのを止めました"}。シートへの書き戻しは${writeback ? "オン（2分ごと）" : "オフ"}です`);
+  return ok(`${input.enabled ? "自動で読むようにしました（10分ごと）" : "自動で読むのを止めました"}。シートへの書き戻しは${writeback ? "オン（2分ごと）" : "オフ"}です。行がない人・取引先の行は${addRows ? "足します" : "足しません"}`);
 }
 
 /** 今すぐシートに書く（書き戻し。オーナーのみ） */
@@ -52,14 +53,35 @@ const aliasSchema = z.object({
   target: z.string().min(1),
 });
 
+type Db = Awaited<ReturnType<typeof createClient>>;
+
 /** 合わない名前の対応づけ（オーナーのみ）。決めたことは覚えて、次の読み取りから自動で入る */
 export async function saveSheetAlias(input: { kind: AliasKind; sheetName: string; target: string }): Promise<ActionResult> {
   await assertOwner();
   const p = aliasSchema.safeParse(input);
   if (!p.success) return fail("対応づけの内容が正しくありません");
-  const { kind, sheetName, target } = p.data;
   const supabase = await createClient();
+  return upsertAlias(supabase, p.data);
+}
 
+/** 候補どおりにまとめて決める（オーナーのみ。Phase 20）。すでにあるものに合わせるだけで、新しく作る・取り込まないは1件ずつ */
+export async function saveSheetAliases(input: { kind: AliasKind; sheetName: string; target: string }[]): Promise<ActionResult> {
+  await assertOwner();
+  const p = z.array(aliasSchema.extend({ target: z.uuid() })).min(1).max(100).safeParse(input);
+  if (!p.success) return fail("対応づけの内容が正しくありません");
+  const supabase = await createClient();
+  let n = 0;
+  for (const item of p.data) {
+    const r = await upsertAlias(supabase, item, { quiet: true });
+    if (!r.ok) return fail(`${item.sheetName}: ${r.message}`);
+    n++;
+  }
+  revalidatePath("/import");
+  revalidatePath("/");
+  return ok(`${n}件を対応づけました。次に読むときから入ります`);
+}
+
+async function upsertAlias(supabase: Db, { kind, sheetName, target }: z.infer<typeof aliasSchema>, opts: { quiet?: boolean } = {}): Promise<ActionResult> {
   let targetId: string | null = null;
   if (target === "skip") targetId = null;
   else if (target === "new") {
@@ -81,8 +103,10 @@ export async function saveSheetAlias(input: { kind: AliasKind; sheetName: string
   }
   const { error } = await supabase.from("sheet_name_aliases").upsert({ kind, sheet_name: sheetName, target_id: targetId }, { onConflict: "kind,sheet_name" });
   if (error) return fail(dbErrorMessage(error));
-  revalidatePath("/import");
-  revalidatePath("/");
+  if (!opts.quiet) {
+    revalidatePath("/import");
+    revalidatePath("/");
+  }
   return ok(targetId ? "対応づけました。次に読むときから入ります" : "取り込まないようにしました");
 }
 

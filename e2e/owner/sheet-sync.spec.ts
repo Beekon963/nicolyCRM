@@ -17,6 +17,8 @@ let staff: { id: string; name: string };
 let venueId = "";
 const venueName = `E2E同期会場${tag}`;
 const unknownStaff = `名簿にない人${tag}`;
+/** 名字だけの行（CRM の人の候補が先に選ばれる。Phase 20） */
+const surnameOnly = `同期${tag}`;
 /** 来月（いつでも今日より後）の月とタブ名 */
 let month = "";
 let tab = "";
@@ -43,6 +45,9 @@ function csvRows(): string[][] {
     row(["B", unknownStaff, "", "単価"]),
     row(["", "", "", "場所"], { [lastDay]: venueName }),
     row(["", "", "", "シフト"]),
+    row(["", surnameOnly, "", "単価"]),
+    row(["", "", "", "場所"]),
+    row(["", "", "", "シフト"], { [lastDay - 2]: "🔺" }),
   ];
 }
 const toCsv = (rows: string[][]) => rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -61,7 +66,7 @@ test.beforeAll(async () => {
   lastDay = d.last_day;
   tab = month.replace("-", "");
   client = await makeClient("E2E同期取引先");
-  staff = await makeStaff("同期 太郎");
+  staff = await makeStaff(`${surnameOnly} 太郎`);
   venueId = (await one<{ id: string }>(`insert into venues (name) values ($1) returning id`, [venueName])).id;
   await sql(`delete from settings where key = 'sheet_sync'`);
   await sql(`delete from sheet_syncs where ran_at > now() - interval '1 hour'`);
@@ -77,7 +82,7 @@ test.afterAll(async () => {
     await sql(`delete from events where id = $1`, [e.id]);
   }
   await sql(`delete from sheet_sync_items where month = $1`, [`${month}-01`]);
-  await sql(`delete from sheet_name_aliases where sheet_name = any($1)`, [[unknownStaff, venueName, client.name]]);
+  await sql(`delete from sheet_name_aliases where sheet_name = any($1)`, [[unknownStaff, surnameOnly, venueName, client.name]]);
   await sql(`delete from settings where key = 'sheet_sync'`);
   await sql(`delete from sheet_syncs where ran_at > now() - interval '1 hour'`);
   await dropStaff(staff.id);
@@ -85,7 +90,7 @@ test.afterAll(async () => {
   await sql(`delete from venues where id = $1`, [venueId]);
 });
 
-test("オーナーが読む元を決めて「今すぐ読む」と、現場・人・○△× が入り、合わない名前が出る。対応づけると次から入る", async ({ page, request }) => {
+test("オーナーが読む元を決めて「今すぐ読む」と、現場・人・○△× が入り、合わない名前が出る。候補を1タップで決めると次から入る", async ({ page, request }) => {
   test.setTimeout(90_000);
   await setTab(request);
   await page.goto("/import");
@@ -97,9 +102,12 @@ test("オーナーが読む元を決めて「今すぐ読む」と、現場・�
 
   await panel.getByRole("button", { name: "今すぐ読む" }).click();
   await expect(panel.getByRole("status")).toContainText(`${tab}: 現場 +1・人 +1・○△× 1`, { timeout: 20_000 });
-  await expect(panel.getByRole("status")).toContainText("合わない名前 1件");
+  await expect(panel.getByRole("status")).toContainText("合わない名前 2件");
   const unmatched = page.getByTestId("sheet-sync-unmatched");
   await expect(unmatched).toContainText(unknownStaff);
+  // 名字だけの行には、名簿の人が「候補」として先に選ばれている（Phase 20）
+  await expect(unmatched.getByLabel(`${surnameOnly} の対応づけ`)).toHaveValue(staff.id);
+  await expect(unmatched).toContainText("名字（または名前）が同じ");
 
   // DB に入っている（確定・必要人数・○・単価）
   const ev = await one<{ id: string; required: number; confirmed: number; ok: number; rate: number }>(
@@ -116,13 +124,18 @@ test("オーナーが読む元を決めて「今すぐ読む」と、現場・�
   expect(ev.ok).toBe(1);
   expect(ev.rate).toBe(20000);
 
-  // 合わない名前 → 取り込まない にする → 次に読むと出なくなる
+  // 候補どおりにまとめて決める（候補があるのは名字だけの行の1件）
+  await unmatched.getByRole("button", { name: "候補どおりにまとめて決める（1件）" }).click();
+  await expect(unmatched.getByText(`${staff.name} に決めました`)).toBeVisible();
+  // 候補のない名前 → 取り込まない にする → 次に読むと出なくなり、名字だけの行の🔺が入る
   await unmatched.getByLabel(`${unknownStaff} の対応づけ`).selectOption("skip");
   await unmatched.getByRole("button", { name: "決める" }).click();
   await expect(unmatched.getByText("取り込まないようにしました")).toBeVisible();
   await panel.getByRole("button", { name: "今すぐ読む" }).click();
-  await expect(panel.getByRole("status")).toContainText(`${tab}: 現場 +0・人 +0・○△× 0`, { timeout: 20_000 });
+  await expect(panel.getByRole("status")).toContainText(`${tab}: 現場 +0・人 +0・○△× 1`, { timeout: 20_000 });
   await expect(panel.getByRole("status")).not.toContainText("合わない名前");
+  const maybe = await one<{ n: number }>(`select count(*)::int as n from availability where staff_id = $1 and status = 'maybe'`, [staff.id]);
+  expect(maybe.n).toBe(1);
 
   // 自動で読む（10分ごと）をオンにすると、稼働表に「シートから読んだ」が出る
   await panel.getByRole("switch", { name: "自動で読む" }).click();
@@ -142,6 +155,13 @@ test("書き戻し: Google の設定がないと書けないと知らせ、ス�
   await wb.getByRole("button", { name: "今すぐ書く" }).click();
   // 画面の説明文や一覧にも同じ文が出るので、出てきた知らせ（トースト）だけを見る
   await expect(page.getByRole("region", { name: /Notifications/ }).getByText(/サービスアカウント）がないので|シートに書くものはありません/)).toBeVisible();
+  // 行がない人・取引先は行を足す（Phase 20）: スイッチが保存される
+  await wb.getByRole("switch", { name: "行を足す" }).click();
+  await expect(page.getByText(/行は足します/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("sheet-writeback").getByRole("switch", { name: "行を足す" })).toBeChecked();
+  await page.getByTestId("sheet-writeback").getByRole("switch", { name: "行を足す" }).click();
+  await expect(page.getByText(/行は足しません/)).toBeVisible();
   // 自動実行の入り口も合言葉が必要
   const bad = await request.get("/api/cron/sheet-writeback", { headers: { authorization: "Bearer wrong" } });
   expect(bad.status()).toBe(401);
