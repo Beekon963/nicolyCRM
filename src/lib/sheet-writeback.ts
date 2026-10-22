@@ -116,6 +116,7 @@ async function addMissingRows(input: AddRowsInput): Promise<{ values: string[][]
       lay = next;
       added.add(id);
     } catch (e) {
+      console.error("[sheet-writeback] add rows", e);
       failAll(id, kind, `${label}の行を足せませんでした: ${e instanceof SheetError ? e.message : "シートに書けませんでした。時間をおいてもう一度試してください"}`);
       // 途中で止まったときは、いまのタブを読み直してから残りを書く
       try {
@@ -213,7 +214,10 @@ export async function runSheetWriteback(source: "cron" | "button", opts: { fetch
         for (const id of r.added) added.add(id);
       }
       const settled = new Set(results.map((r) => r.id));
-      const todo = rows.filter((p) => !settled.has(p.id));
+      // 名簿・取引先から消えた人の分は書かない
+      const exists = (p: Pending) => (p.kind === "client_day" ? clients.has(p.ref_id) : staff.has(p.ref_id));
+      results.push(...rows.filter((p) => !settled.has(p.id) && !exists(p)).map((p) => ({ id: p.id, status: "skipped" as const, message: "名簿・取引先から消えた分なので書きません" })));
+      const todo = rows.filter((p) => !settled.has(p.id) && exists(p));
       // CRM の今の状態
       const dates = [...new Set(todo.map((p) => p.date))];
       const sIds = [...new Set(todo.filter((p) => p.kind !== "client_day").map((p) => p.ref_id))];

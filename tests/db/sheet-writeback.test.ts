@@ -81,8 +81,8 @@ const fakeFetch: typeof fetch = async (input, init) => {
     }
     return Response.json({});
   }
-  // 行の範囲を計算式のまま読む（'203105'!6:8）
-  const range = url.match(/\/values\/'203105'!(\d+):(\d+)\?valueRenderOption=FORMULA/);
+  // 行の範囲を計算式のまま読む（'203105'!6:8。「:」は %3A に変わって届く）
+  const range = decodeURIComponent(url).match(/\/values\/'203105'!(\d+):(\d+)\?valueRenderOption=FORMULA/);
   if (range) return Response.json({ values: tab.slice(Number(range[1]) - 1, Number(range[2])) });
   if (url.includes("/values/'203105'")) return Response.json({ values: tab });
   return Response.json({}, { status: 404 });
@@ -224,8 +224,9 @@ describe("書き戻し", () => {
       expect(rows[0].status).toBe("failed");
       expect(rows[0].message).toContain("行がありません");
     } finally {
-      await q(`delete from public.sheet_writes where ref_id = $1`, [other]);
+      // 稼働可能日を消すとトリガーが印を付けるので、印を消すのはそのあと
       await q(`delete from public.availability where staff_id = $1`, [other]);
+      await q(`delete from public.sheet_writes where ref_id = $1`, [other]);
       await q(`delete from public.staff where id = $1`, [other]);
     }
   });
@@ -262,19 +263,19 @@ describe("書き戻し", () => {
       expect(cellOf("AJ7")).toBe("=COUNTA(E7:AI7)");
       expect(inputOptions).toContain("USER_ENTERED");
       expect(cellOf("AJ8")).toBe("");
-      // 下の段のいちばん下（別姓…の組の下。12〜14行目）にスタッフの組。名前・最寄り駅・シフト
-      expect(tab[11][1]).toBe(`書戻 新人${tag}`);
-      expect(tab[11][2]).toBe("浦和");
-      expect(tab[11][3]).toBe("単価");
-      expect(tab[12][3]).toBe("場所");
-      expect(tab[13][3]).toBe("シフト");
-      expect(cellOf("U14")).toBe("⭕️"); // 17日 = 4 + 17 列目 → U
+      // 下の段のいちばん下（別姓…の組の下。15〜17行目）にスタッフの組。名前・最寄り駅・シフト
+      expect(tab[14][1]).toBe(`書戻 新人${tag}`);
+      expect(tab[14][2]).toBe("浦和");
+      expect(tab[14][3]).toBe("単価");
+      expect(tab[15][3]).toBe("場所");
+      expect(tab[16][3]).toBe("シフト");
+      expect(cellOf("U17")).toBe("⭕️"); // 17日 = 4 + 17 列目 → U
       // 行を足す指示: 上の段は 5 行目の前に3行、書式は手本（3〜5行目）から
       expect(structureBodies[0].requests[0]).toEqual({ insertDimension: { range: { sheetId: 77, dimension: "ROWS", startIndex: 5, endIndex: 8 }, inheritFromBefore: true } });
       expect(structureBodies[0].requests[1]).toMatchObject({ copyPaste: { source: { startRowIndex: 2, endRowIndex: 5 }, destination: { startRowIndex: 5, endRowIndex: 8 }, pasteType: "PASTE_FORMAT" } });
       // 単価の行の日付のマスには何も書かない
       expect(tab[5].slice(4, 35).every((c) => c === "")).toBe(true);
-      expect(tab[11].slice(4, 35).every((c) => c === "")).toBe(true);
+      expect(tab[14].slice(4, 35).every((c) => c === "")).toBe(true);
 
       const { rows } = await q(`select ref_id, status, message from public.sheet_writes where ref_id = any($1) and status <> 'pending' order by id`, [[newbie, twin, newClient]]);
       const by = Object.fromEntries(rows.map((x) => [x.ref_id, x]));
@@ -284,9 +285,9 @@ describe("書き戻し", () => {
       expect(by[twin].status).toBe("failed");
       expect(by[twin].message).toContain(`「別姓${tag}」の行がこの人かもしれないので、行は足しませんでした`);
     } finally {
-      await q(`delete from public.sheet_writes where ref_id = any($1)`, [[newbie, twin, newClient]]);
       await q(`delete from public.availability where staff_id = any($1)`, [[newbie, twin]]);
       await cleanupMonth();
+      await q(`delete from public.sheet_writes where ref_id = any($1)`, [[newbie, twin, newClient]]);
       await q(`delete from public.staff where id = any($1)`, [[newbie, twin]]);
       await q(`delete from public.companies where id = $1`, [newClient]);
     }

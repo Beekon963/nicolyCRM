@@ -98,8 +98,8 @@ export class SheetsClient {
   /** タブの中身を、画面に見えている文字のまま読む（右端の空のマスは省かれるので、行の長さはそろえる） */
   async readValues(title: string): Promise<string[][]> {
     const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'`);
-    const j = (await this.call(`/values/${range}?valueRenderOption=FORMATTED_VALUE`)) as { values?: string[][] };
-    const rows = (j.values ?? []).map((r) => r.map((v) => String(v ?? "")));
+    const j = (await this.call(`/values/${range}?valueRenderOption=FORMATTED_VALUE`)) as { values?: (unknown[] | null)[] };
+    const rows = (j.values ?? []).map((r) => (r ?? []).map((v) => String(v ?? "")));
     const width = Math.max(0, ...rows.map((r) => r.length));
     return rows.map((r) => [...r, ...Array<string>(width - r.length).fill("")]);
   }
@@ -159,8 +159,8 @@ export class SheetsClient {
   /** 行の範囲を、計算式の文字（「=SUM(…)」）のまま読む（手本の組の計算式を写すため）。右端の空のマスは省かれる */
   async readFormulas(title: string, startRow: number, count: number): Promise<string[][]> {
     const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'!${startRow + 1}:${startRow + count}`);
-    const j = (await this.call(`/values/${range}?valueRenderOption=FORMULA`)) as { values?: unknown[][] };
-    const rows = (j.values ?? []).map((r) => r.map((v) => String(v ?? "")));
+    const j = (await this.call(`/values/${range}?valueRenderOption=FORMULA`)) as { values?: (unknown[] | null)[] };
+    const rows = (j.values ?? []).map((r) => (r ?? []).map((v) => String(v ?? "")));
     while (rows.length < count) rows.push([]);
     return rows;
   }
