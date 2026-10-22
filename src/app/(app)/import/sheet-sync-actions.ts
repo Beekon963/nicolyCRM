@@ -7,10 +7,11 @@ import { assertOwner } from "@/lib/auth";
 import { spreadsheetIdFrom } from "@/lib/google/sheets";
 import type { AliasKind } from "@/lib/import/sheet-sync-plan";
 import { runSheetSync } from "@/lib/sheet-sync";
+import { runSheetWriteback } from "@/lib/sheet-writeback";
 import { createClient } from "@/lib/supabase/server";
 
 /** シートを自動で読む設定（オーナーのみ。金額なし） */
-export async function saveSheetSyncSettings(input: { enabled: boolean; url: string; roleId: string }): Promise<ActionResult> {
+export async function saveSheetSyncSettings(input: { enabled: boolean; url: string; roleId: string; writeback?: boolean }): Promise<ActionResult> {
   await assertOwner();
   const supabase = await createClient();
   let spreadsheetId: string | null = null;
@@ -19,12 +20,21 @@ export async function saveSheetSyncSettings(input: { enabled: boolean; url: stri
     if (!spreadsheetId) return fail("スプレッドシートの URL を貼り付けてください（https://docs.google.com/spreadsheets/d/… の形）");
   }
   const roleId = z.uuid().safeParse(input.roleId).success ? input.roleId : null;
-  const { error } = await supabase.from("settings").upsert({ key: "sheet_sync", value: { enabled: input.enabled, spreadsheet_id: spreadsheetId, role_id: roleId } });
+  const writeback = input.writeback === true;
+  const { error } = await supabase.from("settings").upsert({ key: "sheet_sync", value: { enabled: input.enabled, spreadsheet_id: spreadsheetId, role_id: roleId, writeback } });
   if (error) return fail(dbErrorMessage(error));
   revalidatePath("/import");
   revalidatePath("/events/board");
   revalidatePath("/");
-  return ok(input.enabled ? "自動で読むようにしました（10分ごと）" : "自動で読むのを止めました");
+  return ok(`${input.enabled ? "自動で読むようにしました（10分ごと）" : "自動で読むのを止めました"}。シートへの書き戻しは${writeback ? "オン（2分ごと）" : "オフ"}です`);
+}
+
+/** 今すぐシートに書く（書き戻し。オーナーのみ） */
+export async function writebackNow(): Promise<ActionResult> {
+  await assertOwner();
+  const r = await runSheetWriteback("button");
+  revalidatePath("/import");
+  return r.ok ? ok(r.message) : fail(r.message);
 }
 
 /** 今すぐ読む（オーナーのみ。金額の列も入るため） */

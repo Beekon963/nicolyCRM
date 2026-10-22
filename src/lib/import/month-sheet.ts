@@ -66,15 +66,38 @@ export function parseShift(raw: string): SheetShift | null {
   return null;
 }
 
-export function parseMonthSheet(rows: string[][]): ParsedMonthSheet {
-  const warnings: string[] = [];
+export type SheetLayout = {
+  headerRow: number;
+  /** 日付の列（左から） */
+  dayCols: { col: number; day: number }[];
+  /** 日付の行から読んだ月（1〜12） */
+  month: number | null;
+  /** 「単価 / 現場 / 人数 / 場所 / シフト」が書いてある列 */
+  labelCol: number;
+  rankCol: number;
+  nameCol: number;
+  stationCol: number;
+  /** 上の段のブロック（取引先名が空欄なら直前の取引先を引きつぐ。最初から空欄なら ""） */
+  clientBlocks: { name: string; rateRow: number; venueRow: number; countRow: number }[];
+  /** 下の段のブロック（名前がない行も含む。name = ""） */
+  staffBlocks: { name: string; rank: string; station: string; rateRow: number; placeRow: number; shiftRow: number }[];
+};
 
-  // 日付の行（「10/1」が10個以上並ぶ行）
+export type LayoutError = { error: "no_header" } | { error: "no_labels"; month: number | null; days: number[] };
+
+export const NO_HEADER_WARNING = "日付の行（10/1 などが並ぶ行）が見つかりません。月のシートを CSV で保存したファイルか確認してください";
+export const NO_LABELS_WARNING = "「単価 / 現場 / 人数」「単価 / 場所 / シフト」の行が見つかりません";
+
+/**
+ * 月のシートのどの行・列に何があるかを調べる（読み取り parseMonthSheet と、書き戻し sheet-writeback で共通）。
+ * - 日付の行: 「10/1」が10個以上並ぶ行
+ * - 「ランク / 名前 / 最寄り駅」の列: 日付の行の近くの「名前」などの見出しから（なければ左から順）
+ * - 単価 / 現場 / 人数 / 場所 / シフト の列: その言葉がいちばん多く入っている列
+ */
+export function layoutMonthSheet(rows: string[][]): SheetLayout | LayoutError {
   const dateRe = /^(\d{1,2})\/(\d{1,2})$/;
   const headerRow = rows.findIndex((r) => r.filter((c) => dateRe.test(nfkc(c))).length >= 10);
-  if (headerRow < 0) {
-    return { month: null, days: [], clients: [], staff: [], warnings: ["日付の行（10/1 などが並ぶ行）が見つかりません。月のシートを CSV で保存したファイルか確認してください"] };
-  }
+  if (headerRow < 0) return { error: "no_header" };
   const dayCols: { col: number; day: number }[] = [];
   const months: number[] = [];
   rows[headerRow].forEach((c, col) => {
@@ -86,7 +109,6 @@ export function parseMonthSheet(rows: string[][]): ParsedMonthSheet {
   });
   const month = months.sort((a, b) => months.filter((x) => x === b).length - months.filter((x) => x === a).length)[0] ?? null;
 
-  // 「ランク / 名前 / 最寄り駅」の列（見つからなければ左から順に）
   const namesRow = rows.slice(headerRow, headerRow + 3).find((r) => r.some((c) => nfkc(c) === "名前"));
   const colOf = (label: string, fallback: number) => {
     const i = namesRow?.findIndex((c) => nfkc(c) === label) ?? -1;
@@ -96,62 +118,75 @@ export function parseMonthSheet(rows: string[][]): ParsedMonthSheet {
   const nameCol = colOf("名前", 1);
   const stationCol = colOf("最寄り駅", 2);
 
-  // 「単価 / 現場 / 人数 / 場所 / シフト」が書いてある列
   const counts = new Map<number, number>();
   for (const r of rows.slice(headerRow + 1)) r.forEach((c, i) => LABELS.includes(nfkc(c)) && counts.set(i, (counts.get(i) ?? 0) + 1));
   const labelCol = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  if (labelCol == null) {
-    return { month, days: dayCols.map((d) => d.day), clients: [], staff: [], warnings: ["「単価 / 現場 / 人数」「単価 / 場所 / シフト」の行が見つかりません"] };
-  }
+  if (labelCol == null) return { error: "no_labels", month, days: dayCols.map((d) => d.day) };
   const label = (r: number) => nfkc(rows[r]?.[labelCol]);
 
-  const clients: SheetClient[] = [];
-  const staff: SheetStaff[] = [];
-  let current: SheetClient | null = null;
-
+  const clientBlocks: SheetLayout["clientBlocks"] = [];
+  const staffBlocks: SheetLayout["staffBlocks"] = [];
+  let currentClient = "";
   for (let r = headerRow + 1; r < rows.length; r++) {
     if (label(r) !== "単価") continue;
-
     if (label(r + 1) === "現場" && label(r + 2) === "人数") {
       const name = rows[r].slice(0, labelCol).map((c) => c.trim()).find(Boolean);
-      if (name) {
-        current = clients.find((c) => c.name === name) ?? { name, lines: [] };
-        if (!clients.includes(current)) clients.push(current);
-      }
-      for (const { col, day } of dayCols) {
-        const venue = cell(rows, r + 1, col);
-        if (!venue) continue;
-        if (!current) {
-          warnings.push(`${r + 2}行目: 取引先名がないので「${venue}」（${day}日）は取り込みません`);
-          continue;
-        }
-        const n = Number.parseInt(nfkc(cell(rows, r + 2, col)), 10);
-        if (!(n > 0)) warnings.push(`${current.name}「${venue}」${day}日: 人数が空欄・0 なので1人にしました`);
-        const { amount, transport } = parseYen(cell(rows, r, col));
-        current.lines.push({ day, venue, required: n > 0 ? n : 1, rate: amount != null && amount > 0 ? amount : null, transport });
-      }
+      if (name) currentClient = name;
+      clientBlocks.push({ name: currentClient, rateRow: r, venueRow: r + 1, countRow: r + 2 });
       r += 2;
       continue;
     }
-
     if (label(r + 1) === "場所" && label(r + 2) === "シフト") {
       const pick = (col: number) => [r, r + 1, r + 2].map((i) => cell(rows, i, col)).find(Boolean) ?? "";
-      const name = pick(nameCol);
-      const s: SheetStaff = { rank: pick(rankCol), name, station: pick(stationCol), places: [], shifts: [], rates: [] };
-      for (const { col, day } of dayCols) {
-        const place = cell(rows, r + 1, col);
-        if (place) s.places.push({ day, place });
-        const raw = cell(rows, r + 2, col);
-        const shift = parseShift(raw);
-        if (shift) s.shifts.push({ day, status: shift });
-        else if (raw) warnings.push(`${name || `${r + 3}行目`} ${day}日: シフト「${raw}」は読めないので取り込みません`);
-        const rateRaw = cell(rows, r, col);
-        if (rateRaw) s.rates.push({ day, amount: parseYen(rateRaw).amount, raw: rateRaw });
-      }
-      if (name) staff.push(s);
-      else if (s.places.length || s.shifts.length) warnings.push(`${r + 2}行目: 名前がないスタッフの行は取り込みません`);
+      staffBlocks.push({ name: pick(nameCol), rank: pick(rankCol), station: pick(stationCol), rateRow: r, placeRow: r + 1, shiftRow: r + 2 });
       r += 2;
     }
+  }
+  return { headerRow, dayCols, month, labelCol, rankCol, nameCol, stationCol, clientBlocks, staffBlocks };
+}
+
+export function parseMonthSheet(rows: string[][]): ParsedMonthSheet {
+  const warnings: string[] = [];
+  const lay = layoutMonthSheet(rows);
+  if ("error" in lay) {
+    if (lay.error === "no_header") return { month: null, days: [], clients: [], staff: [], warnings: [NO_HEADER_WARNING] };
+    return { month: lay.month, days: lay.days, clients: [], staff: [], warnings: [NO_LABELS_WARNING] };
+  }
+  const { dayCols, month } = lay;
+
+  const clients: SheetClient[] = [];
+  for (const b of lay.clientBlocks) {
+    const current = b.name ? (clients.find((c) => c.name === b.name) ?? { name: b.name, lines: [] }) : null;
+    if (current && !clients.includes(current)) clients.push(current);
+    for (const { col, day } of dayCols) {
+      const venue = cell(rows, b.venueRow, col);
+      if (!venue) continue;
+      if (!current) {
+        warnings.push(`${b.venueRow + 1}行目: 取引先名がないので「${venue}」（${day}日）は取り込みません`);
+        continue;
+      }
+      const n = Number.parseInt(nfkc(cell(rows, b.countRow, col)), 10);
+      if (!(n > 0)) warnings.push(`${current.name}「${venue}」${day}日: 人数が空欄・0 なので1人にしました`);
+      const { amount, transport } = parseYen(cell(rows, b.rateRow, col));
+      current.lines.push({ day, venue, required: n > 0 ? n : 1, rate: amount != null && amount > 0 ? amount : null, transport });
+    }
+  }
+
+  const staff: SheetStaff[] = [];
+  for (const b of lay.staffBlocks) {
+    const s: SheetStaff = { rank: b.rank, name: b.name, station: b.station, places: [], shifts: [], rates: [] };
+    for (const { col, day } of dayCols) {
+      const place = cell(rows, b.placeRow, col);
+      if (place) s.places.push({ day, place });
+      const raw = cell(rows, b.shiftRow, col);
+      const shift = parseShift(raw);
+      if (shift) s.shifts.push({ day, status: shift });
+      else if (raw) warnings.push(`${b.name || `${b.shiftRow + 1}行目`} ${day}日: シフト「${raw}」は読めないので取り込みません`);
+      const rateRaw = cell(rows, b.rateRow, col);
+      if (rateRaw) s.rates.push({ day, amount: parseYen(rateRaw).amount, raw: rateRaw });
+    }
+    if (b.name) staff.push(s);
+    else if (s.places.length || s.shifts.length) warnings.push(`${b.placeRow + 1}行目: 名前がないスタッフの行は取り込みません`);
   }
 
   return { month, days: dayCols.map((d) => d.day), clients, staff, warnings };

@@ -1095,6 +1095,19 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"sheet_writes": {
+                  Row: {
+                    "created_at": string,"date": string,"id": number,"kind": string,"message": string,"processed_at": string | null,"ref_id": string,"status": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"date": string,"id"?: never,"kind": string,"message"?: string,"processed_at"?: string | null,"ref_id": string,"status"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"date"?: string,"id"?: never,"kind"?: string,"message"?: string,"processed_at"?: string | null,"ref_id"?: string,"status"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"staff": {
                   Row: {
                     "created_at": string,"id": string,"kana": string,"line_name": string,"line_user_id": string | null,"memo": string,"mypage_token": string,"name": string,"nearest_station": string,"phone": string,"phone_digits": string | null,"rank_id": string | null,"referred_by": string | null,"search_text": string | null,"status": Database["public"]['Enums']["staff_status"],"token_rotated_at": string | null,"updated_at": string
@@ -1453,6 +1466,9 @@ isOneToOne: false
                            },
 "share_board":
 { Args: { "p_month": string,"p_token": string }; Returns: Json
+                           },
+"sheet_write_mark":
+{ Args: { "p_date": string,"p_kind": string,"p_ref": string }; Returns: undefined
                            },
 "staff_avg_confirmed":
 { Args: { "p_since": string }; Returns: {

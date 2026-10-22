@@ -1,12 +1,23 @@
 import "server-only";
+import { readServiceAccount } from "@/lib/google/sheets";
 import { createClient } from "@/lib/supabase/server";
 import { EMPTY_UNMATCHED, type SyncReport } from "@/lib/sheet-sync";
 import type { Unmatched } from "@/lib/import/sheet-sync-plan";
 
 export type SheetSyncRun = { ranAt: string; ok: boolean; message: string; report: SyncReport };
 
+export type SheetWriteRow = { at: string; status: "done" | "skipped" | "failed"; message: string; count: number };
+
 export type SheetSyncStatus = {
   enabled: boolean;
+  /** CRM で入れたものをシートにも書く（書き戻し。Phase 19） */
+  writeback: boolean;
+  /** Google の設定（サービスアカウント）があるか。書き戻しに必要 */
+  googleConfigured: boolean;
+  /** まだ書いていないマスの数 */
+  pendingWrites: number;
+  /** 最近シートに書いたもの・書けなかったもの（新しい順） */
+  recentWrites: SheetWriteRow[];
   /** 読む元（空なら書き出し先と同じ） */
   spreadsheetId: string | null;
   /** 書き出し先（読む元が空のときに使う） */
@@ -25,9 +36,11 @@ function asReport(v: unknown): SyncReport {
 /** シートの自動の読み取りの設定と、最後の結果（ログイン中の人の権限で読む。金額なし） */
 export async function getSheetSyncStatus(): Promise<SheetSyncStatus> {
   const supabase = await createClient();
-  const [{ data: settings }, { data: last }] = await Promise.all([
+  const [{ data: settings }, { data: last }, { count: pendingWrites }, { data: writes }] = await Promise.all([
     supabase.from("settings").select("key, value").in("key", ["sheet_sync", "sheet_export"]),
     supabase.from("sheet_syncs").select("ran_at, ok, message, report").order("ran_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("sheet_writes").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("sheet_writes").select("processed_at, status, message").neq("status", "pending").order("processed_at", { ascending: false }).limit(60),
   ]);
   const map = new Map((settings ?? []).map((r) => [r.key, (r.value ?? {}) as Record<string, unknown>]));
   const sync = map.get("sheet_sync") ?? {};
@@ -37,6 +50,10 @@ export async function getSheetSyncStatus(): Promise<SheetSyncStatus> {
   const unmatched = run?.report.unmatched ?? EMPTY_UNMATCHED;
   return {
     enabled: sync.enabled === true,
+    writeback: sync.writeback === true,
+    googleConfigured: readServiceAccount() != null,
+    pendingWrites: pendingWrites ?? 0,
+    recentWrites: collapseWrites(writes ?? []),
     spreadsheetId: id(sync.spreadsheet_id),
     exportSpreadsheetId: id(exp.spreadsheet_id),
     roleId: id(sync.role_id),
@@ -69,4 +86,16 @@ export async function getSheetSyncPanelData(): Promise<{ status: SheetSyncStatus
     aliases: (aliases ?? []).map((a) => ({ id: a.id, kind: a.kind as SheetAliasRow["kind"], sheetName: a.sheet_name, targetName: nameOf(a.kind as SheetAliasRow["kind"], a.target_id) })),
     options: { clients: clients ?? [], venues: venues ?? [], staff: staff ?? [] },
   };
+}
+
+/** 同じ内容（状態と文が同じ）はまとめて1行にする（「書けなかった」が何十件も並ばないように）。新しい順に12行まで */
+function collapseWrites(rows: { processed_at: string | null; status: string; message: string }[]): SheetWriteRow[] {
+  const out: SheetWriteRow[] = [];
+  for (const w of rows) {
+    const status = w.status as SheetWriteRow["status"];
+    const last = out.find((o) => o.status === status && o.message === w.message);
+    if (last) last.count++;
+    else out.push({ at: w.processed_at ?? "", status, message: w.message, count: 1 });
+  }
+  return out.slice(0, 12);
 }

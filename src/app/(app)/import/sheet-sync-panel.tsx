@@ -14,7 +14,7 @@ import type { NameOption, SheetAliasRow, SheetSyncStatus } from "@/lib/data/shee
 import { formatShortJa, formatTimeJst, toJstDateString } from "@/lib/date";
 import type { AliasKind } from "@/lib/import/sheet-sync-plan";
 import { cn } from "@/lib/utils";
-import { deleteSheetAlias, saveSheetAlias, saveSheetSyncSettings, syncSheetNow } from "./sheet-sync-actions";
+import { deleteSheetAlias, saveSheetAlias, saveSheetSyncSettings, syncSheetNow, writebackNow } from "./sheet-sync-actions";
 
 const KIND_LABEL: Record<AliasKind, string> = { client: "取引先", venue: "会場", staff: "スタッフ", place: "下の段にだけある場所（研修など）" };
 
@@ -29,6 +29,7 @@ export function ranAtLabel(iso: string): string {
  */
 export function SheetSyncPanel({ status, aliases, options, roles }: { status: SheetSyncStatus; aliases: SheetAliasRow[]; options: { clients: NameOption[]; venues: NameOption[]; staff: NameOption[] }; roles: NameOption[] }) {
   const [enabled, setEnabled] = useState(status.enabled);
+  const [writeback, setWriteback] = useState(status.writeback);
   const [url, setUrl] = useState(status.spreadsheetId ? `https://docs.google.com/spreadsheets/d/${status.spreadsheetId}/edit` : "");
   const [roleId, setRoleId] = useState(status.roleId ?? roles[0]?.id ?? "");
   const [pending, start] = useTransition();
@@ -36,15 +37,21 @@ export function SheetSyncPanel({ status, aliases, options, roles }: { status: Sh
   const last = status.last;
   const source = status.spreadsheetId ?? status.exportSpreadsheetId;
 
-  const save = (next?: Partial<{ enabled: boolean }>) =>
+  const save = (next?: Partial<{ enabled: boolean; writeback: boolean }>) =>
     start(async () => {
-      const r = await saveSheetSyncSettings({ enabled: next?.enabled ?? enabled, url, roleId });
+      const r = await saveSheetSyncSettings({ enabled: next?.enabled ?? enabled, url, roleId, writeback: next?.writeback ?? writeback });
       if (r.ok) toast.success(r.message);
       else toast.error(r.message);
     });
   const syncNow = () =>
     start(async () => {
       const r = await syncSheetNow();
+      if (r.ok) toast.success(r.message);
+      else toast.error(r.message);
+    });
+  const writeNow = () =>
+    start(async () => {
+      const r = await writebackNow();
       if (r.ok) toast.success(r.message);
       else toast.error(r.message);
     });
@@ -155,6 +162,54 @@ export function SheetSyncPanel({ status, aliases, options, roles }: { status: Sh
 
         {/* 合わない名前 */}
         {status.unmatchedCount > 0 && <UnmatchedList status={status} options={options} />}
+
+        {/* 書き戻し（Phase 19） */}
+        <div className="flex flex-col gap-3 border-t pt-4" data-testid="sheet-writeback">
+          <p className="flex items-center gap-2 font-semibold">
+            CRM で入れたものをシートにも書く（書き戻し）
+            {writeback ? <Badge tone="done">2分ごと</Badge> : <Badge>止めている</Badge>}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            CRM で確定・辞退・現場を作る・人数を直す・○△×を入れると、いつものシートの同じマス（場所・シフト・現場・人数）にも2分以内に書きます（単価の行は書きません）。シートに行がない人・取引先は書けないので、下に出ます。
+          </p>
+          {!status.googleConfigured && (
+            <p className="text-sm text-status-alert">Google の設定（docs/setup.md ⑨ のサービスアカウント。シートに「編集者」で共有）がまだないので、オンにしてもシートには書けません。</p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex min-h-11 items-center gap-2">
+              <Switch
+                checked={writeback}
+                disabled={pending}
+                aria-label="シートにも書く"
+                onCheckedChange={(v) => {
+                  setWriteback(v);
+                  save({ writeback: v });
+                }}
+              />
+              <span className="font-semibold">シートにも書く（2分ごと）</span>
+            </label>
+            <Button variant="outline" disabled={pending || !writeback} onClick={writeNow}>
+              今すぐ書く
+            </Button>
+            {status.pendingWrites > 0 && writeback && <span className="text-sm text-muted-foreground">まだ書いていないマス: {status.pendingWrites}</span>}
+          </div>
+          {status.recentWrites.length > 0 && (
+            <ul className="divide-y rounded-md border text-sm" data-testid="sheet-writeback-recent">
+              {status.recentWrites.map((w, i) => (
+                <li key={i} className="flex items-start gap-2 px-3 py-1.5">
+                  <Badge tone={w.status === "done" ? "done" : w.status === "failed" ? "alert" : "waiting"} className="mt-0.5 shrink-0">
+                    {w.status === "done" ? "書いた" : w.status === "failed" ? "書けなかった" : "触らなかった"}
+                  </Badge>
+                  <span className="min-w-0 flex-1 break-words">
+                    {w.message}
+                    {w.count > 1 && <span className="ml-1 text-muted-foreground">×{w.count}</span>}
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">{w.at ? ranAtLabel(w.at) : ""}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {aliases.length > 0 && <AliasList aliases={aliases} />}
       </CardContent>

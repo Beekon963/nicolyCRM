@@ -131,6 +131,26 @@ test("オーナーが読む元を決めて「今すぐ読む」と、現場・�
   await expect(page.getByTestId("sheet-sync-note")).toContainText("シートから読んだ");
 });
 
+test("書き戻し: Google の設定がないと書けないと知らせ、スイッチと「今すぐ書く」がある（Phase 19）", async ({ page, request }) => {
+  await page.goto("/import");
+  const wb = page.getByTestId("sheet-writeback");
+  await expect(wb).toContainText("Google の設定");
+  await expect(wb.getByRole("button", { name: "今すぐ書く" })).toBeDisabled();
+  await wb.getByRole("switch", { name: "シートにも書く" }).click();
+  await expect(page.getByText(/シートへの書き戻しはオン/)).toBeVisible();
+  await expect(wb.getByRole("button", { name: "今すぐ書く" })).toBeEnabled();
+  await wb.getByRole("button", { name: "今すぐ書く" }).click();
+  // 画面の説明文や一覧にも同じ文が出るので、出てきた知らせ（トースト）だけを見る
+  await expect(page.getByRole("region", { name: /Notifications/ }).getByText(/サービスアカウント）がないので|シートに書くものはありません/)).toBeVisible();
+  // 自動実行の入り口も合言葉が必要
+  const bad = await request.get("/api/cron/sheet-writeback", { headers: { authorization: "Bearer wrong" } });
+  expect(bad.status()).toBe(401);
+  const good = await request.get("/api/cron/sheet-writeback", { headers: { authorization: "Bearer e2e-cron" } });
+  expect(good.status()).toBe(200);
+  await wb.getByRole("switch", { name: "シートにも書く" }).click();
+  await expect(page.getByText(/シートへの書き戻しはオフ/)).toBeVisible();
+});
+
 test("自動実行の入り口は合言葉（CRON_SECRET）がないと動かず、あれば読む", async ({ request }) => {
   await setTab(request);
   await sql(`insert into settings (key, value) values ('sheet_sync', $1) on conflict (key) do update set value = excluded.value`, [

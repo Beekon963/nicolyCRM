@@ -15,6 +15,18 @@ const API = "https://sheets.googleapis.com/v4/spreadsheets";
 /** 画面に出せる日本語のエラー */
 export class SheetError extends Error {}
 
+/** 0 始まりの行・列 → 「H5」のような番地 */
+export function a1(row: number, col: number): string {
+  let c = col + 1;
+  let letters = "";
+  while (c > 0) {
+    const m = (c - 1) % 26;
+    letters = String.fromCharCode(65 + m) + letters;
+    c = Math.floor((c - 1) / 26);
+  }
+  return `${letters}${row + 1}`;
+}
+
 export function readServiceAccount(raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON): ServiceAccount | null {
   if (!raw) return null;
   try {
@@ -104,6 +116,16 @@ export class SheetsClient {
     await this.call(":batchUpdate", {
       method: "POST",
       body: JSON.stringify({ requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 2, frozenColumnCount: 4 } } } }] }),
+    });
+  }
+
+  /** マスをまとめて書く（書き戻し。Phase 19）。value が "" なら空にする */
+  async writeCells(title: string, cells: { row: number; col: number; value: string }[]) {
+    if (!cells.length) return;
+    const t = `'${title.replace(/'/g, "''")}'`;
+    await this.call(`/values:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ valueInputOption: "RAW", data: cells.map((c) => ({ range: `${t}!${a1(c.row, c.col)}`, values: [[c.value]] })) }),
     });
   }
 

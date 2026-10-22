@@ -70,6 +70,7 @@ Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`
 - いつもの管理用シートが正。10分ごとの定期実行（`/api/cron/sheet-sync`）が今月・来月のタブを読み、画面の「月の稼働表」の取り込みと**同じ計算**（`month-sheet-plan` / `month-sheet-apply`）で入れる。読み方を変えるときは両方に効くことを確かめる。
 - 秘密キーで書くが、やるのはこの取り込みだけ。**名簿にない人・ない会場・取引先は自動で作らない**（`sheet_name_aliases` で対応づけてから）。シートから消えたものを外すのは、台帳（`sheet_sync_items`）にあるもののうち、今日以降・報告や実績のないものだけ。本人が出した稼働可能日（`source = self`）は上書きしない。
 - Google の設定がなくても、リンク共有のシートを CSV（`gviz/tq?tqx=out:csv`）で読める。テストは偽のスプレッドシート（`e2e/mock-sheets.mjs`、`GOOGLE_DOCS_BASE`）に向ける。結果は `sheet_syncs` に残す（金額は入れない）。
+- **書き戻し**（`src/lib/sheet-writeback.ts`。Phase 19）: 予定・現場・必要人数・○△× の変更は DB のトリガーが待ち行列 `sheet_writes` に印を付け、2分ごとの定期実行（`/api/cron/sheet-writeback`）が CRM の今の状態を読み直して、手で作っているタブの「場所・シフト・現場・人数」のマスだけに、違うときだけ書く（`sheet-writeback-plan.ts`。純粋な関数でテストする）。**単価の行は書かない・行は足さない・合わない名前のマスは触らない・○△× は消さない**。シートの位置の読み方は `layoutMonthSheet()` を読み取りと共通にする。
 
 ## LINE の文を貼るだけ（`src/lib/inbox`・`/inbox`）
 

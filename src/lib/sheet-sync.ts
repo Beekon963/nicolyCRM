@@ -24,7 +24,7 @@ import { selectAll } from "@/lib/supabase/select-all";
 
 type Db = SupabaseClient<Database>;
 
-export type SheetSyncSettings = { enabled: boolean; spreadsheetId: string | null; roleId: string | null };
+export type SheetSyncSettings = { enabled: boolean; spreadsheetId: string | null; roleId: string | null; writeback: boolean };
 
 export type SyncMonthReport = {
   month: string;
@@ -56,7 +56,7 @@ export async function getSheetSyncSettings(db: Db): Promise<SheetSyncSettings> {
   const sync = map.get("sheet_sync") ?? {};
   const exp = map.get("sheet_export") ?? {};
   const id = (v: unknown) => (typeof v === "string" && v ? v : null);
-  return { enabled: sync.enabled === true, spreadsheetId: id(sync.spreadsheet_id) ?? id(exp.spreadsheet_id), roleId: id(sync.role_id) };
+  return { enabled: sync.enabled === true, spreadsheetId: id(sync.spreadsheet_id) ?? id(exp.spreadsheet_id), roleId: id(sync.role_id), writeback: sync.writeback === true };
 }
 
 type Reader = (tab: string) => Promise<{ rows: string[][] } | { error: string }>;
