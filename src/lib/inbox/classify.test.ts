@@ -112,6 +112,17 @@ describe("案件まわりの文の見分け（Phase 21）", () => {
     if (c.kind === "job") expect(c.job.lines).toHaveLength(2);
   });
 
+  it("見出しごとの案件の文（■ 日程 / ■ 店舗 ①… / 【日程】）→ 案件を作る（稼働可能日と間違えない。× の入った店名があっても）", () => {
+    const text = "■ 日程\n1/1〜1/4予定\n\n■ エントリー期限\n⚠️11/20まで⚠️\n\n■ 店舗\n① 架空カメラ 北店\n② 架空電器×架空カメラ 架空店\n\n・架空カメラ 北店　→3名\n【日程】1/2・1/3・1/4\n※家電販売可能な方優先\n・架空電器×架空カメラ 架空店　→25名\n【日程】1/1・1/2・1/3";
+    const c = classifyPaste(text, opts);
+    expect(c.kind).toBe("job");
+    if (c.kind === "job") {
+      expect(c.job.venues.map((v) => v.name)).toEqual(["架空カメラ 北店", "架空電器×架空カメラ 架空店"]);
+      expect(c.job.lines).toHaveLength(6);
+      expect(c.job.entryDeadline).toBe("2026-11-20");
+    }
+  });
+
   it("人員変更の文 → 入れ替えの確認、合否の連絡 → 合否の確認", () => {
     const re = classifyPaste("10月30日の架空モール 架空欠員のため人員変更。\n\n試験店 検証と試験\n\n架空モール 花子", opts);
     expect(re.kind).toBe("reassign");

@@ -440,13 +440,13 @@ isOneToOne: false
                   ]
                 },"event_group_private": {
                   Row: {
-                    "created_at": string,"group_id": string,"rate": number | null,"transport_included": boolean,"updated_at": string
+                    "created_at": string,"group_id": string,"rate": number | null,"rate_note": string,"transport_included": boolean,"updated_at": string
                   }
                   Insert: {
-                    "created_at"?: string,"group_id": string,"rate"?: number | null,"transport_included"?: boolean,"updated_at"?: string
+                    "created_at"?: string,"group_id": string,"rate"?: number | null,"rate_note"?: string,"transport_included"?: boolean,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"group_id"?: string,"rate"?: number | null,"transport_included"?: boolean,"updated_at"?: string
+                    "created_at"?: string,"group_id"?: string,"rate"?: number | null,"rate_note"?: string,"transport_included"?: boolean,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -459,13 +459,13 @@ isOneToOne: true
                   ]
                 },"event_groups": {
                   Row: {
-                    "client_id": string | null,"closed_at": string | null,"contact_name": string,"created_at": string,"created_by": string | null,"end_time": string | null,"hours_note": string,"id": string,"name": string,"notes": string,"received_on": string | null,"source_text": string,"start_time": string | null,"updated_at": string
+                    "client_id": string | null,"closed_at": string | null,"contact_name": string,"created_at": string,"created_by": string | null,"end_time": string | null,"entry_deadline": string | null,"hours_note": string,"id": string,"name": string,"notes": string,"received_on": string | null,"source_text": string,"start_time": string | null,"updated_at": string
                   }
                   Insert: {
-                    "client_id"?: string | null,"closed_at"?: string | null,"contact_name"?: string,"created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"hours_note"?: string,"id"?: string,"name"?: string,"notes"?: string,"received_on"?: string | null,"source_text"?: string,"start_time"?: string | null,"updated_at"?: string
+                    "client_id"?: string | null,"closed_at"?: string | null,"contact_name"?: string,"created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"entry_deadline"?: string | null,"hours_note"?: string,"id"?: string,"name"?: string,"notes"?: string,"received_on"?: string | null,"source_text"?: string,"start_time"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "client_id"?: string | null,"closed_at"?: string | null,"contact_name"?: string,"created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"hours_note"?: string,"id"?: string,"name"?: string,"notes"?: string,"received_on"?: string | null,"source_text"?: string,"start_time"?: string | null,"updated_at"?: string
+                    "client_id"?: string | null,"closed_at"?: string | null,"contact_name"?: string,"created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"entry_deadline"?: string | null,"hours_note"?: string,"id"?: string,"name"?: string,"notes"?: string,"received_on"?: string | null,"source_text"?: string,"start_time"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {

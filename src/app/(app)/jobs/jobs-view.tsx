@@ -9,11 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import type { Job, JobCandidate } from "@/lib/data/jobs";
-import { formatShortJa } from "@/lib/date";
+import { formatShortJa, toJstDateString } from "@/lib/date";
 import { fillOf } from "@/lib/fill";
 import { isActive, KANBAN_COLUMNS, type Stage, STAGE_INFO, turnOf, urgencyOf } from "@/lib/jobs/stages";
 import { cn } from "@/lib/utils";
 import { setCandidateStage } from "./actions";
+import { DeadlineBadge } from "./[id]/job-detail";
 import { sinceLabel, StageBadge, StageDots } from "./stage-ui";
 
 /** 一覧（案件カード）とカンバン（列＝段階、札＝人×案件）の切り替え */
@@ -69,6 +70,12 @@ function JobCards({ jobs, now }: { jobs: Job[]; now: Date }) {
                     {j.dateFrom && j.dateTo ? `${formatShortJa(j.dateFrom)}〜${formatShortJa(j.dateTo)}・${j.events.filter((e) => !e.cancelled).length}日・${j.venues.length}会場` : "現場はまだありません"}
                     {j.receivedOn && `　受けた日 ${formatShortJa(j.receivedOn)}`}
                   </p>
+                  {j.entryDeadline && (
+                    <p className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+                      エントリー期限 {formatShortJa(j.entryDeadline)}
+                      <DeadlineBadge deadline={j.entryDeadline} today={toJstDateString(now)} closed={Boolean(j.closedAt)} />
+                    </p>
+                  )}
                 </div>
                 {j.closedAt ? <Badge>終わった</Badge> : overdue > 0 ? <Badge tone="alert">自分の番 {overdue}件</Badge> : todo.length > 0 ? <Badge tone="waiting">自分の番 {todo.length}件</Badge> : null}
                 <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground" />
