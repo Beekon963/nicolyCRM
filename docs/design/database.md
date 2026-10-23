@@ -561,3 +561,12 @@ erDiagram
 | 権限 | ★ オーナーだけが読める・入れる・直せる（管理者・無効化した管理者・ログインしていない人は 0 件）。**消すポリシーはない**（取り消しは `voided_at`。合計に入れない）。入れる・直す・取り消すは変更履歴に残る（`audit_trigger('id')`） |
 | `receipts` バケット | 領収書の写真（非公開・5MB まで・JPEG / PNG / WebP）。オーナーだけが読める・入れる。消すのは、経費の登録に失敗したときに入れたばかりの写真を片付けるときだけ。写真を差しかえても前の写真は残す（変更履歴から追えるように）。全データの一括ダウンロード（ZIP）には写真は入らない（表だけ） |
 | 読み方 | 合計（払った人ごと・区分ごと）は `src/lib/money/company-expenses.ts`、今のシートを読むのは `src/lib/import/expense-sheet.ts`、レシートの読み取りは `src/lib/ai/receipt.ts`、書き出しの CSV は `src/lib/export/company-expenses-csv.ts` |
+
+## Phase 21 で足したもの（案件の進み具合）
+
+| 対象 | 内容 |
+|---|---|
+| `event_groups`（案件） | まとめて作った現場のまとまりを「案件」として育てた（`20261024000001_jobs.sql`）。取引先（`client_id`。「取引先」の会社だけ。トリガーで確かめる）・受けた日・稼働時間（`start_time` / `end_time` と書き方のまま `hours_note`）・備考・取引先の担当者・貼った文（`source_text`）・終わった日時（`closed_at`）。現場は `events.group_id` でぶら下がる |
+| `event_group_private` | ★ 案件の単価（請求の人日単価・交通費込）。オーナーだけが読める・入れる。案件から現場を作るときに現場の `event_rates`（人日）にも同じ額を入れる。変更履歴に残す |
+| `group_candidates` | 案件 × スタッフ の段階（`candidate_stage`: 候補 → 本人OK → スキルシート提出済 → 候補日あり → 候補日送付済 → 面談日時共有済 → 面談済 → 合格 → 現場詳細展開済 ／ 不合格 ／ 辞退・取り下げ）。本人からの候補日時（文のまま）・面談の日時とリンク・合否のメモ。段階を変えると `stage_changed_at` が実際の時刻になる（トリガー）。オーナー・管理者が読める・入れる・直す・消す。変更履歴に残す（`audit_trigger('id')`） |
+| 読み方 | 段階の意味・だれの番か・色は `src/lib/jobs/stages.ts`、LINE に貼る文は `src/lib/jobs/messages.ts`、文の読み取りは `src/lib/jobs/parse.ts`、画面用のまとめは `src/lib/data/jobs.ts`。合格 → その案件の打診中・補欠の予定を確定（`setAssignmentStatus`。確定連絡・シートの書き戻しは今までの仕組み）、不合格・辞退 → 辞退 |

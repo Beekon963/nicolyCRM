@@ -3,15 +3,20 @@
  *
  * 貼られた文が何かを見分ける（優先順）:
  * 1. 案件詳細（【案件詳細】・●集合場所）→ 会場のメモ
- * 2. 募集の文（日付が並び、会場か役割がある）→ 現場を作る画面へ
- * 3. 件数の報告（NICOLY フォーマット / いつもの書き方）→ 速報の確認カード
- * 4. 稼働可能日（日付と ○△× が並ぶ）→ 稼働可能日の確認カード
- * 5. 打診の返事（「参加できます」「無理です」など短い文）→ 返事待ちの一覧
- * 6. 分からない → AI に渡す
+ * 2. 案件の文（「20 〇〇外販 1名」の行が並ぶ。Phase 21）→ 案件を作る画面へ
+ * 3. 人員変更の文（「〇〇欠員のため人員変更」。Phase 21）→ 入れ替えの確認カード
+ * 4. 合否の連絡（「〇〇さん合格です」。Phase 21）→ 合否の確認カード
+ * 5. 募集の文（日付が並び、会場か役割がある）→ 現場を作る画面へ
+ * 6. 件数の報告（NICOLY フォーマット / いつもの書き方）→ 速報の確認カード
+ * 7. 打診の返事（「参加できます」「無理です」など短い文）→ 返事待ちの一覧
+ * 8. 面談候補日の返事（「10/26 20:00〜」が並ぶ。Phase 21）→ だれの分か選んで確認カード
+ * 9. 稼働可能日（日付と ○△× が並ぶ）→ 稼働可能日の確認カード
+ * 10. 分からない → AI に渡す
  * ここでは見分けと読み取りだけをして、CRM の現場・人・項目への当てはめはサーバー側（actions）で行う。
  */
 import { addDays, isDateString, monthOf, nextMonth, parse, resolveMonthDay, type DateString } from "@/lib/date";
 import { type LineDetailPost, type LineReport, readDetailPost, readReport } from "@/lib/import/line-history";
+import { type InterviewSlot, type JobOfferParse, looksLikeJobOffer, parseInterviewSlots, parseJobOffer, parseReassignment, parseScreeningResult, type ReassignParse, type ScreeningResult } from "@/lib/jobs/parse";
 import { parseRecruitText, type RecruitParse } from "@/lib/recruit-text";
 import { type NameDict, type ParsedReport, parseReportText } from "@/lib/report-convert";
 
@@ -24,10 +29,14 @@ export type AvailabilityParse = {
   unread: string[];
 };
 
-export type PasteKind = "details" | "recruit" | "report" | "availability" | "reply" | "unknown";
+export type PasteKind = "details" | "job" | "reassign" | "result" | "recruit" | "report" | "availability" | "reply" | "slots" | "unknown";
 
 export type Classified =
   | { kind: "details"; detail: LineDetailPost }
+  | { kind: "job"; job: JobOfferParse }
+  | { kind: "reassign"; reassign: ReassignParse }
+  | { kind: "result"; results: ScreeningResult[] }
+  | { kind: "slots"; slots: InterviewSlot[] }
   | { kind: "recruit"; recruit: RecruitParse }
   | { kind: "report"; nicoly: ParsedReport | null; line: LineReport | null }
   | { kind: "availability"; availability: AvailabilityParse }
@@ -185,6 +194,18 @@ export function classifyPaste(text: string, opts: { today: DateString; roleNames
   const detail = readDetailPost(msg, 0);
   if (detail) return { kind: "details", detail };
 
+  // 案件の文（日付・会場・人数の行が並ぶ）
+  const job = parseJobOffer(t, opts.today);
+  if (looksLikeJobOffer(job, t)) return { kind: "job", job };
+
+  // 人員変更（欠員のため入れ替え）
+  const reassign = parseReassignment(t, opts.today);
+  if (reassign && reassign.lines.length) return { kind: "reassign", reassign };
+
+  // 合否の連絡（名前と 合格／不合格）
+  const screening = parseScreeningResult(t);
+  if (screening.results.length && t.length <= 400) return { kind: "result", results: screening.results };
+
   const recruit = parseRecruitText(t, { today: opts.today, roleNames: opts.roleNames });
   if (recruit.dates.length >= 1 && (recruit.venue || recruit.roles.length) && !/[○◯〇⭕△▲🔺×✕✖❌]/u.test(t)) return { kind: "recruit", recruit };
 
@@ -198,6 +219,10 @@ export function classifyPaste(text: string, opts: { today: DateString; roleNames
   const reply = detectReply(t);
   const explicitDate = /\d{1,2}\s*\/\s*\d{1,2}|\d{1,2}日/.test(nfkc(t));
   if (reply && !explicitDate) return { kind: "reply", positive: reply.positive };
+
+  // 面談の候補日時（日付と時間が並ぶ。○△× はない）
+  const slots = parseInterviewSlots(t, opts.today);
+  if (slots.slots.length && !/[○◯〇⭕△▲🔺×✕✖❌]/u.test(t)) return { kind: "slots", slots: slots.slots };
 
   const availability = parseAvailabilityText(t, { today: opts.today, defaultMonth: opts.defaultMonth });
   if (availability.days.length) return { kind: "availability", availability };

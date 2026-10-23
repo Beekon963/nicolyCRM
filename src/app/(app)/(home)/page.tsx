@@ -13,6 +13,7 @@ import { listDueCompanies } from "@/lib/data/companies";
 import { getMonthMoney, getTarget } from "@/lib/data/money";
 import { formatYen } from "@/lib/money";
 import { getHomeData, getMonthRanking, type Ranking } from "@/lib/data/home";
+import { getJobCounts } from "@/lib/data/jobs";
 import { getSheetSyncStatus } from "@/lib/data/sheet-sync";
 import { createClient } from "@/lib/supabase/server";
 import { InboxClient } from "@/app/(app)/inbox/inbox-client";
@@ -62,7 +63,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const thisMonth = monthOf(todayJst());
   // ★ 今月の数字はオーナーのときだけ取りに行く（管理者はデータ自体を取得しない。要件 §4.1）
   const supabase = await createClient();
-  const [d, ranking, due, money, target, { data: staffOpts }, { data: venueOpts }, sync] = await Promise.all([
+  const [d, ranking, due, money, target, { data: staffOpts }, { data: venueOpts }, sync, jobs] = await Promise.all([
     getHomeData(),
     getMonthRanking(basis),
     listDueCompanies(),
@@ -71,12 +72,13 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     supabase.from("staff").select("id, name").eq("status", "active").order("kana"),
     supabase.from("venues").select("id, name").eq("is_active", true).order("name"),
     isOwner ? getSheetSyncStatus() : Promise.resolve(null),
+    getJobCounts(),
   ]);
   // シートを自動で読んでいて、合わない名前がある・読めなかったとき（オーナーだけ）
   const syncAttention = sync?.enabled && (sync.unmatchedCount > 0 || (sync.last && !sync.last.ok)) ? sync : null;
   const overdueOffers = d.offers.filter((o) => o.overdue);
   const todo =
-    d.shortages.length + d.offers.length + d.unreported.length + d.pendingExpenses + d.reminderPending.length + (d.availability.missing > 0 ? 1 : 0);
+    d.shortages.length + d.offers.length + d.unreported.length + d.pendingExpenses + d.reminderPending.length + (d.availability.missing > 0 ? 1 : 0) + jobs.ourTurn;
 
   return (
     // スマホは1列（埋まり具合 → 今日・明日 → 要対応 → 営業 → 数字 → 獲得件数）。
@@ -173,6 +175,18 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 {d.offers.slice(0, 6).map((o) => (
                   <OfferRow key={o.id} id={o.id} staffName={o.staff?.name ?? ""} date={o.event.date} venue={o.event.venue?.name ?? ""} eventId={o.event.id} overdue={o.overdue} />
                 ))}
+              </ul>
+            </div>
+          )}
+          {jobs.ourTurn > 0 && (
+            <div data-testid="home-jobs">
+              <SubHead tone={jobs.overdue > 0 ? "alert" : "waiting"} count={jobs.overdue > 0 ? `${jobs.ourTurn}人（24時間以上 ${jobs.overdue}人）` : `${jobs.ourTurn}人`}>
+                案件で自分の番（本人への確認・スキルシート・候補日の送付・現場詳細）
+              </SubHead>
+              <ul className="divide-y">
+                <Row href="/jobs" alert={jobs.overdue > 0}>
+                  案件の進み具合を見る{jobs.waitingResult > 0 && `（合否待ち ${jobs.waitingResult}人）`}
+                </Row>
               </ul>
             </div>
           )}

@@ -438,18 +438,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"event_groups": {
+                },"event_group_private": {
                   Row: {
-                    "created_at": string,"created_by": string | null,"id": string,"name": string
+                    "created_at": string,"group_id": string,"rate": number | null,"transport_included": boolean,"updated_at": string
                   }
                   Insert: {
-                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"name"?: string
+                    "created_at"?: string,"group_id": string,"rate"?: number | null,"transport_included"?: boolean,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"name"?: string
+                    "created_at"?: string,"group_id"?: string,"rate"?: number | null,"transport_included"?: boolean,"updated_at"?: string
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "event_group_private_group_id_fkey"
+      columns: ["group_id"]
+isOneToOne: true
+      referencedRelation: "event_groups"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"event_groups": {
+                  Row: {
+                    "client_id": string | null,"closed_at": string | null,"contact_name": string,"created_at": string,"created_by": string | null,"end_time": string | null,"hours_note": string,"id": string,"name": string,"notes": string,"received_on": string | null,"source_text": string,"start_time": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "client_id"?: string | null,"closed_at"?: string | null,"contact_name"?: string,"created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"hours_note"?: string,"id"?: string,"name"?: string,"notes"?: string,"received_on"?: string | null,"source_text"?: string,"start_time"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "client_id"?: string | null,"closed_at"?: string | null,"contact_name"?: string,"created_at"?: string,"created_by"?: string | null,"end_time"?: string | null,"hours_note"?: string,"id"?: string,"name"?: string,"notes"?: string,"received_on"?: string | null,"source_text"?: string,"start_time"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "event_groups_client_id_fkey"
+      columns: ["client_id"]
+isOneToOne: false
+      referencedRelation: "companies"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"event_incentive_rates": {
                   Row: {
@@ -606,6 +631,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "expenses_staff_id_fkey"
+      columns: ["staff_id"]
+isOneToOne: false
+      referencedRelation: "staff"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"group_candidates": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"group_id": string,"id": string,"interview_at": string | null,"interview_note": string,"interview_slots": string,"result_note": string,"staff_id": string,"stage": Database["public"]['Enums']["candidate_stage"],"stage_changed_at": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"group_id": string,"id"?: string,"interview_at"?: string | null,"interview_note"?: string,"interview_slots"?: string,"result_note"?: string,"staff_id": string,"stage"?: Database["public"]['Enums']["candidate_stage"],"stage_changed_at"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"group_id"?: string,"id"?: string,"interview_at"?: string | null,"interview_note"?: string,"interview_slots"?: string,"result_note"?: string,"staff_id"?: string,"stage"?: Database["public"]['Enums']["candidate_stage"],"stage_changed_at"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "group_candidates_group_id_fkey"
+      columns: ["group_id"]
+isOneToOne: false
+      referencedRelation: "event_groups"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "group_candidates_staff_id_fkey"
       columns: ["staff_id"]
 isOneToOne: false
       referencedRelation: "staff"
@@ -1501,7 +1551,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "account_type": "ordinary"|"checking","activity_kind": "call"|"line"|"email"|"visit"|"meeting"|"other","activity_result": "reached"|"absent"|"callback"|"sent_material"|"appointment"|"declined","assignment_status": "offered"|"confirmed"|"waitlisted"|"declined"|"cancelled"|"no_show","availability_status": "ok"|"maybe"|"ng","closing_action": "close"|"unlock"|"reclose","closing_status": "closed"|"unlocked","company_kind": "client"|"partner","company_status": "not_contacted"|"contacted"|"meeting_set"|"met"|"active"|"dormant","diff_reason": "cancelled"|"rejected"|"input_error"|"other","expense_kind": "transport"|"other","expense_status": "pending"|"approved"|"rejected","input_source": "self"|"admin","note_kind": "last_minute_cancel"|"late"|"trouble"|"good"|"other","payment_status": "unconfirmed"|"confirmed"|"paid","priority": "high"|"mid"|"low","rate_kind": "per_person_day"|"per_event"|"per_item","staff_status": "active"|"paused"|"ended","template_kind": "offer"|"confirm"|"reminder"|"availability_request"|"availability_reminder"|"report_request","user_role": "owner"|"manager","withholding_method": "none"|"fee"|"sales_agent"
+            "account_type": "ordinary"|"checking","activity_kind": "call"|"line"|"email"|"visit"|"meeting"|"other","activity_result": "reached"|"absent"|"callback"|"sent_material"|"appointment"|"declined","assignment_status": "offered"|"confirmed"|"waitlisted"|"declined"|"cancelled"|"no_show","availability_status": "ok"|"maybe"|"ng","candidate_stage": "candidate"|"staff_ok"|"sheet_sent"|"slots_collected"|"slots_sent"|"interview_set"|"interviewed"|"passed"|"briefed"|"failed"|"withdrawn","closing_action": "close"|"unlock"|"reclose","closing_status": "closed"|"unlocked","company_kind": "client"|"partner","company_status": "not_contacted"|"contacted"|"meeting_set"|"met"|"active"|"dormant","diff_reason": "cancelled"|"rejected"|"input_error"|"other","expense_kind": "transport"|"other","expense_status": "pending"|"approved"|"rejected","input_source": "self"|"admin","note_kind": "last_minute_cancel"|"late"|"trouble"|"good"|"other","payment_status": "unconfirmed"|"confirmed"|"paid","priority": "high"|"mid"|"low","rate_kind": "per_person_day"|"per_event"|"per_item","staff_status": "active"|"paused"|"ended","template_kind": "offer"|"confirm"|"reminder"|"availability_request"|"availability_reminder"|"report_request","user_role": "owner"|"manager","withholding_method": "none"|"fee"|"sales_agent"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1621,7 +1671,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "account_type": ["ordinary", "checking"],"activity_kind": ["call", "line", "email", "visit", "meeting", "other"],"activity_result": ["reached", "absent", "callback", "sent_material", "appointment", "declined"],"assignment_status": ["offered", "confirmed", "waitlisted", "declined", "cancelled", "no_show"],"availability_status": ["ok", "maybe", "ng"],"closing_action": ["close", "unlock", "reclose"],"closing_status": ["closed", "unlocked"],"company_kind": ["client", "partner"],"company_status": ["not_contacted", "contacted", "meeting_set", "met", "active", "dormant"],"diff_reason": ["cancelled", "rejected", "input_error", "other"],"expense_kind": ["transport", "other"],"expense_status": ["pending", "approved", "rejected"],"input_source": ["self", "admin"],"note_kind": ["last_minute_cancel", "late", "trouble", "good", "other"],"payment_status": ["unconfirmed", "confirmed", "paid"],"priority": ["high", "mid", "low"],"rate_kind": ["per_person_day", "per_event", "per_item"],"staff_status": ["active", "paused", "ended"],"template_kind": ["offer", "confirm", "reminder", "availability_request", "availability_reminder", "report_request"],"user_role": ["owner", "manager"],"withholding_method": ["none", "fee", "sales_agent"]
+            "account_type": ["ordinary", "checking"],"activity_kind": ["call", "line", "email", "visit", "meeting", "other"],"activity_result": ["reached", "absent", "callback", "sent_material", "appointment", "declined"],"assignment_status": ["offered", "confirmed", "waitlisted", "declined", "cancelled", "no_show"],"availability_status": ["ok", "maybe", "ng"],"candidate_stage": ["candidate", "staff_ok", "sheet_sent", "slots_collected", "slots_sent", "interview_set", "interviewed", "passed", "briefed", "failed", "withdrawn"],"closing_action": ["close", "unlock", "reclose"],"closing_status": ["closed", "unlocked"],"company_kind": ["client", "partner"],"company_status": ["not_contacted", "contacted", "meeting_set", "met", "active", "dormant"],"diff_reason": ["cancelled", "rejected", "input_error", "other"],"expense_kind": ["transport", "other"],"expense_status": ["pending", "approved", "rejected"],"input_source": ["self", "admin"],"note_kind": ["last_minute_cancel", "late", "trouble", "good", "other"],"payment_status": ["unconfirmed", "confirmed", "paid"],"priority": ["high", "mid", "low"],"rate_kind": ["per_person_day", "per_event", "per_item"],"staff_status": ["active", "paused", "ended"],"template_kind": ["offer", "confirm", "reminder", "availability_request", "availability_reminder", "report_request"],"user_role": ["owner", "manager"],"withholding_method": ["none", "fee", "sales_agent"]
           }
         }
 } as const

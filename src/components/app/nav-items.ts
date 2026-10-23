@@ -1,24 +1,4 @@
-import {
-  BarChart3Icon,
-  BellIcon,
-  BuildingIcon,
-  CalendarCheckIcon,
-  CalendarDaysIcon,
-  ClipboardCheckIcon,
-  ClipboardPasteIcon,
-  FileClockIcon,
-  HomeIcon,
-  MapPinIcon,
-  MenuIcon,
-  ReceiptIcon,
-  ReceiptJapaneseYenIcon,
-  SettingsIcon,
-  UploadIcon,
-  UsersIcon,
-  VideoIcon,
-  WalletIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { BarChart3Icon, BellIcon, BriefcaseIcon, BuildingIcon, CalendarCheckIcon, CalendarDaysIcon, ClipboardCheckIcon, ClipboardPasteIcon, FileClockIcon, HomeIcon, MapPinIcon, MenuIcon, ReceiptIcon, ReceiptJapaneseYenIcon, SettingsIcon, UploadIcon, UsersIcon, VideoIcon, WalletIcon, type LucideIcon } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -54,6 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/staff", label: "スタッフ", icon: UsersIcon, tab: true, sidebar: true },
   { href: "/sales", label: "営業", icon: BuildingIcon, tab: true, sidebar: true },
   // LINE の文を貼るだけで、件数・稼働可能日・現場・案件詳細が入る（Phase 18）
+  { href: "/jobs", label: "案件", icon: BriefcaseIcon, sidebar: true, more: true, group: "daily" },
   { href: "/inbox", label: "LINE から入れる", icon: ClipboardPasteIcon, sidebar: true, more: true, group: "daily" },
   { href: "/venues", label: "会場", icon: MapPinIcon, sidebar: true, more: true, group: "manage" },
   { href: "/results", label: "実績確認", icon: ClipboardCheckIcon, sidebar: true, more: true, group: "daily" },

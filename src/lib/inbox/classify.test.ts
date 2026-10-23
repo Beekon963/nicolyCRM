@@ -102,3 +102,30 @@ describe("報告の所感を拾う", () => {
     expect(extractComment("PI1\nキヘン2")).toBe("");
   });
 });
+
+describe("案件まわりの文の見分け（Phase 21）", () => {
+  const opts = { today, roleNames: ["クローザー"], defaultMonth: "2026-11" };
+
+  it("案件の文（日付・会場・人数の行が並ぶ）→ 案件を作る", () => {
+    const c = classifyPaste("20 架空モール外販　1名\n21 架空モール外販　2名\n\n単価\n20000円/日", opts);
+    expect(c.kind).toBe("job");
+    if (c.kind === "job") expect(c.job.lines).toHaveLength(2);
+  });
+
+  it("人員変更の文 → 入れ替えの確認、合否の連絡 → 合否の確認", () => {
+    const re = classifyPaste("10月30日の架空モール 架空欠員のため人員変更。\n\n試験店 検証と試験\n\n架空モール 花子", opts);
+    expect(re.kind).toBe("reassign");
+    const ok = classifyPaste("お世話になっております。検証さん合格です！", opts);
+    expect(ok.kind).toBe("result");
+    if (ok.kind === "result") expect(ok.results).toEqual([{ name: "検証", passed: true }]);
+  });
+
+  it("面談の候補日時（日付と時間）→ だれの分か選ぶ。○△× があれば稼働可能日のまま", () => {
+    const s = classifyPaste("10/26 20:00〜\n10/27 9:00〜12:00\n10/28 終日", opts);
+    expect(s.kind).toBe("slots");
+    if (s.kind === "slots") expect(s.slots.map((x) => x.text)).toEqual(["10/26 20:00〜", "10/27 9:00〜12:00", "10/28 終日"]);
+    expect(classifyPaste("11/1 ○\n11/2 ×", opts).kind).toBe("availability");
+    // 短い返事は返事のまま
+    expect(classifyPaste("参加できます！", opts).kind).toBe("reply");
+  });
+});

@@ -15,7 +15,7 @@ import { toast } from "@/components/ui/toaster";
 import { formatShortJa } from "@/lib/date";
 import { AVAILABILITY } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import { markInboxDone, proposeAvailabilityFor, readPaste, type ReadResult, saveVenueDetails } from "./actions";
+import { markInboxDone, proposeAvailabilityFor, proposeReassignFor, proposeScreeningFor, proposeSlotsFor, readPaste, type ReadResult, saveVenueDetails } from "./actions";
 
 type Opt = { id: string; name: string };
 type InboxItem = { id: string; text: string; createdAt: string };
@@ -112,7 +112,7 @@ export function InboxClient({ staff, venues, inbox = [], compact = false }: { st
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="LINE の文を長押しでコピーして、ここに貼ってください（件数の報告・稼働可能日・募集の文・案件詳細・打診の返事）"
+          placeholder="LINE の文を長押しでコピーして、ここに貼ってください（件数の報告・稼働可能日・募集の文・案件の文・面談の候補日・合否・人員変更・案件詳細・打診の返事）"
           rows={compact ? 3 : 6}
           className="text-base"
         />
@@ -163,11 +163,27 @@ export function InboxClient({ staff, venues, inbox = [], compact = false }: { st
               </Button>
             </div>
           )}
+          {result.kind === "job" && (
+            <div className="flex flex-col gap-2 rounded-lg border p-3">
+              <p>
+                <Badge tone="done" className="mr-2">
+                  案件の文
+                </Badge>
+                日程 {result.lines}件・{result.venues.length}会場{result.month && `（${Number(result.month.slice(5, 7))}月）`}
+              </p>
+              <Button asChild className="w-fit">
+                <Link href={`/jobs/new?text=${encodeURIComponent(text)}`}>案件を作る画面で続ける</Link>
+              </Button>
+            </div>
+          )}
+          {result.kind === "slots" && <SlotsPicker result={result} pending={pending} card={card} onCard={(c) => setCard(c)} onRun={onRun} onCancel={onCancel} onUndo={onUndo} />}
+          {result.kind === "result" && <ResultPicker result={result} pending={pending} card={card} onCard={(c) => setCard(c)} onRun={onRun} onCancel={onCancel} onUndo={onUndo} />}
+          {result.kind === "reassign" && <ReassignPicker result={result} staff={staff} pending={pending} card={card} onCard={(c) => setCard(c)} onRun={onRun} onCancel={onCancel} onUndo={onUndo} />}
           {result.kind === "details" && <DetailsSaver result={result} venues={venues} pending={pending} />}
           {result.kind === "reply" && <ReplyList result={result} onDone={() => sourceId && markInboxDone(sourceId)} />}
           {result.kind === "unknown" && (
             <div className="flex flex-col gap-2 rounded-lg border p-3">
-              <p>この文は、報告・稼働可能日・募集の文・案件詳細・返事のどれとも読み取れませんでした。</p>
+              <p>この文は、報告・稼働可能日・募集の文・案件の文・面談の候補日・合否・人員変更・案件詳細・返事のどれとも読み取れませんでした。</p>
               <Button
                 variant="outline"
                 className="w-fit gap-1.5"
@@ -389,6 +405,173 @@ function ReplyList({ result, onDone }: { result: Extract<ReadResult, { kind: "re
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+type CardProps = { pending: boolean; card: CardState | null; onCard: (c: CardState) => void; onRun: (c: CardState) => Promise<void>; onCancel: (c: CardState) => void; onUndo: (c: CardState) => Promise<void> };
+
+/** 面談の候補日時: だれの分か選ぶ → 確認カード（Phase 21） */
+function SlotsPicker({ result, pending, card, onCard, onRun, onCancel, onUndo }: { result: Extract<ReadResult, { kind: "slots" }> } & CardProps) {
+  const [candidateId, setCandidateId] = useState(result.matchedId ?? "");
+  const [busy, start] = useTransition();
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3">
+      <p>
+        <Badge tone="done" className="mr-2">
+          面談の候補日時
+        </Badge>
+        {result.slots.join(" / ")}
+      </p>
+      {!card && (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <NativeSelect aria-label="だれの候補日時か" value={candidateId} onChange={(e) => setCandidateId(e.target.value)} className="sm:w-80">
+            <option value="">だれの分か（案件の候補）…</option>
+            {result.candidates.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </NativeSelect>
+          <Button
+            disabled={pending || busy || !candidateId}
+            onClick={() =>
+              start(async () => {
+                const r = await proposeSlotsFor({ candidateId, slots: result.slots });
+                if (!r.ok) return void toast.error(r.message);
+                onCard({ ...r.data!, state: "open" });
+              })
+            }
+          >
+            確認カードを出す
+          </Button>
+        </div>
+      )}
+      {!card && result.candidates.length === 0 && <p className="text-sm text-muted-foreground">進行中の案件に候補がいません。先に案件の画面で「候補を足す」をしてください。</p>}
+      {card && <ProposalCard card={card} onRun={onRun} onCancel={onCancel} onUndo={onUndo} />}
+    </div>
+  );
+}
+
+/** 合否の連絡: 案件を選ぶ → 確認カード（Phase 21） */
+function ResultPicker({ result, pending, card, onCard, onRun, onCancel, onUndo }: { result: Extract<ReadResult, { kind: "result" }> } & CardProps) {
+  const [jobId, setJobId] = useState(result.jobId ?? "");
+  const [busy, start] = useTransition();
+  const resolved = result.results.filter((r) => r.staffId);
+  const unresolved = result.results.filter((r) => !r.staffId);
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3">
+      <p className="flex flex-wrap items-center gap-2">
+        <Badge tone="done">合否の連絡</Badge>
+        {result.results.map((r) => (
+          <span key={r.name} className="inline-flex items-center gap-1">
+            <span className="font-semibold">{r.staffName ?? r.name}</span>
+            <Badge tone={r.passed ? "done" : "alert"}>{r.passed ? "合格" : "不合格"}</Badge>
+          </span>
+        ))}
+      </p>
+      {unresolved.length > 0 && <p className="text-sm text-status-waiting">「{unresolved.map((r) => r.name).join("」「")}」がだれか分かりません（名簿の名前・ふりがな・LINE の表示名と合いません）。その分は入れません。</p>}
+      {!card && (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <NativeSelect aria-label="どの案件の合否か" value={jobId} onChange={(e) => setJobId(e.target.value)} className="sm:w-80">
+            <option value="">どの案件か…</option>
+            {result.jobs.map((j) => (
+              <option key={j.id} value={j.id}>
+                {j.label}
+              </option>
+            ))}
+          </NativeSelect>
+          <Button
+            disabled={pending || busy || !jobId || !resolved.length}
+            onClick={() =>
+              start(async () => {
+                const r = await proposeScreeningFor({ groupId: jobId, results: resolved.map((x) => ({ staffId: x.staffId!, passed: x.passed })) });
+                if (!r.ok) return void toast.error(r.message);
+                onCard({ ...r.data!, state: "open" });
+              })
+            }
+          >
+            確認カードを出す
+          </Button>
+        </div>
+      )}
+      {card && <ProposalCard card={card} onRun={onRun} onCancel={onCancel} onUndo={onUndo} />}
+    </div>
+  );
+}
+
+/** 人員変更: 現場と人を確かめる → 確認カード（Phase 21） */
+function ReassignPicker({ result, staff, pending, card, onCard, onRun, onCancel, onUndo }: { result: Extract<ReadResult, { kind: "reassign" }>; staff: Opt[] } & CardProps) {
+  type Line = { venue: string; eventId: string; names: { name: string; staffId: string }[] };
+  const init = (l: NonNullable<typeof result.out>): Line => ({ venue: l.venue, eventId: l.eventId ?? "", names: l.names.map((n) => ({ name: n.name, staffId: n.staffId ?? "" })) });
+  const [lines, setLines] = useState<Line[]>(result.lines.map(init));
+  const [out, setOut] = useState<Line | null>(result.out ? init(result.out) : null);
+  const [busy, start] = useTransition();
+  const setName = (setter: (f: (l: Line) => Line) => void, i: number, staffId: string) => setter((l) => ({ ...l, names: l.names.map((n, j) => (j === i ? { ...n, staffId } : n)) }));
+  const row = (l: Line, update: (f: (l: Line) => Line) => void, label: string) => (
+    <li className="flex flex-col gap-1 rounded-md bg-background p-2">
+      <p className="text-sm">
+        <span className="font-semibold">{label}</span> {l.venue}
+      </p>
+      <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
+        <NativeSelect aria-label={`${l.venue}の現場`} value={l.eventId} onChange={(e) => update((x) => ({ ...x, eventId: e.target.value }))} className="sm:w-64">
+          <option value="">どの現場か…</option>
+          {result.eventsOnDate.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.label}
+            </option>
+          ))}
+        </NativeSelect>
+        {l.names.map((n, i) => (
+          <NativeSelect key={i} aria-label={`${n.name}はだれか`} value={n.staffId} onChange={(e) => setName(update, i, e.target.value)} className="sm:w-56">
+            <option value="">「{n.name}」はだれ…</option>
+            {staff.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </NativeSelect>
+        ))}
+      </div>
+    </li>
+  );
+  const ready = Boolean(result.date && result.roleId) && [...lines, ...(out ? [out] : [])].every((l) => l.eventId && l.names.every((n) => n.staffId));
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3">
+      <p>
+        <Badge tone="done" className="mr-2">
+          人員変更
+        </Badge>
+        {result.date ? formatShortJa(result.date) : "日付が読めません"}
+        {result.eventsOnDate.length === 0 && result.date && <span className="ml-2 text-status-waiting">その日の現場がありません</span>}
+      </p>
+      {!card && (
+        <>
+          <ul className="flex flex-col gap-2">
+            {out && row(out, (f) => setOut((o) => (o ? f(o) : o)), "欠員（キャンセルにする）:")}
+            {lines.map((l, i) => row(l, (f) => setLines((ls) => ls.map((x, j) => (j === i ? f(x) : x))), "確定にする:"))}
+          </ul>
+          <Button
+            className="w-fit"
+            disabled={pending || busy || !ready}
+            onClick={() =>
+              start(async () => {
+                const r = await proposeReassignFor({
+                  date: result.date!,
+                  roleId: result.roleId!,
+                  lines: lines.map((l) => ({ eventId: l.eventId, staffIds: l.names.map((n) => n.staffId) })),
+                  out: out ? [{ eventId: out.eventId, staffIds: out.names.map((n) => n.staffId) }] : [],
+                });
+                if (!r.ok) return void toast.error(r.message);
+                onCard({ ...r.data!, state: "open" });
+              })
+            }
+          >
+            確認カードを出す
+          </Button>
+        </>
+      )}
+      {card && <ProposalCard card={card} onRun={onRun} onCancel={onCancel} onUndo={onUndo} />}
     </div>
   );
 }
