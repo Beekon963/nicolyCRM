@@ -16,7 +16,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import type { Job, JobCandidate } from "@/lib/data/jobs";
-import { formatShortJa, formatTimeJst, toJstDateString } from "@/lib/date";
+import { type DateString, diffDays, formatShortJa, formatTimeJst, toJstDateString } from "@/lib/date";
 import { interviewShareText, slotsRequestText, slotsSummaryText, type SummaryLine } from "@/lib/jobs/messages";
 import { isActive, nextStage, type Stage, STAGE_INFO } from "@/lib/jobs/stages";
 import { ASSIGNMENT_STATUS } from "@/lib/labels";
@@ -76,6 +76,15 @@ export function JobDetail({ job, staff, roles, isOwner, now: nowIso }: { job: Jo
           <dd>{job.dateFrom && job.dateTo ? `${formatShortJa(job.dateFrom)}〜${formatShortJa(job.dateTo)}・${live.length}日・${job.venues.length}会場` : "現場はまだありません"}</dd>
           <dt className="font-medium text-muted-foreground">受けた日</dt>
           <dd>{job.receivedOn ? formatShortJa(job.receivedOn) : "—"}</dd>
+          {job.entryDeadline && (
+            <>
+              <dt className="font-medium text-muted-foreground">期限</dt>
+              <dd className="flex flex-wrap items-center gap-2" data-testid="job-deadline">
+                エントリー期限 {formatShortJa(job.entryDeadline)}
+                <DeadlineBadge deadline={job.entryDeadline} today={toJstDateString(now)} closed={Boolean(job.closedAt)} />
+              </dd>
+            </>
+          )}
           <dt className="font-medium text-muted-foreground">稼働時間</dt>
           <dd>{job.hoursNote || (job.startTime ? `${job.startTime}〜${job.endTime ?? ""}` : "—")}</dd>
           {job.contactName && (
@@ -183,47 +192,70 @@ export function JobDetail({ job, staff, roles, isOwner, now: nowIso }: { job: Jo
   );
 }
 
-/** 単価（オーナーだけ） */
-function RateEditor({ jobId, rate }: { jobId: string; rate: { rate: number | null; transportIncluded: boolean } | null }) {
+/** エントリー期限の札: 過ぎた＝赤、3日以内＝黄 */
+export function DeadlineBadge({ deadline, today, closed }: { deadline: DateString; today: DateString; closed?: boolean }) {
+  if (closed) return null;
+  const left = diffDays(today, deadline);
+  if (left < 0) return <Badge tone="alert">期限切れ</Badge>;
+  if (left === 0) return <Badge tone="alert">今日まで</Badge>;
+  if (left <= 3) return <Badge tone="waiting">あと{left}日</Badge>;
+  return null;
+}
+
+/** 単価と単価のメモ（オーナーだけ） */
+function RateEditor({ jobId, rate }: { jobId: string; rate: { rate: number | null; transportIncluded: boolean; rateNote: string } | null }) {
   const router = useRouter();
   const [edit, setEdit] = useState(false);
   const [value, setValue] = useState(rate?.rate != null ? String(rate.rate) : "");
   const [transport, setTransport] = useState(rate?.transportIncluded ?? false);
+  const [note, setNote] = useState(rate?.rateNote ?? "");
   const [pending, start] = useTransition();
   if (!edit)
     return (
-      <span className="flex flex-wrap items-center gap-2" data-testid="job-rate">
-        {rate?.rate != null ? `${rate.rate.toLocaleString()}円/日${rate.transportIncluded ? "（交通費込）" : ""}` : "未設定"}
-        <Button variant="ghost" size="sm" onClick={() => setEdit(true)}>
-          直す
-        </Button>
+      <span className="flex flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-2" data-testid="job-rate">
+          {rate?.rate != null ? `${rate.rate.toLocaleString()}円/日${rate.transportIncluded ? "（交通費込）" : ""}` : "未設定"}
+          <Button variant="ghost" size="sm" onClick={() => setEdit(true)}>
+            直す
+          </Button>
+        </span>
+        {rate?.rateNote && (
+          <span className="whitespace-pre-wrap text-muted-foreground" data-testid="job-rate-note">
+            {rate.rateNote}
+          </span>
+        )}
       </span>
     );
   return (
-    <span className="flex flex-wrap items-center gap-2">
-      <Input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => setValue(e.target.value)} className="w-32" aria-label="単価" />
-      <label className="flex items-center gap-1 text-sm">
-        <Checkbox checked={transport} onCheckedChange={(v) => setTransport(v === true)} aria-label="交通費込" />
-        交通費込
-      </label>
-      <Button
-        size="sm"
-        disabled={pending}
-        onClick={() =>
-          start(async () => {
-            const r = await setJobRate(jobId, value.trim() ? Number(value) : null, transport);
-            if (!r.ok) return void toast.error(r.message);
-            toast.success(r.message);
-            setEdit(false);
-            router.refresh();
-          })
-        }
-      >
-        保存
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => setEdit(false)}>
-        やめる
-      </Button>
+    <span className="flex flex-col gap-2">
+      <span className="flex flex-wrap items-center gap-2">
+        <Input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => setValue(e.target.value)} className="w-32" aria-label="単価" />
+        <label className="flex items-center gap-1 text-sm">
+          <Checkbox checked={transport} onCheckedChange={(v) => setTransport(v === true)} aria-label="交通費込" />
+          交通費込
+        </label>
+      </span>
+      <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="単価のメモ" placeholder="弱 30,000円 / 一律 24,000円 など" />
+      <span className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await setJobRate(jobId, value.trim() ? Number(value) : null, transport, note);
+              if (!r.ok) return void toast.error(r.message);
+              toast.success(r.message);
+              setEdit(false);
+              router.refresh();
+            })
+          }
+        >
+          保存
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setEdit(false)}>
+          やめる
+        </Button>
+      </span>
     </span>
   );
 }

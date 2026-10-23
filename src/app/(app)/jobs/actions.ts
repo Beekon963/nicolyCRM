@@ -40,11 +40,15 @@ const createSchema = z.object({
   notes: z.string().trim().max(2000).default(""),
   contactName: z.string().trim().max(50).default(""),
   sourceText: z.string().max(20_000).default(""),
+  /** エントリー期限（取引先に返事をする期限） */
+  entryDeadline: z.iso.date().nullable().default(null),
   roleId: z.uuid("役割を選んでください"),
-  lines: z.array(jobLine).min(1, "日程を1つ以上入れてください").max(120),
+  lines: z.array(jobLine).min(1, "日程を1つ以上入れてください").max(240),
   /** オーナーだけ（管理者から来ても使わない） */
   rate: z.number().int().min(0).max(10_000_000).nullable().default(null),
   transportIncluded: z.boolean().default(false),
+  /** 単価のまわりの文（「弱 30,000円 / 一律 24,000円」など。オーナーだけ） */
+  rateNote: z.string().trim().max(2000).default(""),
 });
 export type CreateJobInput = z.input<typeof createSchema>;
 
@@ -85,7 +89,7 @@ export async function createJob(input: CreateJobInput): Promise<ActionResult<{ i
 
   const { data: group, error: gErr } = await supabase
     .from("event_groups")
-    .insert({ name: v.name, client_id: v.clientId, received_on: v.receivedOn, start_time: v.startTime, end_time: v.endTime, hours_note: v.hoursNote, notes: v.notes, contact_name: v.contactName, source_text: v.sourceText })
+    .insert({ name: v.name, client_id: v.clientId, received_on: v.receivedOn, start_time: v.startTime, end_time: v.endTime, hours_note: v.hoursNote, notes: v.notes, contact_name: v.contactName, source_text: v.sourceText, entry_deadline: v.entryDeadline })
     .select("id")
     .single();
   if (gErr || !group) return fail(dbErrorMessage(gErr));
@@ -104,12 +108,14 @@ export async function createJob(input: CreateJobInput): Promise<ActionResult<{ i
   const { error: rErr } = await supabase.from("event_requirements").insert(events.map((e) => ({ event_id: e.id, role_id: v.roleId, required_count: countOf.get(`${e.date}|${e.venue_id}`) ?? 1 })));
   if (rErr) return fail(dbErrorMessage(rErr));
 
-  // 単価（オーナーだけ）: 案件の単価と、現場の請求単価（人日）
-  if (me.role === "owner" && v.rate != null) {
-    const { error: pErr } = await supabase.from("event_group_private").insert({ group_id: group.id, rate: v.rate, transport_included: v.transportIncluded });
+  // 単価（オーナーだけ）: 案件の単価（と単価のまわりの文）、現場の請求単価（人日）
+  if (me.role === "owner" && (v.rate != null || v.rateNote)) {
+    const { error: pErr } = await supabase.from("event_group_private").insert({ group_id: group.id, rate: v.rate, transport_included: v.transportIncluded, rate_note: v.rateNote });
     if (pErr) return fail(dbErrorMessage(pErr));
-    const { error: rateErr } = await supabase.from("event_rates").insert(events.map((e) => ({ event_id: e.id, kind: "per_person_day" as const, role_id: v.roleId, amount: v.rate! })));
-    if (rateErr) return fail(dbErrorMessage(rateErr));
+    if (v.rate != null) {
+      const { error: rateErr } = await supabase.from("event_rates").insert(events.map((e) => ({ event_id: e.id, kind: "per_person_day" as const, role_id: v.roleId, amount: v.rate! })));
+      if (rateErr) return fail(dbErrorMessage(rateErr));
+    }
   }
   await enqueueNewEvents(
     events.map((e) => e.id),
@@ -124,6 +130,7 @@ export async function createJob(input: CreateJobInput): Promise<ActionResult<{ i
 const updateSchema = z.object({
   name: z.string().trim().min(1, "案件の名前を入れてください").max(100),
   receivedOn: z.iso.date().nullable().default(null),
+  entryDeadline: z.iso.date().nullable().default(null),
   hoursNote: z.string().trim().max(200).default(""),
   notes: z.string().trim().max(2000).default(""),
   contactName: z.string().trim().max(50).default(""),
@@ -136,19 +143,24 @@ export async function updateJob(id: string, input: z.input<typeof updateSchema>)
   const p = updateSchema.safeParse(input);
   if (!p.success) return fail(p.error.issues[0].message);
   const supabase = await createClient();
-  const { error } = await supabase.from("event_groups").update({ name: p.data.name, received_on: p.data.receivedOn, hours_note: stripMoneyLines(p.data.hoursNote), notes: stripMoneyLines(p.data.notes), contact_name: p.data.contactName }).eq("id", id);
+  const { error } = await supabase
+    .from("event_groups")
+    .update({ name: p.data.name, received_on: p.data.receivedOn, entry_deadline: p.data.entryDeadline, hours_note: stripMoneyLines(p.data.hoursNote), notes: stripMoneyLines(p.data.notes), contact_name: p.data.contactName })
+    .eq("id", id);
   if (error) return fail(dbErrorMessage(error));
   revalidatePath("/jobs", "layout");
   return ok("直しました");
 }
 
-/** 案件の単価（オーナーだけ）。現場の請求単価は変えない（現場の画面で直す） */
-export async function setJobRate(id: string, rate: number | null, transportIncluded: boolean): Promise<ActionResult> {
+/** 案件の単価と単価のまわりの文（オーナーだけ）。現場の請求単価は変えない（現場の画面で直す） */
+export async function setJobRate(id: string, rate: number | null, transportIncluded: boolean, rateNote = ""): Promise<ActionResult> {
   await assertOwner();
   if (!z.uuid().safeParse(id).success) return fail("案件が見つかりません");
   if (rate != null && (!Number.isInteger(rate) || rate < 0 || rate > 10_000_000)) return fail("単価は 0〜10,000,000 円で入れてください");
+  const note = z.string().trim().max(2000).safeParse(rateNote);
+  if (!note.success) return fail("単価のメモが長すぎます");
   const supabase = await createClient();
-  const { error } = await supabase.from("event_group_private").upsert({ group_id: id, rate, transport_included: transportIncluded });
+  const { error } = await supabase.from("event_group_private").upsert({ group_id: id, rate, transport_included: transportIncluded, rate_note: note.data });
   if (error) return fail(dbErrorMessage(error));
   revalidatePath("/jobs", "layout");
   return ok("単価を保存しました");

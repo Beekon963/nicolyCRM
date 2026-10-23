@@ -15,6 +15,7 @@ let staff2: { id: string; name: string };
 let venueId = "";
 const venueName = `案件会場${tag}`;
 const newVenueName = `案件新会場${tag}`;
+const blockVenueName = `案件店舗${tag}`;
 let month = "";
 let m = 0;
 let jobId = "";
@@ -43,7 +44,7 @@ test.afterAll(async () => {
   await sql(`delete from event_group_private where group_id in (select id from event_groups where client_id = $1)`, [client.id]);
   await sql(`delete from event_groups where client_id = $1`, [client.id]);
   await dropStaff(staff.id, staff2.id);
-  await sql(`delete from venues where name = any($1)`, [[venueName, newVenueName]]);
+  await sql(`delete from venues where name = any($1)`, [[venueName, newVenueName, blockVenueName]]);
   await dropClient(client.id);
 });
 
@@ -80,6 +81,90 @@ test("案件の文を貼ると日程・会場・単価を読み取り、案件�
   expect(evs.every((e) => e.rate === 20000)).toBe(true);
   expect(evs[2].venue).toBe(newVenueName);
   await expect(page.getByTestId("job-rate")).toContainText("20,000円/日（交通費込）");
+});
+
+/** 見出しごとに分かれた書き方（■ 日程 / ■ エントリー期限 / ■ 店舗 ①② / 単価の行 / ・店名 →N名 ＋【日程】） */
+function blockText() {
+  return [
+    "お世話になっております。",
+    "",
+    "■ 日程",
+    `${m}/1〜${m}/3予定`,
+    "",
+    "■ エントリー期限",
+    `⚠️${m}/1まで⚠️`,
+    "",
+    "■ 店舗",
+    `① ${venueName}`,
+    `② ${blockVenueName}`,
+    "",
+    "弱　30,000円",
+    "一律 24,000円",
+    "",
+    `・${venueName}　→2名`,
+    `【日程】${m}/2・${m}/3`,
+    `・${blockVenueName}　→3名`,
+    "※家電販売可能な方優先",
+  ].join("\n");
+}
+
+test("見出しごとに分かれた書き方の文も、全体の日程・期限・店舗ごとの日程と人数・単価のメモに分けて読み、表で直してから作れる", async ({ page }) => {
+  await page.goto("/jobs/new");
+  await page.getByLabel("取引先の案件の文を貼ってください").fill(blockText());
+  const read = page.getByRole("region", { name: "読み取った内容" });
+  await expect(read).toContainText("2件（日程あり 2件）");
+  await expect(read).toContainText("現場 5件");
+  await expect(read).toContainText("エントリー期限");
+  await expect(read).toContainText("24,000円/日");
+  await expect(read).toContainText("※家電販売可能な方優先");
+  // 店舗の表: ① は店舗ごとの日程（2日）と 2名、② は全体の日程（3日）と 3名
+  await expect(page.getByLabel("全体の日程（店舗に日程が書いてないときに使う）")).toHaveValue(`${m}/1〜${m}/3`);
+  const rows = page.getByTestId("job-venue-row");
+  await expect(rows).toHaveCount(2);
+  await expect(page.getByLabel(`${venueName}の日程`)).toHaveValue(`${m}/2・${m}/3`);
+  await expect(page.getByLabel(`${venueName}の人数`)).toHaveValue("2");
+  await expect(page.getByLabel(`${blockVenueName}の日程`)).toHaveValue("");
+  await expect(page.getByLabel(`${blockVenueName}の人数`)).toHaveValue("3");
+  await expect(page.getByLabel("エントリー期限（取引先に返事をする期限）")).toHaveValue(`${month}-01`);
+  await expect(page.getByLabel("単価（請求の人日単価・円。オーナーだけ）")).toHaveValue("24000");
+  await expect(page.getByLabel("単価のメモ（文の中の金額の行。オーナーだけ）")).toHaveValue("弱 30,000円\n一律 24,000円");
+  await expect(page.getByLabel("備考（募集の条件など）")).toHaveValue("※家電販売可能な方優先");
+  // 全体の日程を直すと、② の現場が変わる（3日 → 2日）
+  await page.getByLabel("全体の日程（店舗に日程が書いてないときに使う）").fill(`${m}/1・${m}/2`);
+  await expect(page.getByRole("button", { name: "案件と現場を作る（現場 4件）" })).toBeVisible();
+  await page.getByLabel("取引先", { exact: true }).selectOption(client.id);
+  await expect(page.getByLabel("案件の名前")).toHaveValue(`${m}月の案件`);
+  await page.getByRole("button", { name: "案件と現場を作る（現場 4件）" }).click();
+  await expect(page).toHaveURL(/\/jobs\/[0-9a-f-]{36}$/, { timeout: 15_000 });
+  const id = page.url().split("/").pop()!;
+  await expect(page.getByTestId("job-events").getByRole("listitem")).toHaveCount(4);
+  await expect(page.getByTestId("job-deadline")).toContainText("エントリー期限");
+  await expect(page.getByTestId("job-rate")).toContainText("24,000円/日");
+  await expect(page.getByTestId("job-rate-note")).toContainText("一律 24,000円");
+  // DB: 店舗ごとの日程と人数、期限、単価のメモ（オーナーだけのテーブル）
+  const evs = await sql<{ date: string; venue: string; required: number }>(
+    `select to_char(e.date, 'MM-DD') as date, v.name as venue, (select required_count from event_requirements r where r.event_id = e.id) as required
+       from events e join venues v on v.id = e.venue_id where e.group_id = $1 order by e.date, v.name`,
+    [id],
+  );
+  const mm = String(m).padStart(2, "0");
+  const key = (x: { date: string; venue: string }) => `${x.date}|${x.venue}`;
+  const byKey = (a: { date: string; venue: string }, b: { date: string; venue: string }) => (key(a) < key(b) ? -1 : 1);
+  expect([...evs].sort(byKey)).toEqual(
+    [
+      { date: `${mm}-01`, venue: blockVenueName, required: 3 },
+      { date: `${mm}-02`, venue: blockVenueName, required: 3 },
+      { date: `${mm}-02`, venue: venueName, required: 2 },
+      { date: `${mm}-03`, venue: venueName, required: 2 },
+    ].sort(byKey),
+  );
+  const g = await one<{ deadline: string; note: string; rate: number }>(
+    `select to_char(g.entry_deadline, 'YYYY-MM-DD') as deadline, p.rate_note as note, p.rate from event_groups g join event_group_private p on p.group_id = g.id where g.id = $1`,
+    [id],
+  );
+  expect(g).toEqual({ deadline: `${month}-01`, note: "弱 30,000円\n一律 24,000円", rate: 24000 });
+  // あとのテストの邪魔にならないように終わった案件にしておく
+  await sql(`update event_groups set closed_at = now() where id = $1`, [id]);
 });
 
 test("候補を足して日程に入れ、段階を進める。合格にすると打診中の予定が確定になる", async ({ page }) => {
@@ -143,7 +228,7 @@ test("候補を足して日程に入れ、段階を進める。合格にする�
 
 test("一覧のカードとカンバンに出る。PC ではカンバンで札を動かして段階を変えられる（元に戻せる）", async ({ page, isMobile }) => {
   await page.goto("/jobs");
-  const card = page.getByTestId("job-card").filter({ hasText: client.name });
+  const card = page.getByTestId("job-card").filter({ hasText: client.name }).filter({ hasText: staff.name });
   await expect(card).toBeVisible();
   await expect(card).toContainText(staff.name);
   await page.goto("/jobs?view=kanban");

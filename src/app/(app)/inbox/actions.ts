@@ -32,7 +32,7 @@ export type ReassignLine = { venue: string; eventId: string | null; names: { nam
 
 export type ReadResult =
   | { kind: "details"; venueName: string; venueId: string | null; body: string }
-  | { kind: "job"; lines: number; month: string | null; venues: string[] }
+  | { kind: "job"; lines: number; month: string | null; venues: string[]; deadline: string | null }
   | { kind: "slots"; slots: string[]; candidates: CandidateOption[]; matchedId: string | null }
   | { kind: "result"; results: { name: string; passed: boolean; staffId: string | null; staffName: string | null }[]; jobs: JobOption[]; jobId: string | null }
   | { kind: "reassign"; date: string | null; out: ReassignLine | null; lines: ReassignLine[]; eventsOnDate: EventOption[]; roleId: string | null }
@@ -82,7 +82,7 @@ export async function readPaste(input: string, pick: { eventId?: string; staffId
     return ok(undefined, { kind: "details", venueName: c.detail.venue, venueId: c.detail.venue ? suggestVenue(c.detail.venue, venues) : null, body: c.detail.body });
   }
   if (c.kind === "recruit") return ok(undefined, { kind: "recruit", dates: c.recruit.dates.length, venue: c.recruit.venue });
-  if (c.kind === "job") return ok(undefined, { kind: "job", lines: c.job.lines.length, month: c.job.month, venues: [...new Set(c.job.lines.map((l) => l.venue))] });
+  if (c.kind === "job") return ok(undefined, { kind: "job", lines: c.job.lines.length, month: c.job.month, venues: [...new Set(c.job.venues.map((v) => v.name))], deadline: c.job.entryDeadline });
   if (c.kind === "slots") {
     // 進行中の案件の候補（終わっていない人）。だれの分かは画面で選ぶ
     const { data } = await supabase.from("group_candidates").select("id, stage, staff_id, staff:staff(name), group:event_groups!inner(name, closed_at)").is("group.closed_at", null).order("created_at");

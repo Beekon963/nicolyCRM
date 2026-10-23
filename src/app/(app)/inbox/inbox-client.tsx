@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
-import { formatShortJa } from "@/lib/date";
+import { type DateString, formatShortJa } from "@/lib/date";
 import { AVAILABILITY } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { markInboxDone, proposeAvailabilityFor, proposeReassignFor, proposeScreeningFor, proposeSlotsFor, readPaste, type ReadResult, saveVenueDetails } from "./actions";
@@ -170,7 +170,9 @@ export function InboxClient({ staff, venues, inbox = [], compact = false }: { st
                   案件の文
                 </Badge>
                 日程 {result.lines}件・{result.venues.length}会場{result.month && `（${Number(result.month.slice(5, 7))}月）`}
+                {result.deadline && `・期限 ${formatShortJa(result.deadline as DateString)}`}
               </p>
+              {result.venues.length > 0 && <p className="text-sm text-muted-foreground">{result.venues.join("・")}</p>}
               <Button asChild className="w-fit">
                 <Link href={`/jobs/new?text=${encodeURIComponent(text)}`}>案件を作る画面で続ける</Link>
               </Button>

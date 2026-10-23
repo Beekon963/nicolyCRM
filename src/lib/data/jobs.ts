@@ -42,6 +42,8 @@ export type Job = {
   clientId: string | null;
   clientName: string;
   receivedOn: DateString | null;
+  /** エントリー期限（取引先に返事をする期限） */
+  entryDeadline: DateString | null;
   closedAt: string | null;
   startTime: string | null;
   endTime: string | null;
@@ -58,8 +60,8 @@ export type Job = {
   confirmedTotal: number;
   events: JobEvent[];
   candidates: JobCandidate[];
-  /** オーナーだけ（管理者は undefined） */
-  rate?: { rate: number | null; transportIncluded: boolean } | null;
+  /** オーナーだけ（管理者は undefined）。rateNote = 単価のまわりの文（「弱 30,000円 / 一律 24,000円」など） */
+  rate?: { rate: number | null; transportIncluded: boolean; rateNote: string } | null;
 };
 
 const one = <T>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
@@ -69,6 +71,7 @@ type GroupRow = {
   name: string;
   client_id: string | null;
   received_on: string | null;
+  entry_deadline: string | null;
   closed_at: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -80,7 +83,7 @@ type GroupRow = {
   client: { name: string } | { name: string }[] | null;
 };
 
-const GROUP_SELECT = "id, name, client_id, received_on, closed_at, start_time, end_time, hours_note, notes, contact_name, source_text, created_at, client:companies(name)";
+const GROUP_SELECT = "id, name, client_id, received_on, entry_deadline, closed_at, start_time, end_time, hours_note, notes, contact_name, source_text, created_at, client:companies(name)";
 
 async function buildJobs(rows: GroupRow[], opts: { withSource?: boolean } = {}): Promise<Job[]> {
   if (!rows.length) return [];
@@ -94,7 +97,7 @@ async function buildJobs(rows: GroupRow[], opts: { withSource?: boolean } = {}):
       .in("group_id", ids)
       .order("date"),
     supabase.from("group_candidates").select("id, group_id, staff_id, stage, stage_changed_at, interview_slots, interview_at, interview_note, result_note, staff:staff(name, kana)").in("group_id", ids).order("created_at"),
-    owner ? supabase.from("event_group_private").select("group_id, rate, transport_included").in("group_id", ids) : Promise.resolve({ data: null }),
+    owner ? supabase.from("event_group_private").select("group_id, rate, transport_included, rate_note").in("group_id", ids) : Promise.resolve({ data: null }),
   ]);
   const events = (evRows ?? []).filter((e) => e.id && e.date);
   const eventIds = events.map((e) => e.id!);
@@ -143,6 +146,7 @@ async function buildJobs(rows: GroupRow[], opts: { withSource?: boolean } = {}):
       clientId: g.client_id ?? events.find((e) => e.group_id === g.id)?.client_id ?? null,
       clientName,
       receivedOn: (g.received_on as DateString | null) ?? null,
+      entryDeadline: (g.entry_deadline as DateString | null) ?? null,
       closedAt: g.closed_at,
       startTime: g.start_time?.slice(0, 5) ?? null,
       endTime: g.end_time?.slice(0, 5) ?? null,
@@ -159,7 +163,7 @@ async function buildJobs(rows: GroupRow[], opts: { withSource?: boolean } = {}):
       confirmedTotal: live.reduce((s, e) => s + e.confirmed, 0),
       events: evs,
       candidates,
-      ...(owner ? { rate: p ? { rate: p.rate, transportIncluded: p.transport_included } : null } : {}),
+      ...(owner ? { rate: p ? { rate: p.rate, transportIncluded: p.transport_included, rateNote: p.rate_note } : null } : {}),
     };
   });
 }

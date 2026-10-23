@@ -59,14 +59,18 @@ describe("案件と候補の段階", () => {
   it("単価はオーナーだけが読める・入れられる（管理者は 0 件・入れられない）", async () => {
     await asRole("owner", async (c) => {
       const g = (await c.query(`insert into public.event_groups (name) values ('単価の案件') returning id`).then((r) => r.rows[0].id));
-      await c.query(`insert into public.event_group_private (group_id, rate, transport_included) values ($1, 20000, true)`, [g]);
-      const rows = (await c.query(`select rate from public.event_group_private where group_id = $1`, [g])).rows;
+      await c.query(`insert into public.event_group_private (group_id, rate, transport_included, rate_note) values ($1, 20000, true, '弱 30,000円\n一律 24,000円')`, [g]);
+      const rows = (await c.query(`select rate, rate_note from public.event_group_private where group_id = $1`, [g])).rows;
       expect(rows[0].rate).toBe(20000);
+      expect(rows[0].rate_note).toBe("弱 30,000円\n一律 24,000円");
     });
     await asRole("manager", async (c) => {
-      const g = (await c.query(`insert into public.event_groups (name) values ('管理者の案件') returning id`).then((r) => r.rows[0].id));
+      // エントリー期限は案件の列（管理者も入れられる・読める。金額ではない）
+      const g = (await c.query(`insert into public.event_groups (name, entry_deadline) values ('管理者の案件', '2026-11-20') returning id`).then((r) => r.rows[0].id));
       const rows = (await c.query(`select count(*)::int as n from public.event_group_private`)).rows;
       expect(rows[0].n).toBe(0);
+      const dl = (await c.query(`select to_char(entry_deadline, 'YYYY-MM-DD') as d from public.event_groups where id = $1`, [g])).rows;
+      expect(dl[0].d).toBe("2026-11-20");
       await expect(c.query(`insert into public.event_group_private (group_id, rate) values ($1, 100)`, [g])).rejects.toThrow();
     });
   });
