@@ -15,6 +15,18 @@ const API = "https://sheets.googleapis.com/v4/spreadsheets";
 /** 画面に出せる日本語のエラー */
 export class SheetError extends Error {}
 
+/** 0 始まりの行・列 → 「H5」のような番地 */
+export function a1(row: number, col: number): string {
+  let c = col + 1;
+  let letters = "";
+  while (c > 0) {
+    const m = (c - 1) % 26;
+    letters = String.fromCharCode(65 + m) + letters;
+    c = Math.floor((c - 1) / 26);
+  }
+  return `${letters}${row + 1}`;
+}
+
 export function readServiceAccount(raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON): ServiceAccount | null {
   if (!raw) return null;
   try {
@@ -86,8 +98,8 @@ export class SheetsClient {
   /** タブの中身を、画面に見えている文字のまま読む（右端の空のマスは省かれるので、行の長さはそろえる） */
   async readValues(title: string): Promise<string[][]> {
     const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'`);
-    const j = (await this.call(`/values/${range}?valueRenderOption=FORMATTED_VALUE`)) as { values?: string[][] };
-    const rows = (j.values ?? []).map((r) => r.map((v) => String(v ?? "")));
+    const j = (await this.call(`/values/${range}?valueRenderOption=FORMATTED_VALUE`)) as { values?: (unknown[] | null)[] };
+    const rows = (j.values ?? []).map((r) => (r ?? []).map((v) => String(v ?? "")));
     const width = Math.max(0, ...rows.map((r) => r.length));
     return rows.map((r) => [...r, ...Array<string>(width - r.length).fill("")]);
   }
@@ -105,6 +117,52 @@ export class SheetsClient {
       method: "POST",
       body: JSON.stringify({ requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 2, frozenColumnCount: 4 } } } }] }),
     });
+  }
+
+  /** マスをまとめて書く（書き戻し。Phase 19）。value が "" なら空にする。formulas: true なら「=…」を計算式として入れる */
+  async writeCells(title: string, cells: { row: number; col: number; value: string }[], opts: { formulas?: boolean } = {}) {
+    if (!cells.length) return;
+    const t = `'${title.replace(/'/g, "''")}'`;
+    await this.call(`/values:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ valueInputOption: opts.formulas ? "USER_ENTERED" : "RAW", data: cells.map((c) => ({ range: `${t}!${a1(c.row, c.col)}`, values: [[c.value]] })) }),
+    });
+  }
+
+  /** タブの番号（行を足すときに使う）。ないときは null */
+  async sheetIdOf(title: string): Promise<number | null> {
+    const j = (await this.call("?fields=sheets(properties(sheetId,title))")) as { sheets?: { properties: { title: string; sheetId: number } }[] };
+    return (j.sheets ?? []).find((s) => s.properties.title === title)?.properties.sheetId ?? null;
+  }
+
+  /**
+   * 行を足す（Phase 20。書き戻しで、シートに行がない人・取引先の組を足す）。
+   * at の位置（0 始まり）に count 行を入れ、見た目（書式）は手本の行（formatFrom から count 行）から写す。
+   * 手本が足す位置より下にあるときは、足したぶん下にずれる
+   */
+  async insertRows(sheetId: number, at: number, count: number, formatFrom?: number) {
+    const requests: unknown[] = [{ insertDimension: { range: { sheetId, dimension: "ROWS", startIndex: at, endIndex: at + count }, inheritFromBefore: at > 0 } }];
+    if (formatFrom != null) {
+      const src = formatFrom >= at ? formatFrom + count : formatFrom;
+      requests.push({
+        copyPaste: {
+          source: { sheetId, startRowIndex: src, endRowIndex: src + count, startColumnIndex: 0 },
+          destination: { sheetId, startRowIndex: at, endRowIndex: at + count, startColumnIndex: 0 },
+          pasteType: "PASTE_FORMAT",
+          pasteOrientation: "NORMAL",
+        },
+      });
+    }
+    await this.call(":batchUpdate", { method: "POST", body: JSON.stringify({ requests }) });
+  }
+
+  /** 行の範囲を、計算式の文字（「=SUM(…)」）のまま読む（手本の組の計算式を写すため）。右端の空のマスは省かれる */
+  async readFormulas(title: string, startRow: number, count: number): Promise<string[][]> {
+    const range = encodeURIComponent(`'${title.replace(/'/g, "''")}'!${startRow + 1}:${startRow + count}`);
+    const j = (await this.call(`/values/${range}?valueRenderOption=FORMULA`)) as { values?: (unknown[] | null)[] };
+    const rows = (j.values ?? []).map((r) => (r ?? []).map((v) => String(v ?? "")));
+    while (rows.length < count) rows.push([]);
+    return rows;
   }
 
   /** タブの中身を入れ替える（いったん消してから書く） */

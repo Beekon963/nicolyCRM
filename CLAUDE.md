@@ -65,6 +65,28 @@ Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`
 - 書き出しは秘密キーで動くが、読むのは `board_snapshot()` と書き出し先の設定だけにする（テーブルを直接読まない）。
 - anon が実行できる関数は `mypage_*` と `share_board`、研修の予約用の `training_public_*` だけ（`tests/db/rls.test.ts`・`tests/db/mypage.test.ts` で確認）。
 
+## シートの自動の読み取り（`src/lib/sheet-sync.ts`。Phase 18）
+
+- いつもの管理用シートが正。10分ごとの定期実行（`/api/cron/sheet-sync`）が今月・来月のタブを読み、画面の「月の稼働表」の取り込みと**同じ計算**（`month-sheet-plan` / `month-sheet-apply`）で入れる。読み方を変えるときは両方に効くことを確かめる。
+- 秘密キーで書くが、やるのはこの取り込みだけ。**名簿にない人・ない会場・取引先は自動で作らない**（`sheet_name_aliases` で対応づけてから）。シートから消えたものを外すのは、台帳（`sheet_sync_items`）にあるもののうち、今日以降・報告や実績のないものだけ。本人が出した稼働可能日（`source = self`）は上書きしない。
+- 近い名前の候補（`src/lib/import/name-match.ts`。名字だけ・ふりがな・「株式会社」や「DS」の有無。Phase 20）は、画面の「合わない名前」と月の稼働表の取り込みで**先に選んでおくだけ**。自動の読み取りで候補を使って入れない（決めるのはオーナー）。2人以上に合うときは候補を出さない。
+- Google の設定がなくても、リンク共有のシートを CSV（`gviz/tq?tqx=out:csv`）で読める。テストは偽のスプレッドシート（`e2e/mock-sheets.mjs`、`GOOGLE_DOCS_BASE`）に向ける。結果は `sheet_syncs` に残す（金額は入れない）。
+- **書き戻し**（`src/lib/sheet-writeback.ts`。Phase 19）: 予定・現場・必要人数・○△× の変更は DB のトリガーが待ち行列 `sheet_writes` に印を付け、2分ごとの定期実行（`/api/cron/sheet-writeback`）が CRM の今の状態を読み直して、手で作っているタブの「場所・シフト・現場・人数」のマスだけに、違うときだけ書く（`sheet-writeback-plan.ts`。純粋な関数でテストする）。**単価の行は書かない・合わない名前のマスは触らない・○△× は消さない**。行を足すのは設定 `sheet_sync.add_rows` がオンのときだけ（Phase 20。その段のいちばん下に3行の組。書式と右側の計算式はすぐ上の組を写す `planNewBlock` / `copiedFormulas`。似た名前の行があるときは足さない）。シートの位置の読み方は `layoutMonthSheet()` を読み取りと共通にする。
+
+## 案件（`src/lib/jobs`・`/jobs`。Phase 21）
+
+- 案件 = `event_groups`（取引先からの1通の文のまとまり）。単価は `event_group_private`（オーナーだけ。`tests/db/money-tables.ts` に入れてある）。案件から現場を作るときだけ、現場の `event_rates` にも同じ額を入れる。
+- 案件 × スタッフ の段階（`group_candidates`）は `src/lib/jobs/stages.ts` の `STAGE_INFO` で決める（だれの番か・次にやること・色）。画面・ホーム・カンバンで別々に決めない。**段階は自動で進めない**（貼った文からも確認カードの「登録する」で進める）。
+- 合格 → その案件の打診中・補欠の予定を確定、不合格・辞退 → 辞退。必ず `setAssignmentStatus()` を通す（確定連絡の LINE・シートの書き戻し・変更履歴が今までどおり動く）。
+- LINE に貼る文（`messages.ts`）は本人へ（候補日のお願い・面談日時の共有）と取引先へ（候補日のまとめ）。**金額・電話番号を入れない**。
+- 案件まわりの文の読み取り（`parse.ts`: 案件の文・面談候補日・合否・人員変更）は純粋な関数でテストする。実在の人名・会場名・金額をテストや文書に入れない。
+
+## LINE の文を貼るだけ（`src/lib/inbox`・`/inbox`）
+
+- 貼った文の見分けと読み取り（`classify.ts`）は DB を使わない純粋な関数にしてテストを書く。CRM への当てはめ（現場・人・項目）は `inbox/actions.ts` で、ログイン中の人の権限で行う。
+- 登録は AI と同じ確認カード（`proposal-card.tsx` → `runAiProposal` → `executeProposal`）だけ。**読み取りが直接書き込む道具を作らない**。AI に渡すのは読めない文だけ。
+- 公式アカウントの受け口が受信箱（`line_inbox`）に入れるのは、つないだオーナー・管理者からの文だけ。文をそのまま入れるだけで、登録はしない。
+
 ## AI アシスタント（`src/lib/ai`）
 
 - 道具（`tools.ts`・`proposals.ts`）は**ログイン中の人の権限（`createClient()`）だけ**で読む・書く。秘密キーを使わない。

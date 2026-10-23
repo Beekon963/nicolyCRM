@@ -13,6 +13,7 @@ import { decodeCsv, parseCsv } from "@/lib/csv";
 import { todayJst } from "@/lib/date";
 import { guessMonth, parseMonthSheet, type ParsedMonthSheet } from "@/lib/import/month-sheet";
 import { buildPlan, defaultChoices, NEW, SKIP, type PlanChoices, type PlanContext } from "@/lib/import/month-sheet-plan";
+import { EMPTY_SUGGESTIONS, type Suggestion, suggestChoices, type Suggestions } from "@/lib/import/name-match";
 import { getMonthSheetContext, importMonthSheet, type MonthSheetReport, readGoogleSheetTab } from "./month-sheet-actions";
 
 type Opt = { id: string; name: string };
@@ -24,6 +25,8 @@ export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { role
   const [roleId, setRoleId] = useState(roles[0]?.id ?? "");
   const [ctx, setCtx] = useState<PlanContext | null>(null);
   const [choices, setChoices] = useState<PlanChoices | null>(null);
+  /** 同じ名前で決まらず、近いもの（候補）を最初から選んであるもの（画面で「候補」と出す） */
+  const [suggested, setSuggested] = useState<Suggestions>(EMPTY_SUGGESTIONS);
   const [report, setReport] = useState<MonthSheetReport | null>(null);
   const [pending, start] = useTransition();
   const [sheetUrl, setSheetUrl] = useState(defaultSheetUrl);
@@ -40,7 +43,9 @@ export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { role
       if (latest.current !== m) return;
       if (!r.ok) return void toast.error(r.message);
       setCtx(r.data!);
-      setChoices(defaultChoices(p, r.data!, m));
+      const sg = suggestChoices(p, r.data!, defaultChoices(p, r.data!, m));
+      setChoices(sg.choices);
+      setSuggested(sg.suggested);
     });
   }
 
@@ -229,6 +234,7 @@ export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { role
         first={{ value: NEW, label: "新しく作る" }}
         isMatched={(k) => choices.clients[k] !== NEW}
         highlight={parsed.clients.filter((c) => (choices.clients[c.name] ?? NEW) === NEW).length}
+        suggested={suggested.clients}
       />
 
       <MatchSection
@@ -241,6 +247,7 @@ export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { role
         first={{ value: NEW, label: "新しく作る" }}
         isMatched={(k) => (choices.venues[k] ?? NEW) !== NEW}
         highlight={unmatchedVenues.length}
+        suggested={suggested.venues}
       />
 
       <MatchSection
@@ -253,6 +260,7 @@ export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { role
         first={{ value: SKIP, label: "取り込まない" }}
         isMatched={(k) => choices.staff[k] !== SKIP}
         highlight={unmatchedStaff.length}
+        suggested={suggested.staff}
       />
 
       {plan.unknownPlaces.length > 0 && (
@@ -265,6 +273,12 @@ export function MonthSheetImport({ roles, onBack, defaultSheetUrl = "" }: { role
                 <span className="break-all sm:w-64">
                   <b>{u.place}</b>
                   <span className="block text-sm text-muted-foreground">{u.days.join("・")}日</span>
+                  {suggested.places[u.place] && choices.places[u.place] === suggested.places[u.place].id && (
+                    <span className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+                      <Badge tone="waiting">候補</Badge>
+                      {suggested.places[u.place].why}
+                    </span>
+                  )}
                 </span>
                 <NativeSelect aria-label={`${u.place}の取引先`} className="min-w-0 flex-1" value={choices.places[u.place] ?? SKIP} onChange={(e) => set("places", u.place, e.target.value)}>
                   <option value={SKIP}>取り込まない</option>
@@ -324,6 +338,7 @@ function MatchSection({
   first,
   isMatched,
   highlight,
+  suggested = {},
 }: {
   title: string;
   help: string;
@@ -334,12 +349,24 @@ function MatchSection({
   first: { value: string; label: string };
   isMatched: (k: string) => boolean;
   highlight?: number;
+  /** 近いものを最初から選んであるもの（選んだままなら「候補」と出して確かめてもらう） */
+  suggested?: Record<string, Suggestion>;
 }) {
+  const isSuggested = (k: string) => suggested[k] != null && value(k) === suggested[k].id;
   const unmatched = rows.filter((k) => !isMatched(k));
-  const matched = rows.filter(isMatched);
+  const guessed = rows.filter((k) => isMatched(k) && isSuggested(k));
+  const matched = rows.filter((k) => isMatched(k) && !isSuggested(k));
   const row = (k: string) => (
     <li key={k} className="flex flex-col gap-1 sm:flex-row sm:items-center">
-      <span className="font-medium break-all sm:w-64">{k}</span>
+      <span className="font-medium break-all sm:w-64">
+        {k}
+        {isSuggested(k) && (
+          <span className="flex flex-wrap items-center gap-1 text-sm font-normal text-muted-foreground">
+            <Badge tone="waiting">候補</Badge>
+            {suggested[k].why}
+          </span>
+        )}
+      </span>
       <NativeSelect aria-label={`${k}の${title}`} className="min-w-0 flex-1" value={value(k)} onChange={(e) => onChange(k, e.target.value)}>
         <option value={first.value}>{first.label}</option>
         {options.map((o) => (
@@ -352,12 +379,13 @@ function MatchSection({
   );
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="flex items-center gap-2 font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 font-bold">
         {title}
-        {highlight ? <Badge tone="waiting">確認 {highlight}件</Badge> : <Badge tone="done">すべて合わせ済み</Badge>}
+        {highlight ? <Badge tone="waiting">確認 {highlight}件</Badge> : guessed.length ? null : <Badge tone="done">すべて合わせ済み</Badge>}
+        {guessed.length > 0 && <Badge tone="waiting">候補 {guessed.length}件（確かめてください）</Badge>}
       </h2>
       <p className="mb-2 text-sm text-muted-foreground">{help}</p>
-      {unmatched.length > 0 && <ul className="flex flex-col gap-2">{unmatched.map(row)}</ul>}
+      {unmatched.length + guessed.length > 0 && <ul className="flex flex-col gap-2">{[...unmatched, ...guessed].map(row)}</ul>}
       {matched.length > 0 && (
         <details className="mt-2">
           <summary className="cursor-pointer text-sm">合わせ済み（{matched.length}件）を見る・直す</summary>

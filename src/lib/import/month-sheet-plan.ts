@@ -13,7 +13,8 @@ export type PlanContext = {
   today: string;
   clients: { id: string; name: string }[];
   venues: { id: string; name: string }[];
-  staff: { id: string; name: string }[];
+  /** ふりがな・LINE の表示名は候補を出すときだけ使う（任意） */
+  staff: { id: string; name: string; kana?: string | null; line_name?: string | null }[];
   /** その月の CRM の現場（中止は除く） */
   events: { id: string; date: string; client_id: string; venue_id: string }[];
 };

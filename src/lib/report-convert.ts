@@ -264,7 +264,9 @@ export function parseReportText(text: string, dict?: NameDict): ParsedReport {
       noteMode = false;
       continue;
     }
-    const head = n.match(/^[【\[［]([^】\]］]+)[】\]］]\s*(.*)$/);
+    // 「所感: 〇〇」「コメント：〇〇」のように、見出しと中身が同じ行にある書き方も読む（LINE の短い報告）
+    const colon = section !== "comment" ? n.match(/^(所感|感想|コメント|備考|メモ|一言)\s*[:：]\s*(.*)$/) : null;
+    const head = colon ? [colon[0], colon[1], colon[2]] : n.match(/^[【\[［]([^】\]］]+)[】\]］]\s*(.*)$/);
     if (head) {
       const title = head[1];
       if (/名称|一覧|ルール|コメント欄/.test(title) && !/所感/.test(title)) section = "ignore";

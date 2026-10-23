@@ -112,9 +112,12 @@ test("前日のお知らせは、決めた時刻を過ぎたら1回だけ届く�
 test("新しい現場を作ると、社内（自分以外）に LINE で届く", async ({ page, request }) => {
   // まだ現場のない先の日に作る（ほかのテストの日に割り込まないように）
   const date = await freeFutureDate();
+  // ほかのテストが作る「E2E〜」の取引先・会場（途中で消える）を選ばないように、ダミーデータのものを名前で選ぶ
+  const client = await one<{ name: string }>(`select name from companies where kind = 'client' and is_active and name not like 'E2E%' order by name limit 1`);
+  const venue = await one<{ name: string }>(`select name from venues where is_active and name not like 'E2E%' and name not like 'テスト会場%' order by name limit 1`);
   await page.goto(`/events/new?date=${date}`);
-  await page.getByLabel("取引先", { exact: true }).selectOption({ index: 1 });
-  await page.getByLabel("会場", { exact: true }).selectOption({ index: 1 });
+  await page.getByLabel("取引先", { exact: true }).selectOption({ label: client.name });
+  await page.getByLabel("会場", { exact: true }).selectOption({ label: venue.name });
   await page.getByRole("button", { name: "クローザーの必要人数を1増やす" }).click();
   await page.getByRole("button", { name: "現場を作る" }).click();
   await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/);

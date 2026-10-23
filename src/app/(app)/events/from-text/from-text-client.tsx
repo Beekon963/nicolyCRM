@@ -25,14 +25,17 @@ export function FromTextClient({
   roles,
   holidays,
   today,
+  initialText = "",
 }: {
   clients: Opt[];
   venues: Opt[];
   roles: Opt[];
   holidays: Record<string, string>;
   today: string;
+  /** 「LINE の文を貼るだけ」から来たときの文（Phase 18） */
+  initialText?: string;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const [venues, setVenues] = useState(initialVenues);
   const [pending, start] = useTransition();
   const parsed = useMemo(() => parseRecruitText(text, { today, roleNames: roles.map((r) => r.name) }), [text, today, roles]);

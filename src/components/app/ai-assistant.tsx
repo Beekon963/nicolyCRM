@@ -1,16 +1,15 @@
 "use client";
 
 import { CheckCircle2Icon, CopyIcon, ImagePlusIcon, Loader2Icon, SendIcon, SparklesIcon, SquareIcon, XIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { runAiProposal, undoAiProposal } from "@/app/(app)/ai-actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import { type AiBlock as Block, type AiMessage as ApiMessage, trimHistory } from "@/lib/ai/history";
-import type { Proposal, ProposalUndo } from "@/lib/ai/proposals";
+import type { Proposal } from "@/lib/ai/proposals";
+import { ProposalCard, type CardState } from "./proposal-card";
 import { lineShareUrl } from "@/lib/line";
-import { cn } from "@/lib/utils";
 import { copyText, LineIcon, useIsMobile } from "./share-buttons";
 
 /**
@@ -19,7 +18,6 @@ import { copyText, LineIcon, useIsMobile } from "./share-buttons";
  * 会話はこの画面の中だけに持つ（ページを移っても残る。「新しい会話」で消える）。
  */
 
-type CardState = Proposal & { state: "open" | "running" | "done" | "cancelled" | "undone"; message?: string; undo?: ProposalUndo };
 type Item =
   | { id: number; kind: "user"; text: string; images: string[] }
   | { id: number; kind: "assistant"; text: string; tools: string[]; cards: CardState[]; error?: string; streaming: boolean };
@@ -43,6 +41,18 @@ const noop = () => () => {};
 
 export function AiAssistant({ role, ready }: { role: "owner" | "manager"; ready: boolean }) {
   const [open, setOpen] = useState(false);
+  // 「LINE の文を貼るだけ」で読み取れなかった文を AI に渡す（window の nicoly:ai-paste。Phase 18）
+  const [handoff, setHandoff] = useState<string | null>(null);
+  useEffect(() => {
+    const onPaste = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text;
+      if (!text) return;
+      setHandoff(text);
+      setOpen(true);
+    };
+    window.addEventListener("nicoly:ai-paste", onPaste);
+    return () => window.removeEventListener("nicoly:ai-paste", onPaste);
+  }, []);
   // ブラウザで動いているか（サーバーの表示と食い違わないように）
   const inBrowser = useSyncExternalStore(noop, () => true, () => false);
   return (
@@ -52,12 +62,12 @@ export function AiAssistant({ role, ready }: { role: "owner" | "manager"; ready:
         AI
       </Button>
       {/* 上の帯（ぼかし）の中に置くと画面全体に広がらないので、body の直下に出す。閉じても会話は残す */}
-      {inBrowser && createPortal(<AiPanel role={role} ready={ready} open={open} onClose={() => setOpen(false)} />, document.body)}
+      {inBrowser && createPortal(<AiPanel role={role} ready={ready} open={open} onClose={() => setOpen(false)} handoff={handoff} onHandoff={() => setHandoff(null)} />, document.body)}
     </>
   );
 }
 
-function AiPanel({ role, ready, open, onClose }: { role: "owner" | "manager"; ready: boolean; open: boolean; onClose: () => void }) {
+function AiPanel({ role, ready, open, onClose, handoff, onHandoff }: { role: "owner" | "manager"; ready: boolean; open: boolean; onClose: () => void; handoff: string | null; onHandoff: () => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
@@ -74,6 +84,15 @@ function AiPanel({ role, ready, open, onClose }: { role: "owner" | "manager"; re
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+  // 渡された文を、開いたときに1回だけ送る（送るのは次の描画のあと）
+  const sendRef = useRef<(raw: string) => Promise<void>>(null);
+  useEffect(() => {
+    if (!open || !handoff || !ready) return;
+    const text = handoff;
+    onHandoff();
+    const t = setTimeout(() => void sendRef.current?.(`次の LINE の文を読み取って、CRM に登録できる形に整理してください。\n\n${text}`), 0);
+    return () => clearTimeout(t);
+  }, [open, handoff, ready, onHandoff]);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [items]);
@@ -162,6 +181,10 @@ function AiPanel({ role, ready, open, onClose }: { role: "owner" | "manager"; re
       abortRef.current = null;
     }
   };
+
+  useEffect(() => {
+    sendRef.current = send;
+  });
 
   const setCard = (cardId: string, patch: Partial<CardState>) =>
     setItems((xs) => xs.map((x) => (x.kind === "assistant" ? { ...x, cards: x.cards.map((c) => (c.id === cardId ? { ...c, ...patch } : c)) } : x)));
@@ -431,57 +454,3 @@ function AssistantItem({
   );
 }
 
-function ProposalCard({ card, onRun, onCancel, onUndo }: { card: CardState; onRun: (c: CardState) => Promise<void>; onCancel: (c: CardState) => void; onUndo: (c: CardState) => Promise<void> }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const run = (fn: () => Promise<void>) =>
-    start(async () => {
-      await fn();
-      router.refresh();
-    });
-  return (
-    <div className={cn("flex flex-col gap-3 rounded-lg border p-3", card.state === "open" || card.state === "running" ? "border-primary/50" : "bg-muted/40")} data-testid="ai-card">
-      <p className="font-bold">{card.title}</p>
-      <ul className="flex flex-col gap-2">
-        {card.rows.map((r, i) => (
-          <li key={i} className={cn("flex flex-col", r.skip && "text-muted-foreground line-through decoration-1")}>
-            <span className="text-sm text-muted-foreground no-underline">{r.label}</span>
-            <span className="break-words">{r.detail}</span>
-            {r.skip && <span className="text-sm text-status-waiting no-underline">入れません: {r.skip}</span>}
-          </li>
-        ))}
-      </ul>
-      {card.warnings.length > 0 && (
-        <ul className="rounded-md bg-status-waiting-bg p-2 text-sm text-status-waiting">
-          {card.warnings.map((w, i) => (
-            <li key={i}>{w}</li>
-          ))}
-        </ul>
-      )}
-      {card.state === "open" || card.state === "running" ? (
-        <div className="flex gap-2">
-          <Button disabled={pending || card.state === "running"} onClick={() => run(() => onRun(card))}>
-            {card.state === "running" ? "登録しています…" : "登録する"}
-          </Button>
-          <Button variant="ghost" disabled={pending || card.state === "running"} onClick={() => onCancel(card)}>
-            やめる
-          </Button>
-        </div>
-      ) : card.state === "done" ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="flex items-center gap-1 text-status-done">
-            <CheckCircle2Icon className="size-5 shrink-0" />
-            {card.message ?? "登録しました"}
-          </p>
-          {card.undo && (
-            <Button variant="ghost" size="sm" disabled={pending} onClick={() => run(() => onUndo(card))}>
-              元に戻す
-            </Button>
-          )}
-        </div>
-      ) : (
-        <p className="text-muted-foreground">{card.state === "undone" ? (card.message ?? "元に戻しました") : "やめました"}</p>
-      )}
-    </div>
-  );
-}

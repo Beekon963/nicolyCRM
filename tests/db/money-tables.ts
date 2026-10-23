@@ -23,5 +23,7 @@ export const MONEY_TABLES = [
   "referral_bonuses",
   // 会社の経費（オーナーが立て替えた経費。Phase 16）
   "company_expenses",
+  // 案件の単価（Phase 21）
+  "event_group_private",
   "audit_logs",
 ] as const;

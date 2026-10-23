@@ -32,7 +32,7 @@ export function suggestVenue(text: string, venues: Named[]): string | null {
   return hits.sort((a, b) => Math.abs(a.k.length - k.length) - Math.abs(b.k.length - k.length))[0].id;
 }
 
-const personKey = (s: string) =>
+export const personKey = (s: string) =>
   s
     .normalize("NFKC")
     .replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))

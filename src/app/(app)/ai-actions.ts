@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { removeOffer } from "./events/actions";
 import { undoActivity } from "./sales/activity-actions";
 
-const KINDS = ["reports", "availability", "activity", "offers", "events"] as const satisfies readonly ProposalKind[];
+const KINDS = ["reports", "availability", "activity", "offers", "events", "slots", "screening", "reassign"] as const satisfies readonly ProposalKind[];
 
 /** AI の確認カードの「登録する」。中身はもう一度確かめてから、ログイン中の人の権限で登録する */
 export async function runAiProposal(kind: ProposalKind, payload: unknown): Promise<ActionResult<{ undo?: ProposalUndo }>> {

@@ -9,11 +9,13 @@ import { loadBoard } from "@/lib/data/board";
 import { getMonthMoney } from "@/lib/data/money";
 import { formatYen, rateRangeText } from "@/lib/money";
 import { siteUrl } from "@/lib/supabase/env";
+import { getSheetSyncStatus } from "@/lib/data/sheet-sync";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { EventsViewTabs } from "../view-tabs";
 import { BoardScreen } from "./board-screen";
 import { SheetExport } from "./sheet-export";
+import { SheetSyncNote } from "./sheet-sync-note";
 import { ShareLink } from "./share-link";
 
 export const metadata = { title: "稼働表 | NICOLY CRM" };
@@ -24,11 +26,12 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
   const raw = typeof sp.month === "string" ? sp.month : "";
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : monthOf(todayJst());
   const supabase = await createClient();
-  const [data, { data: share }, { data: sheet }, { data: last }] = await Promise.all([
+  const [data, { data: share }, { data: sheet }, { data: last }, sync] = await Promise.all([
     loadBoard(month),
     supabase.from("share_links").select("token, is_active").eq("kind", "board").maybeSingle(),
     supabase.from("settings").select("value").eq("key", "sheet_export").maybeSingle(),
     supabase.from("sheet_exports").select("ran_at, ok, message").order("ran_at", { ascending: false }).limit(1).maybeSingle(),
+    getSheetSyncStatus(),
   ]);
   const at = (iso: string) => {
     const d = new Date(iso);
@@ -75,6 +78,8 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
         }
       />
       <EventsViewTabs current="board" month={month} />
+      {/* シートを自動で読んでいるとき: いつ読んだか・合わない名前があるか（Phase 18） */}
+      <SheetSyncNote enabled={sync.enabled} last={sync.last ? { at: at(sync.last.ranAt), ok: sync.last.ok, message: sync.last.message } : null} unmatched={sync.unmatchedCount} isOwner={isOwner} />
       <div className="flex items-center justify-between px-4 pb-2">
         <Button asChild variant="ghost" size="sm">
           <Link href={`/events/board?month=${monthOf(addDays(`${month}-01`, -1))}`}>

@@ -1,8 +1,24 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["hnd1"],
+  "regions": [
+    "hnd1"
+  ],
   "crons": [
-    { "path": "/api/cron/sheet-export", "schedule": "*/10 * * * *" },
-    { "path": "/api/cron/line", "schedule": "* * * * *" }
+    {
+      "path": "/api/cron/sheet-export",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/line",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/sheet-sync",
+      "schedule": "5,15,25,35,45,55 * * * *"
+    },
+    {
+      "path": "/api/cron/sheet-writeback",
+      "schedule": "*/2 * * * *"
+    }
   ]
 }

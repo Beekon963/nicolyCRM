@@ -1,12 +1,14 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { createEvent, createEventsBulk, offerStaff } from "@/app/(app)/events/actions";
+import { createEvent, createEventsBulk, offerStaff, setAssignmentStatus } from "@/app/(app)/events/actions";
+import { setCandidateStage } from "@/app/(app)/jobs/actions";
 import { recordActivity } from "@/app/(app)/sales/activity-actions";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { addDays, formatShortJa } from "@/lib/date";
 import { getMasters } from "@/lib/data/masters";
 import { enterReports, loadReportTargets, type ReportAsg, reportSkip } from "@/lib/data/report-entry";
+import { FLOW, type Stage, STAGE_INFO } from "@/lib/jobs/stages";
 import { ACTIVITY_KIND, ACTIVITY_RESULT, ASSIGNMENT_STATUS, AVAILABILITY, COMPANY_STATUS } from "@/lib/labels";
 import { type AiContext, type AiTool, dateArg, one, t5, ToolInputError } from "./common";
 
@@ -18,7 +20,7 @@ import { type AiContext, type AiTool, dateArg, one, t5, ToolInputError } from ".
  * - 金額は扱わない
  */
 
-export type ProposalKind = "reports" | "availability" | "activity" | "offers" | "events";
+export type ProposalKind = "reports" | "availability" | "activity" | "offers" | "events" | "slots" | "screening" | "reassign";
 export type ProposalRow = { label: string; detail: string; skip?: string };
 export type Proposal = { id: string; kind: ProposalKind; title: string; rows: ProposalRow[]; warnings: string[]; payload: unknown };
 export type ProposalUndo = { kind: "activity"; id: string; before: { status: string; next_action_date: string | null; next_action: string } } | { kind: "offers"; ids: string[] };
@@ -65,6 +67,20 @@ export const PAYLOAD = {
     belongings: z.string().trim().max(500).default(""),
     notes: z.string().trim().max(1000).default(""),
     requirements: z.array(z.object({ role_id: z.uuid(), count: z.number().int().min(1).max(50) })).min(1).max(10),
+  }),
+  // 案件の段階（Phase 21）
+  slots: z.object({ candidate_id: z.uuid(), slots: z.string().trim().min(1).max(1000) }),
+  screening: z.object({
+    group_id: z.uuid(),
+    results: z.array(z.object({ candidate_id: z.uuid(), passed: z.boolean(), note: z.string().trim().max(500).default("") })).min(1).max(40),
+  }),
+  reassign: z.object({
+    date: dateArg,
+    role_id: z.uuid(),
+    /** 新しい割り当て（現場 → 確定にする人） */
+    lines: z.array(z.object({ event_id: z.uuid(), staff_ids: z.array(z.uuid()).min(1).max(20) })).max(20),
+    /** 欠員になった人（その現場の予定をキャンセルにする） */
+    out: z.array(z.object({ event_id: z.uuid(), staff_ids: z.array(z.uuid()).min(1).max(20) })).max(20),
   }),
 } satisfies Record<ProposalKind, z.ZodType>;
 
@@ -249,7 +265,97 @@ const proposeEvents: AiTool = {
   },
 };
 
-export const PROPOSAL_TOOLS: AiTool[] = [proposeReports, proposeAvailability, proposeActivity, proposeOffers, proposeEvents];
+const candidateSelect = "id, group_id, staff_id, stage, interview_slots, staff:staff(name), group:event_groups(name, client:companies(name))";
+
+const proposeInterviewSlots: AiTool = {
+  name: "propose_interview_slots",
+  label: "面談の候補日時の確認カードを作っています",
+  description:
+    "案件の候補の人（group_candidates の candidate_id）に、本人から来た面談の候補日時（文のまま。改行区切り）を入れて、段階を「候補日あり」に進める確認カードを出す。candidate_id は list_jobs などで確かめる。",
+  schema: PAYLOAD.slots,
+  run: async (ctx, input: z.infer<typeof PAYLOAD.slots>) => {
+    const { data: c } = await ctx.supabase.from("group_candidates").select(candidateSelect).eq("id", input.candidate_id).maybeSingle();
+    if (!c) throw new ToolInputError("その候補は見つかりません");
+    const name = one(c.staff)?.name ?? "";
+    const g = one(c.group);
+    const warnings: string[] = [];
+    if (c.interview_slots) warnings.push(`${name}さんの候補日時はもう入っています（上書きします）: ${c.interview_slots.replace(/\n/g, " / ")}`);
+    const stage = c.stage as Stage;
+    if (FLOW.indexOf(stage) > FLOW.indexOf("slots_collected")) warnings.push(`${name}さんはもう「${STAGE_INFO[stage].label}」なので、段階は変えずに候補日時だけ入れます`);
+    const rows = [{ label: name, detail: `${g?.name ?? ""}（${one(g?.client)?.name ?? ""}）` }, { label: "候補日時", detail: input.slots.replace(/\n/g, " / ") }];
+    return proposal("slots", `${name}さんの面談の候補日時を入れる`, rows, warnings, input);
+  },
+};
+
+const proposeScreening: AiTool = {
+  name: "propose_screening",
+  label: "合否の確認カードを作っています",
+  description:
+    "案件の候補の人の合否（取引先からの連絡）を入れる確認カードを出す。合格 → 段階「合格」になり、その案件で打診中・補欠の予定は確定になる。不合格 → 段階「不合格」になり、打診中の予定は辞退になる。candidate_id は list_jobs などで確かめる。",
+  schema: PAYLOAD.screening,
+  run: async (ctx, input: z.infer<typeof PAYLOAD.screening>) => {
+    const { data: cands } = await ctx.supabase.from("group_candidates").select(candidateSelect).eq("group_id", input.group_id).in("id", input.results.map((r) => r.candidate_id));
+    const byId = new Map((cands ?? []).map((c) => [c.id, c]));
+    const g = one((cands ?? [])[0]?.group);
+    const warnings: string[] = [];
+    const rows = input.results.map((r) => {
+      const c = byId.get(r.candidate_id);
+      if (!c) return { label: r.candidate_id, detail: "", skip: "この案件の候補に見つかりません" };
+      const name = one(c.staff)?.name ?? "";
+      const stage = c.stage as Stage;
+      if (stage !== "interviewed") warnings.push(`${name}さんはまだ「面談済」ではありません（${STAGE_INFO[stage].label}）。合否をそのまま入れます`);
+      return { label: name, detail: `${r.passed ? "合格 → この案件の打診中・補欠の予定を確定にする" : "不合格 → 打診中の予定を辞退にする"}${r.note ? `（${r.note}）` : ""}` };
+    });
+    if (rows.every((r) => r.skip)) throw new ToolInputError("合否を入れられる人がいません");
+    return proposal("screening", `合否を入れる（${g?.name ?? "案件"}・${rows.filter((r) => !r.skip).length}人）`, rows, warnings, input);
+  },
+};
+
+const proposeReassign: AiTool = {
+  name: "propose_reassign",
+  label: "人員変更の確認カードを作っています",
+  description:
+    "取引先からの人員変更（欠員の入れ替え）を入れる確認カードを出す。lines はその日の現場（event_id）と確定にする人、out は欠員になった人（その現場の予定をキャンセル（理由: 取引先・現場の都合）にする）。event_id は list_events で、staff_ids は search で確かめる。",
+  schema: PAYLOAD.reassign,
+  run: async (ctx, input: z.infer<typeof PAYLOAD.reassign>) => {
+    const masters = await getMasters();
+    if (!masters.roleById.has(input.role_id)) throw new ToolInputError("役割の ID が違います");
+    const eventIds = [...new Set([...input.lines, ...input.out].map((l) => l.event_id))];
+    const staffIds = [...new Set([...input.lines, ...input.out].flatMap((l) => l.staff_ids))];
+    const [{ data: evs }, { data: staff }, { data: asgs }] = await Promise.all([
+      ctx.supabase.from("events").select("id, date, cancelled_at, venue:venues(name), client:companies(name)").in("id", eventIds),
+      ctx.supabase.from("staff").select("id, name").in("id", staffIds),
+      ctx.supabase.from("assignments").select("event_id, staff_id, status").in("event_id", eventIds).in("staff_id", staffIds),
+    ]);
+    const ev = new Map((evs ?? []).map((e) => [e.id, e]));
+    const nameOf = new Map((staff ?? []).map((s) => [s.id, s.name]));
+    const status = (eventId: string, staffId: string) => (asgs ?? []).find((a) => a.event_id === eventId && a.staff_id === staffId)?.status;
+    const warnings: string[] = [];
+    const rows: ProposalRow[] = [];
+    for (const l of input.lines) {
+      const e = ev.get(l.event_id);
+      if (!e) throw new ToolInputError("現場の ID が違います");
+      if (e.cancelled_at) warnings.push(`${formatShortJa(e.date)} ${one(e.venue)?.name ?? ""} は中止になっています`);
+      if (e.date !== input.date) warnings.push(`${one(e.venue)?.name ?? ""} の現場の日付（${formatShortJa(e.date)}）が文の日付（${formatShortJa(input.date)}）と違います`);
+      for (const sid of l.staff_ids) {
+        const st = status(l.event_id, sid);
+        rows.push({ label: `${formatShortJa(e.date)} ${one(e.venue)?.name ?? ""}`, detail: `${nameOf.get(sid) ?? "？"} を確定にする`, skip: st === "confirmed" ? "もう確定しています" : undefined });
+      }
+    }
+    for (const o of input.out) {
+      const e = ev.get(o.event_id);
+      if (!e) throw new ToolInputError("現場の ID が違います");
+      for (const sid of o.staff_ids) {
+        const st = status(o.event_id, sid);
+        rows.push({ label: `${formatShortJa(e.date)} ${one(e.venue)?.name ?? ""}`, detail: `${nameOf.get(sid) ?? "？"} をキャンセルにする（欠員・人員変更）`, skip: !st ? "この現場に入っていません" : st === "cancelled" || st === "declined" ? `もう${ASSIGNMENT_STATUS[st].label}です` : undefined });
+      }
+    }
+    if (rows.every((r) => r.skip)) throw new ToolInputError("変えるものがありません");
+    return proposal("reassign", `人員変更（${formatShortJa(input.date)}・${rows.filter((r) => !r.skip).length}件）`, rows, warnings, input);
+  },
+};
+
+export const PROPOSAL_TOOLS: AiTool[] = [proposeReports, proposeAvailability, proposeActivity, proposeOffers, proposeEvents, proposeInterviewSlots, proposeScreening, proposeReassign];
 
 // ---------------------------------------------------------------------------
 // 登録する（画面で「登録する」を押したとき）
@@ -310,6 +416,68 @@ export async function executeProposal(ctx: AiContext, kind: ProposalKind, raw: u
       };
       const r = v.dates.length === 1 ? await createEvent(input, v.dates[0]) : await createEventsBulk(input, v.dates, "AI で作成");
       return r.ok ? ok(r.message) : r;
+    }
+    case "slots": {
+      const p = PAYLOAD.slots.safeParse(raw);
+      if (!p.success) return fail("内容が正しくありません。もう一度読み取ってください");
+      const { data: c } = await supabase.from("group_candidates").select("stage, staff:staff(name)").eq("id", p.data.candidate_id).maybeSingle();
+      if (!c) return fail("候補が見つかりません");
+      const stage = c.stage as Stage;
+      const target: Stage = FLOW.indexOf(stage) < FLOW.indexOf("slots_collected") ? "slots_collected" : stage;
+      const r = await setCandidateStage(p.data.candidate_id, target, { interviewSlots: p.data.slots });
+      if (!r.ok) return r;
+      return ok(`${one(c.staff)?.name ?? ""}さんの候補日時を入れました${target === "slots_collected" ? "（候補日あり）。取引先へのまとめ文は案件の画面から" : ""}`);
+    }
+    case "screening": {
+      const p = PAYLOAD.screening.safeParse(raw);
+      if (!p.success) return fail("内容が正しくありません。もう一度読み取ってください");
+      let passed = 0;
+      let failed = 0;
+      let confirmed = 0;
+      let declined = 0;
+      for (const r of p.data.results) {
+        const res = await setCandidateStage(r.candidate_id, r.passed ? "passed" : "failed", { resultNote: r.note });
+        if (!res.ok || !res.data) return res.ok ? fail("合否を入れられませんでした") : res;
+        if (r.passed) passed++;
+        else failed++;
+        confirmed += res.data.confirmed;
+        declined += res.data.declined;
+      }
+      const parts = [`合格 ${passed}人`, `不合格 ${failed}人`];
+      if (confirmed) parts.push(`確定にした予定 ${confirmed}日分（確定連絡は現場の画面から）`);
+      if (declined) parts.push(`辞退にした予定 ${declined}日分`);
+      return ok(`合否を入れました: ${parts.join("・")}`);
+    }
+    case "reassign": {
+      const p = PAYLOAD.reassign.safeParse(raw);
+      if (!p.success) return fail("内容が正しくありません。もう一度読み取ってください");
+      let confirmedN = 0;
+      let cancelledN = 0;
+      for (const l of p.data.lines) {
+        const { data: cur } = await supabase.from("assignments").select("id, staff_id, status").eq("event_id", l.event_id).in("staff_id", l.staff_ids);
+        for (const sid of l.staff_ids) {
+          const a = (cur ?? []).find((x) => x.staff_id === sid);
+          if (a?.status === "confirmed") continue;
+          let id = a?.id;
+          if (!id) {
+            const o = await offerStaff(l.event_id, p.data.role_id, [sid]);
+            if (!o.ok || !o.data) return o.ok ? fail("打診を入れられませんでした") : o;
+            id = o.data.ids[0];
+          }
+          const r = await setAssignmentStatus(id, "confirmed");
+          if (!r.ok) return r;
+          confirmedN++;
+        }
+      }
+      for (const o of p.data.out) {
+        const { data: cur } = await supabase.from("assignments").select("id, status").eq("event_id", o.event_id).in("staff_id", o.staff_ids).in("status", ["offered", "confirmed", "waitlisted"]);
+        for (const a of cur ?? []) {
+          const r = await setAssignmentStatus(a.id, "cancelled", { code: "client", text: "人員変更（取引先の連絡）" });
+          if (!r.ok) return r;
+          cancelledN++;
+        }
+      }
+      return ok(`人員変更を入れました: 確定 ${confirmedN}人・キャンセル ${cancelledN}人`);
     }
   }
 }
