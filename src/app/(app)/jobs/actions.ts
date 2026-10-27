@@ -28,6 +28,10 @@ const jobLine = z.object({
   /** 会場がまだないときに、この名前で作る */
   newVenueName: z.string().trim().max(100).default(""),
   count: z.number().int().min(1).max(50),
+  /** 役割の見出し（「初期設定ヘルパー」など。現場の備考の先頭に入れる） */
+  label: z.string().trim().max(100).default(""),
+  /** その店舗の段落の単価（円）。null なら案件の単価。オーナーだけ（管理者から来ても使わない） */
+  rate: z.number().int().min(0).max(10_000_000).nullable().default(null),
 });
 
 const createSchema = z.object({
@@ -101,19 +105,26 @@ export async function createJob(input: CreateJobInput): Promise<ActionResult<{ i
     const cur = byKey.get(k);
     if (!cur || cur.count < l.count) byKey.set(k, l);
   }
-  const rows = [...byKey.values()].map((l) => ({ client_id: v.clientId, venue_id: l.venueId!, date: l.date, start_time: v.startTime, end_time: v.endTime, group_id: group.id, notes: v.notes }));
+  // 役割の見出し（「初期設定ヘルパー」など）は、その現場の備考の先頭に入れる（金額の行は入れない）
+  const rows = [...byKey.values()].map((l) => ({ client_id: v.clientId, venue_id: l.venueId!, date: l.date, start_time: v.startTime, end_time: v.endTime, group_id: group.id, notes: [stripMoneyLines(l.label), v.notes].filter(Boolean).join("\n") }));
   const { data: events, error: eErr } = await supabase.from("events").insert(rows).select("id, date, venue_id");
   if (eErr || !events) return fail(dbErrorMessage(eErr));
   const countOf = new Map([...byKey.values()].map((l) => [`${l.date}|${l.venueId}`, l.count]));
   const { error: rErr } = await supabase.from("event_requirements").insert(events.map((e) => ({ event_id: e.id, role_id: v.roleId, required_count: countOf.get(`${e.date}|${e.venue_id}`) ?? 1 })));
   if (rErr) return fail(dbErrorMessage(rErr));
 
-  // 単価（オーナーだけ）: 案件の単価（と単価のまわりの文）、現場の請求単価（人日）
-  if (me.role === "owner" && (v.rate != null || v.rateNote)) {
-    const { error: pErr } = await supabase.from("event_group_private").insert({ group_id: group.id, rate: v.rate, transport_included: v.transportIncluded, rate_note: v.rateNote });
-    if (pErr) return fail(dbErrorMessage(pErr));
-    if (v.rate != null) {
-      const { error: rateErr } = await supabase.from("event_rates").insert(events.map((e) => ({ event_id: e.id, kind: "per_person_day" as const, role_id: v.roleId, amount: v.rate! })));
+  // 単価（オーナーだけ）: 案件の単価（と単価のまわりの文）、現場の請求単価（人日。店舗の段落に単価があればそれ、なければ案件の単価）
+  if (me.role === "owner") {
+    if (v.rate != null || v.rateNote) {
+      const { error: pErr } = await supabase.from("event_group_private").insert({ group_id: group.id, rate: v.rate, transport_included: v.transportIncluded, rate_note: v.rateNote });
+      if (pErr) return fail(dbErrorMessage(pErr));
+    }
+    const rateRows = events.flatMap((e) => {
+      const amount = byKey.get(`${e.date}|${e.venue_id}`)?.rate ?? v.rate;
+      return amount == null ? [] : [{ event_id: e.id, kind: "per_person_day" as const, role_id: v.roleId, amount }];
+    });
+    if (rateRows.length) {
+      const { error: rateErr } = await supabase.from("event_rates").insert(rateRows);
       if (rateErr) return fail(dbErrorMessage(rateErr));
     }
   }

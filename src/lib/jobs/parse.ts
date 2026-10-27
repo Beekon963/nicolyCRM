@@ -53,8 +53,9 @@ export function parseDateList(text: string, today: DateString, ctx: { month: num
   // 「・5・6」「、6日」のように日だけ続くもの（直前に月のある日付があるときだけ）
   if (ctx.month) {
     const rest = t.replace(MD_RANGE, " ").replace(MD, " ");
-    if (out.length || /[・、,，]/.test(rest) || /^\s*\d{1,2}\s*日?\s*$/.test(rest)) {
-      for (const m of rest.matchAll(/(?:^|[・、,，\s])(\d{1,2})日?(?=$|[・、,，\s）)])/g)) {
+    // 「3.26日」「24.25」の . も日の区切り（14.28日 = 14日と28日）
+    if (out.length || /[・、,，.]/.test(rest) || /^\s*\d{1,2}\s*日?\s*$/.test(rest)) {
+      for (const m of rest.matchAll(/(?:^|[・、,，.\s])(\d{1,2})日?(?=$|[・、,，.\s）)])/g)) {
         const day = Number(m[1]);
         if (day < 1 || day > 31) continue;
         const d = resolveMonthDay(ctx.month, day, today);
@@ -85,12 +86,16 @@ export function datesToText(dates: DateString[]): string {
 // 1. 案件の文
 // ---------------------------------------------------------------------------
 
-export type JobOfferLine = { date: DateString; day: number; venue: string; count: number };
+export type JobOfferLine = { date: DateString; day: number; venue: string; count: number; label: string; rate: number | null };
 
 export type JobOfferVenue = {
   name: string;
+  /** 役割の見出し（「①初期設定ヘルパー」の下の店舗なら「初期設定ヘルパー」。なければ空） */
+  label: string;
   /** その店舗の必要人数（「→25名」「各日1名」。書いてなければ「人数」の見出しの数、なければ 1） */
   count: number;
+  /** その店舗の段落に書いてあった単価（円。「店舗：A / 日程：3.26日 / 単価：20,000円」）。なければ null（案件の単価を使う）。オーナーだけが使う */
+  rate: number | null;
   /** その店舗の日程（なければ全体の日程を使う） */
   dates: DateString[];
   /** 日程が書いてあった文そのまま（画面で直す用） */
@@ -157,9 +162,15 @@ const BULLET = /^[・･●◎▶▷♦◆■□\-－―‐]\s*/;
 /** 「→25名」「各日1名」「1〜2名」「3名程度」（行の最後） */
 const COUNT = /(?:[→⇒＝=:：]\s*)?(?:各日|各|計|合計)?\s*(\d{1,3})(?:\s*[〜~～\-－]\s*(\d{1,3}))?\s*名(?:様|程度|ほど|ずつ|体制|募集|必要|予定)?\s*$/;
 /** 「20 〇〇外販 1名」「7日 〇〇軒先 1名」「27,28 〇〇外販 2名」「22〇〇軒先1名」 */
-const DAY_VENUE_COUNT = /^(\d{1,2}(?:\s*[,、，・]\s*\d{1,2})*)\s*日?\s*(\S.*?)\s*(?:各日|各|計|合計)?\s*(\d{1,3})\s*名(?:様|程度|ほど|ずつ|体制|募集|必要|予定)?\s*$/;
+const DAY_VENUE_COUNT = /^(\d{1,2}(?:\s*[,、，・.]\s*\d{1,2})*)\s*日?\s*(\S.*?)\s*(?:各日|各|計|合計)?\s*(\d{1,3})\s*名(?:様|程度|ほど|ずつ|体制|募集|必要|予定)?\s*$/;
 /** 「7日 〇〇軒先」「20 〇〇外販」（人数なし。店舗の見出しの下か、人数が別に書いてあるときだけ） */
-const DAY_VENUE = /^(\d{1,2}(?:\s*[,、，・]\s*\d{1,2})*)\s*(?:日\s*|\s+)(\S.*)$/;
+const DAY_VENUE = /^(\d{1,2}(?:\s*[,、，・.]\s*\d{1,2})*)\s*(?:日\s*|\s+)(\S.*)$/;
+/** 「3.26日」「14日」「24,25」（日だけの並び） */
+const DAY_ONLY = /^(\d{1,2}(?:\s*[,、，・.]\s*\d{1,2})*)\s*日?\s*$/;
+/** LINE のメンション（「@All」「@山田 太郎」）は読まない */
+const MENTION = /^@\S{1,20}(?:\s\S{1,20})?$/;
+/** 「①初期設定ヘルパー」「軒先ヘルパー」のような役割の見出し（店舗ではない。この下の店舗の名札にする） */
+const LABEL = /(ヘルパー|クローザー|キャッチ|スタッフ|要員|担当|販売員|リーダー|サポート|接客|呼び込み|受付|ポジション|MC|案件|業務|枠)\s*$/;
 /** 「1/2 〇〇店 3名」「1/2・1/3 〇〇店 各日2名」「1/2(金) 〇〇店 3名」 */
 const DATE_VENUE_COUNT = /^((?:\d{1,2}\s*[/月]\s*\d{1,2}日?(?:\s*\([^)]*\))?)(?:\s*[・、,，〜~～\-－]\s*\d{1,2}(?:\s*[/月]\s*\d{1,2})?日?(?:\s*\([^)]*\))?)*)\s+(\S.*?)\s*(?:各日|各|計|合計)?\s*(\d{1,3})\s*名(?:様|程度|ほど|ずつ|体制|募集|必要|予定)?\s*$/;
 const TIME_RANGE = /(\d{1,2})(?::(\d{2})|\s*時(?:\s*(\d{2})\s*分|半)?)\s*[〜~～\-－]\s*(\d{1,2})(?::(\d{2})|\s*時(?:\s*(\d{2})\s*分|半)?)/g;
@@ -168,7 +179,7 @@ const HAS_MD = /\d{1,2}\s*[/月]\s*\d{1,2}/;
 /** 金額の行（数字＋円、¥、単価・報酬など） */
 const MONEY = /\d\s*円|[¥￥]\s*\d|単価|報酬|時給|日当(?!た)|給与|人日|ギャラ/;
 /** あいさつ・前置き（読まない） */
-const SKIP_LINE = /^(お世話にな|お疲れ様|お疲れさま|よろしくお願い|宜しくお願い|以上|ご確認|お待ち|下記|以下|こちら|いつも)|(お願い(します|致します|いたします)|ご案内です|ご連絡です|ご相談です|お送りします|送付します)[。!！]*$/;
+const SKIP_LINE = /^(お世話にな|お疲れ様|お疲れさま|よろしくお願い|宜しくお願い|以上|ご確認|お待ち|下記|以下|こちら|いつも)|(お願い(します|致します|いたします)|ご案内です|ご連絡です|ご相談です|お送りします|送付します|募集しております|募集しています|募集します|募集中です|ご協力ください)[。!！]*$/;
 const VENUE_WORD = /(店|モール|ショップ|カメラ|デンキ|電機|イオン|ららぽーと|アウトレット|DS|ドコモ|ソフトバンク|au|楽天|外販|軒先|催事|イベント|ヨーカドー|西友|マックス|MAX|センター|プラザ|タウン|シティ|パーク|ビル|館|会場|駅|広場|エリア)/i;
 const SENTENCE = /(に関して|の方|優先|可能|ください|下さい|です|ます|ました|要相談|のみ|お願い|不可|必須|歓迎|経験|募集|変更|欠員|連絡|ため|予定|こと)/;
 /** 役割・人の言葉（店舗の名前ではない） */
@@ -177,7 +188,7 @@ const ROLE_WORD = /^(クローザー|キャッチ|スタッフ|経験者|未経�
 const timeText = (h: string, m: string | undefined, half?: boolean) => `${pad(h)}:${m ?? (half ? "30" : "00")}`;
 const splitDays = (s: string) =>
   s
-    .split(/[,、，・]/)
+    .split(/[,、，・.]/)
     .map((d) => Number(d.trim()))
     .filter((d) => d >= 1 && d <= 31);
 /** 店舗の名前を比べる形（空白・記号・大文字小文字の違いをなくす） */
@@ -232,11 +243,8 @@ function prepareLine(raw: string): Prepared {
 type VenueAcc = JobOfferVenue & { own: boolean; given: boolean };
 
 export function parseJobOffer(text: string, today: DateString): JobOfferParse {
-  const prepared = text
-    .replace(/\r/g, "")
-    .split("\n")
-    .map(prepareLine)
-    .filter((p) => p.line);
+  // 空行も残す（段落の区切り。店舗の段落の単価がどこまでか決めるのに使う）
+  const prepared = text.replace(/\r/g, "").split("\n").map(prepareLine);
   const venues: VenueAcc[] = [];
   const globalDates: DateString[] = [];
   const rateLines: string[] = [];
@@ -259,18 +267,32 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
   /** 日程がまだ付いていない直近の店舗（backward で次の日程を当てる） */
   let pendingVenue: VenueAcc | null = null;
   let prevKind: "venue" | "dates" | "other" = "other";
+  /** 役割の見出し（「①初期設定ヘルパー」）。この下に出てくる店舗の名札にする */
+  let currentLabel = "";
+  /** いまの段落の店舗（段落の中の単価をこの店舗の単価にする。空行・役割の見出し・全体の見出しで切れる） */
+  let blockVenue: VenueAcc | null = null;
   const dateCtx = { month: null as number | null };
 
   // 月: 最初の5行の「11月」→ 文の中の最初の「1/2」「11月5日」の月 → 日だけの行なら「今日の日」以降なら今月、過ぎていれば来月
-  const headerMonth = prepared.slice(0, 5).map((p) => p.line.match(/^(\d{1,2})月/)).find(Boolean)?.[1];
+  const headerMonth = prepared
+    .filter((p) => p.line)
+    .slice(0, 6)
+    .map((p) => p.line.match(/^(\d{1,2})月/))
+    .find(Boolean)?.[1];
   const firstMd = nfkc(text).replace(TIME_LIKE, " ").match(/(?<![\d/])(?:\d{4}\s*[/年.\-]\s*)?(\d{1,2})\s*[/月]\s*\d{1,2}/);
   if (headerMonth) dateCtx.month = Number(headerMonth);
   else if (firstMd) dateCtx.month = Number(firstMd[1]);
   else {
-    const days = prepared.filter((p) => !p.marked).flatMap((p) => {
-      const m = p.body.match(DAY_VENUE_COUNT);
-      return m && isVenueName(m[2]) ? splitDays(m[1]) : [];
-    });
+    const days = prepared
+      .filter((p) => p.line && !p.marked)
+      .flatMap((p) => {
+        const m = p.body.match(DAY_VENUE_COUNT);
+        if (m && isVenueName(cleanVenueName(m[2]))) return splitDays(m[1]);
+        // 「日程：3.26日」のように見出しの後ろの日だけの並び
+        const h = readHeader(p.line);
+        const d = h?.section === "dates" ? h.rest.match(DAY_ONLY) : null;
+        return d ? splitDays(d[1]) : [];
+      });
     if (days.length) {
       const todayDay = Number(today.slice(8, 10));
       const base = Math.min(...days) >= todayDay ? monthOf(today) : nextMonth(monthOf(today));
@@ -292,12 +314,20 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
     }
     return true;
   };
-  const addMoney = (line: string) => {
+  /** 金額の行。line は文のまま（単価のメモ用）、from は金額を読む部分（見出しの後ろ） */
+  const addMoney = (line: string, from = line) => {
     rateLines.push(line);
-    const flat = line.match(/一律\s*[:：]?\s*(\d[\d,]{2,})\s*円/);
-    const amounts = [...line.matchAll(/(\d[\d,]{2,})\s*円/g)].map((m) => Number(m[1].replace(/,/g, "")));
+    const flat = from.match(/一律\s*[:：]?\s*(\d[\d,]{2,})\s*円/);
+    const amounts = [...from.matchAll(/(\d[\d,]{2,})\s*円/g)].map((m) => Number(m[1].replace(/,/g, "")));
+    const first = flat ? Number(flat[1].replace(/,/g, "")) : amounts[0];
+    if (blockVenue && first != null) {
+      // 店舗の段落の中の単価（「店舗：A / 日程：3.26日 / 単価：20,000円」）は、その店舗の単価。案件の単価は最初のもの
+      if (blockVenue.rate == null) blockVenue.rate = first;
+      if (rate == null) rate = first;
+      return;
+    }
     if (flat) rate = Number(flat[1].replace(/,/g, ""));
-    else if (amounts.length && (rate == null || /単価|日当/.test(line))) rate = amounts[0];
+    else if (amounts.length && (rate == null || /単価|日当/.test(from))) rate = amounts[0];
   };
   /**
    * 店舗を足す。merge = true のとき同じ名前の店舗があれば人数・日程をそこに重ねる（「① A店 … ・A店 →25名」）。
@@ -307,17 +337,20 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
     const cm = countText.match(COUNT);
     const name = cleanVenueName(nameText);
     if (!isVenueName(name)) return null;
-    let v = merge ? venues.find((x) => venueKey(x.name) === venueKey(name)) : undefined;
+    // 同じ名前でも、もう日程が付いている店舗に「店舗：A」がまた出てきたら別の段落（別の日程・単価）として分けて持つ。
+    // 「・A店 →25名」のように人数だけ足す行は、日程が付いていても同じ店舗に重ねる
+    let v = merge ? venues.find((x) => venueKey(x.name) === venueKey(name) && (!x.own || (cm && !inlineDates))) : undefined;
     if (v) {
       if (cm) {
         v.count = Number(cm[2] ?? cm[1]);
         v.given = true;
       }
     } else {
-      v = { name, count: cm ? Number(cm[2] ?? cm[1]) : (defaultCount ?? 1), dates: [], dateText: "", own: false, given: Boolean(cm) };
+      v = { name, label: currentLabel, count: cm ? Number(cm[2] ?? cm[1]) : (defaultCount ?? 1), dates: [], dateText: "", rate: null, own: false, given: Boolean(cm) };
       venues.push(v);
       if (isMarked) markedVenues++;
     }
+    blockVenue = v;
     if (inlineDates) {
       const ds = parseDateList(inlineDates, today, dateCtx);
       if (ds.length) {
@@ -363,8 +396,15 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
 
   for (const p of prepared) {
     const { line, body, marked, bullet, note } = p;
+    if (!line) {
+      // 空行 = 段落の区切り
+      blockVenue = null;
+      pendingHeader = null;
+      continue;
+    }
+    if (MENTION.test(line)) continue;
     if (section !== "notes" && SKIP_LINE.test(line) && !/締切|期限|エントリー/.test(line) && !HAS_MD.test(line)) continue;
-    if (/交通費\s*(込|含)/.test(line)) transportIncluded = true;
+    if (/(交通費|円)\s*(込|含)/.test(line)) transportIncluded = true;
 
     // 見出し
     const h = marked ? null : readHeader(line);
@@ -373,6 +413,9 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
       const rest = h.rest;
       const block = BLOCK_MARK.test(line);
       pendingHeader = null;
+      // 全体の見出し（■ 単価）や見出しだけの行（「単価」）からは、店舗の段落ではなく全体の話
+      if (block || !rest) blockVenue = null;
+      if (block) currentLabel = "";
       if (section === "dates") {
         if (!rest) {
           pendingHeader = { block };
@@ -394,7 +437,7 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
         continue;
       }
       if (section === "rate") {
-        addMoney(rest);
+        addMoney(line, rest);
         continue;
       }
       if (section === "hours") {
@@ -447,6 +490,14 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
 
     const hasCount = COUNT.test(body);
     const arrowCount = /[→⇒]\s*(?:各日|各)?\s*\d{1,3}(?:\s*[〜~～\-－]\s*\d{1,3})?\s*名/.test(body);
+    // 「①初期設定ヘルパー」「軒先ヘルパー」: 役割の見出し（店舗ではない）。この下の店舗の名札にして、新しい段落にする
+    if (!hasCount && section !== "notes" && !HAS_MD.test(body) && body.length <= 24 && LABEL.test(body)) {
+      currentLabel = body;
+      pendingVenue = null;
+      blockVenue = null;
+      prevKind = "other";
+      continue;
+    }
     // 「クローザー 2名」「各日1名」: 店舗ではなく人数
     if (hasCount && !marked) {
       const nameOnly = cleanVenueName(body);
@@ -550,14 +601,15 @@ export function parseJobOffer(text: string, today: DateString): JobOfferParse {
     for (const date of dates) {
       const k = `${date}|${v.name}`;
       const cur = byKey.get(k);
-      if (!cur || cur.count < v.count) byKey.set(k, { date, day: Number(date.slice(8, 10)), venue: v.name, count: v.count });
+      if (!cur) byKey.set(k, { date, day: Number(date.slice(8, 10)), venue: v.name, count: v.count, label: v.label, rate: v.rate });
+      else if (cur.count < v.count) cur.count = v.count;
     }
   }
   const lines = [...byKey.values()].sort((a, b) => a.date.localeCompare(b.date) || a.venue.localeCompare(b.venue, "ja"));
   const uniq = (xs: string[]) => [...new Set(xs)];
   const sortedGlobal = [...new Set(globalDates)].sort();
   return {
-    venues: venues.map((v) => ({ name: v.name, count: v.count, dates: v.dates, dateText: v.dateText })),
+    venues: venues.map((v) => ({ name: v.name, label: v.label, count: v.count, dates: v.dates, dateText: v.dateText, rate: v.rate })),
     globalDates: sortedGlobal,
     lines,
     month: lines[0]?.date.slice(0, 7) ?? sortedGlobal[0]?.slice(0, 7) ?? null,

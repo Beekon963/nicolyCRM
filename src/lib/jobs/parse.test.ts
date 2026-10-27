@@ -126,7 +126,7 @@ AM課長に充てるため下記の内容で単価が変わります。
     ]);
     expect(p.venues[2].dates).toEqual(["2027-01-01", "2027-01-02", "2027-01-03"]);
     expect(p.lines).toHaveLength(12);
-    expect(p.lines[0]).toEqual({ date: "2027-01-01", day: 1, venue: "架空電器×架空カメラ 架空店", count: 25 });
+    expect(p.lines[0]).toEqual({ date: "2027-01-01", day: 1, venue: "架空電器×架空カメラ 架空店", count: 25, label: "", rate: null });
     expect(p.month).toBe("2027-01");
     expect(p.markedVenues).toBe(4);
     // 金額の行は単価のまわりの文として別に持つ（備考に入れない）。一律の額を単価にする
@@ -162,6 +162,67 @@ AM課長に充てるため下記の内容で単価が変わります。
     // 店舗の見出しの下の「7日 〇〇」（人数なし）は、人数の見出しがあれば読む
     const n = parseJobOffer("11月\n募集人数: 各日1名\n店舗\n7日 架空モール\n20日 架空デンキ 北店", today);
     expect(n.lines.map((l) => `${l.date} ${l.venue} ${l.count}`)).toEqual(["2026-11-07 架空モール 1", "2026-11-20 架空デンキ 北店 1"]);
+  });
+});
+
+describe("役割ごとの段落の書き方（①役割 / 店舗：/ 日程：3.26日 / 単価：…）", () => {
+  const BLOCKS2 = `@All
+お世話になっております。
+11月ですが、下記を募集しております。
+人材にご協力よろしくお願いします。
+
+①初期設定ヘルパー
+店舗:架空モール 北
+日程：3.26日
+単価：20,000円込み〜
+
+②軒先ヘルパー
+店舗：架空モール 東
+日程：14日
+単価：27,000円込み
+
+③店内ヘルパー
+店舗：架空店
+日程：28日
+単価：27,000円込み
+
+④軒先ヘルパー
+店舗：架空モール 北
+日程：14.28日
+単価：27,000円込み`;
+
+  it("「3.26日」「14.28日」は 3日と26日・14日と28日。役割の見出しは店舗にせず名札に、段落の単価はその店舗の単価に", () => {
+    const p = parseJobOffer(BLOCKS2, today);
+    expect(p.venues.map((v) => `${v.label}|${v.name}|${v.count}|${v.dates.map((d) => d.slice(8)).join(",")}|${v.rate}`)).toEqual([
+      "初期設定ヘルパー|架空モール 北|1|03,26|20000",
+      "軒先ヘルパー|架空モール 東|1|14|27000",
+      "店内ヘルパー|架空店|1|28|27000",
+      "軒先ヘルパー|架空モール 北|1|14,28|27000",
+    ]);
+    expect(p.lines.map((l) => `${l.date} ${l.venue} ${l.rate}`).sort()).toEqual([
+      "2026-11-03 架空モール 北 20000",
+      "2026-11-14 架空モール 北 27000",
+      "2026-11-14 架空モール 東 27000",
+      "2026-11-26 架空モール 北 20000",
+      "2026-11-28 架空モール 北 27000",
+      "2026-11-28 架空店 27000",
+    ]);
+    expect(p.month).toBe("2026-11");
+    expect(p.rate).toBe(20000);
+    expect(p.rateLines).toEqual(["単価:20,000円込み〜", "単価:27,000円込み"]);
+    expect(p.transportIncluded).toBe(true);
+    // あいさつ・メンション・「募集しております」は備考に入れない。役割の見出しも店舗にしない
+    expect(p.notes).toBe("");
+    expect(p.markedVenues).toBe(0);
+    expect(looksLikeJobOffer(p, BLOCKS2)).toBe(true);
+    expect(parseDateList("24.25", today, { month: 11 })).toEqual(["2026-11-24", "2026-11-25"]);
+    expect(parseDateList("3.26日", today, { month: 11 })).toEqual(["2026-11-03", "2026-11-26"]);
+  });
+
+  it("月が書いてなくても、日程の見出しの日だけの並びから月を決める（今日の日より前なら来月）", () => {
+    const p = parseJobOffer("①軒先ヘルパー\n店舗：架空モール 東\n日程：3.26日", today);
+    expect(p.lines.map((l) => l.date)).toEqual(["2026-11-03", "2026-11-26"]);
+    expect(p.venues[0].label).toBe("軒先ヘルパー");
   });
 });
 

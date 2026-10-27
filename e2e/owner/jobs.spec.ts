@@ -167,6 +167,73 @@ test("見出しごとに分かれた書き方の文も、全体の日程・期�
   await sql(`update event_groups set closed_at = now() where id = $1`, [id]);
 });
 
+/** 役割ごとの段落の書き方（①役割 / 店舗：/ 日程：3.26日 / 単価：…） */
+function roleBlocksText() {
+  return [
+    "@All",
+    "お世話になっております。",
+    `${m}月ですが、下記を募集しております。`,
+    "人材にご協力よろしくお願いします。",
+    "",
+    "①初期設定ヘルパー",
+    `店舗:${venueName}`,
+    "日程：3.26日",
+    "単価：20,000円込み〜",
+    "",
+    "②軒先ヘルパー",
+    `店舗：${blockVenueName}`,
+    "日程：14日",
+    "単価：27,000円込み",
+    "",
+    "③軒先ヘルパー",
+    `店舗：${venueName}`,
+    "日程：14.28日",
+    "単価：27,000円込み",
+  ].join("\n");
+}
+
+test("役割ごとの段落の文（①役割 / 店舗 / 日程：3.26日 / 単価）: 3日と26日に読み、役割は名札に、段落の単価はその現場の請求単価になる", async ({ page }) => {
+  await page.goto("/jobs/new");
+  await page.getByLabel("取引先の案件の文を貼ってください").fill(roleBlocksText());
+  const read = page.getByRole("region", { name: "読み取った内容" });
+  await expect(read).toContainText("3件（日程あり 3件）");
+  await expect(read).toContainText("現場 5件");
+  await expect(read).toContainText("20,000円/日");
+  // 店舗の表: 役割の名札、3.26日 = 2日、段落ごとの単価
+  const rows = page.getByTestId("job-venue-row");
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText("初期設定ヘルパー");
+  await expect(rows.nth(0).getByLabel(`${venueName}の日程`)).toHaveValue("3.26日");
+  await expect(rows.nth(0)).toContainText("日程（2日）");
+  await expect(rows.nth(0).getByLabel(`${venueName}の単価`)).toHaveValue("20000");
+  await expect(rows.nth(1).getByLabel(`${blockVenueName}の単価`)).toHaveValue("27000");
+  await expect(rows.nth(2).getByLabel(`${venueName}の日程`)).toHaveValue("14.28日");
+  await expect(page.getByLabel("備考（募集の条件など）")).toHaveValue("");
+  await page.getByLabel("取引先", { exact: true }).selectOption(client.id);
+  await page.getByRole("button", { name: "案件と現場を作る（現場 5件）" }).click();
+  await expect(page).toHaveURL(/\/jobs\/[0-9a-f-]{36}$/, { timeout: 15_000 });
+  const id = page.url().split("/").pop()!;
+  await expect(page.getByTestId("job-events").getByRole("listitem")).toHaveCount(5);
+  // DB: 日 × 店舗、段落の単価が現場の請求単価に、役割の名札が現場の備考に
+  const evs = await sql<{ date: string; venue: string; rate: number | null; notes: string }>(
+    `select to_char(e.date, 'DD') as date, v.name as venue, (select amount from event_rates x where x.event_id = e.id) as rate, e.notes
+       from events e join venues v on v.id = e.venue_id where e.group_id = $1`,
+    [id],
+  );
+  const key = (x: { date: string; venue: string }) => `${x.date}|${x.venue}`;
+  const byKey = (a: { date: string; venue: string }, b: { date: string; venue: string }) => (key(a) < key(b) ? -1 : 1);
+  expect([...evs].sort(byKey)).toEqual(
+    [
+      { date: "03", venue: venueName, rate: 20000, notes: "初期設定ヘルパー" },
+      { date: "14", venue: blockVenueName, rate: 27000, notes: "軒先ヘルパー" },
+      { date: "14", venue: venueName, rate: 27000, notes: "軒先ヘルパー" },
+      { date: "26", venue: venueName, rate: 20000, notes: "初期設定ヘルパー" },
+      { date: "28", venue: venueName, rate: 27000, notes: "軒先ヘルパー" },
+    ].sort(byKey),
+  );
+  await sql(`update event_groups set closed_at = now() where id = $1`, [id]);
+});
+
 test("候補を足して日程に入れ、段階を進める。合格にすると打診中の予定が確定になる", async ({ page }) => {
   test.setTimeout(120_000);
   await openJob(page);
