@@ -19,9 +19,9 @@ import { cn } from "@/lib/utils";
 import { createJob } from "../actions";
 
 type Opt = { id: string; name: string };
-/** 店舗の行（文から読んだもの・手で足したもの）。dateText が空なら全体の日程を使う */
-type VenueRow = { key: string; name: string; dateText: string; count: number };
-type RowEdit = Partial<Pick<VenueRow, "name" | "dateText" | "count">>;
+/** 店舗の行（文から読んだもの・手で足したもの）。dateText が空なら全体の日程、rate が空なら案件の単価（オーナーだけ） */
+type VenueRow = { key: string; name: string; label: string; dateText: string; count: number; rate: string };
+type RowEdit = Partial<Pick<VenueRow, "name" | "dateText" | "count" | "rate">>;
 type Draft = { forText: string; edits: Record<string, RowEdit>; removed: string[]; extra: VenueRow[] };
 
 const NEW = "new";
@@ -66,7 +66,7 @@ export function NewJobClient({ clients, venues, roles, today, initialText = "", 
 
   // 店舗の表: 文から読んだ行（手直しを重ねる）＋ 足した行
   const rows: VenueRow[] = [
-    ...parsed.venues.map((v, i) => ({ key: `p:${i}`, name: v.name, dateText: v.dateText, count: v.count, ...draft.edits[`p:${i}`] })).filter((r) => !draft.removed.includes(r.key)),
+    ...parsed.venues.map((v, i) => ({ key: `p:${i}`, name: v.name, label: v.label, dateText: v.dateText, count: v.count, rate: v.rate != null ? String(v.rate) : "", ...draft.edits[`p:${i}`] })).filter((r) => !draft.removed.includes(r.key)),
     ...draft.extra,
   ];
   const editRow = (key: string, patch: RowEdit) => {
@@ -77,18 +77,21 @@ export function NewJobClient({ clients, venues, roles, today, initialText = "", 
     if (key.startsWith("x:")) patchDraft({ extra: draft.extra.filter((r) => r.key !== key) });
     else patchDraft({ removed: [...draft.removed, key] });
   };
-  const addRow = () => patchDraft({ extra: [...draft.extra, { key: `x:${Date.now()}`, name: "", dateText: "", count: 1 }] });
+  const addRow = () => patchDraft({ extra: [...draft.extra, { key: `x:${Date.now()}`, name: "", label: "", dateText: "", count: 1, rate: "" }] });
 
   // 店舗 × 日程 → 現場の行（同じ日・同じ店舗は人数の大きいほう）
   const rowDates = (r: VenueRow) => (r.dateText.trim() ? parseDateList(r.dateText, today, { month: ctxMonth }) : globalDates);
-  const byKey = new Map<string, { date: DateString; venueText: string; count: number }>();
+  /** 店舗の行の単価（オーナーだけ。空や数字でないときは案件の単価） */
+  const rowRate = (r: VenueRow) => (isOwner && /^\d{1,8}$/.test(r.rate.trim()) ? Number(r.rate.trim()) : null);
+  const byKey = new Map<string, { date: DateString; venueText: string; count: number; label: string; rate: number | null }>();
   for (const r of rows) {
     const venueText = r.name.trim();
     if (!venueText) continue;
     for (const date of rowDates(r)) {
       const k = `${date}|${venueText}`;
       const cur = byKey.get(k);
-      if (!cur || cur.count < r.count) byKey.set(k, { date, venueText, count: r.count });
+      if (!cur) byKey.set(k, { date, venueText, count: r.count, label: r.label, rate: rowRate(r) });
+      else if (cur.count < r.count) cur.count = r.count;
     }
   }
   const lines = [...byKey.values()].sort((a, b) => a.date.localeCompare(b.date) || a.venueText.localeCompare(b.venueText, "ja"));
@@ -116,7 +119,7 @@ export function NewJobClient({ clients, venues, roles, today, initialText = "", 
         sourceText: text,
         entryDeadline: deadline || null,
         roleId,
-        lines: lines.map((l) => ({ date: l.date, venueId: venueMap[l.venueText] && venueMap[l.venueText] !== NEW ? venueMap[l.venueText] : null, newVenueName: venueMap[l.venueText] === NEW ? l.venueText : "", count: l.count })),
+        lines: lines.map((l) => ({ date: l.date, venueId: venueMap[l.venueText] && venueMap[l.venueText] !== NEW ? venueMap[l.venueText] : null, newVenueName: venueMap[l.venueText] === NEW ? l.venueText : "", count: l.count, label: l.label, rate: l.rate })),
         rate: isOwner && rate.trim() ? Number(rate) : null,
         transportIncluded: isOwner ? transport : false,
         rateNote: isOwner ? rateNote : "",
@@ -142,7 +145,7 @@ export function NewJobClient({ clients, venues, roles, today, initialText = "", 
           placeholder={"例:\n■ 日程\n1/1〜1/4\n■ エントリー期限\n11/20まで\n■ 店舗\n① 〇〇カメラ 北店\n【日程】1/2・1/3・1/4\n② △△モール →2名\n\n単価\n20000円/日　交通費込\n\n稼働時間\n10:00〜18:00\n\n「20 〇〇モール外販　1名」の形の行が並ぶ文も読めます"}
           className="text-base"
         />
-        <p className="text-sm text-muted-foreground">LINE の文を長押し →「コピー」で、ここに貼れます。書き方が取引先ごとに違っても、日程・期限・店舗・人数・単価・稼働時間・備考に分けて読みます。読めなかった所は下の表で直せます。</p>
+        <p className="text-sm text-muted-foreground">LINE の文を長押し →「コピー」で、ここに貼れます。書き方が取引先ごとに違っても、日程・期限・店舗・人数・単価・稼働時間・備考に分けて読みます。「①役割 / 店舗：… / 日程：3.26日 / 単価：…」のように役割ごとに分かれた文も読めます（3.26日 = 3日と26日）。読めなかった所は下の表で直せます。</p>
       </div>
 
       {text.trim() && (
@@ -186,27 +189,38 @@ export function NewJobClient({ clients, venues, roles, today, initialText = "", 
               const own = r.dateText.trim();
               const ds = rowDates(r);
               return (
-                <li key={r.key} className="grid grid-cols-[1fr_auto] gap-x-2 gap-y-1 rounded-xl border p-2 sm:grid-cols-[1fr_12rem_5rem_auto] sm:items-end" data-testid="job-venue-row">
+                <li key={r.key} className={cn("grid grid-cols-[1fr_auto] gap-x-2 gap-y-1 rounded-xl border p-2 sm:items-end", isOwner ? "sm:grid-cols-[1fr_12rem_5rem_7rem_auto]" : "sm:grid-cols-[1fr_12rem_5rem_auto]")} data-testid="job-venue-row">
                   <div className="flex min-w-0 flex-col gap-1">
-                    <Label htmlFor={`${r.key}-name`} className="text-xs text-muted-foreground">
-                      店舗
+                    <Label htmlFor={`${r.key}-name`} className="min-w-0 flex-wrap text-xs text-muted-foreground">
+                      店舗{r.label && <span className="font-normal text-[#344054]">{r.label}</span>}
                     </Label>
                     <Input id={`${r.key}-name`} value={r.name} list="job-venue-names" aria-label="店舗の名前" onChange={(e) => editRow(r.key, { name: e.target.value })} />
                   </div>
                   <Button type="button" size="icon" variant="ghost" className="self-end sm:order-last" aria-label={`${r.name || "この店舗"} を外す`} onClick={() => removeRow(r.key)}>
                     <Trash2Icon className="size-4" />
                   </Button>
-                  <div className="flex min-w-0 flex-col gap-1">
+                  <div className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
                     <Label htmlFor={`${r.key}-dates`} className="text-xs text-muted-foreground">
                       日程{own ? `（${ds.length}日）` : globalDates.length ? `（全体の日程 ${globalDates.length}日）` : ""}
                     </Label>
                     <Input id={`${r.key}-dates`} value={r.dateText} aria-label={`${r.name || "この店舗"}の日程`} placeholder="全体の日程" onChange={(e) => editRow(r.key, { dateText: e.target.value })} className={cn(own && !ds.length && "border-status-alert")} />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor={`${r.key}-count`} className="text-xs text-muted-foreground">
-                      人数
-                    </Label>
-                    <Input id={`${r.key}-count`} type="number" inputMode="numeric" min={1} max={50} value={r.count} aria-label={`${r.name || "この店舗"}の人数`} onChange={(e) => editRow(r.key, { count: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} />
+                  {/* スマホでは 人数・単価 を2列に並べる（PC では行の列にそのまま入る） */}
+                  <div className="col-span-2 grid grid-cols-2 gap-2 sm:contents">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <Label htmlFor={`${r.key}-count`} className="text-xs text-muted-foreground">
+                        人数
+                      </Label>
+                      <Input id={`${r.key}-count`} type="number" inputMode="numeric" min={1} max={50} value={r.count} aria-label={`${r.name || "この店舗"}の人数`} onChange={(e) => editRow(r.key, { count: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })} />
+                    </div>
+                    {isOwner && (
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <Label htmlFor={`${r.key}-rate`} className="text-xs text-muted-foreground">
+                          単価（円）
+                        </Label>
+                        <Input id={`${r.key}-rate`} type="number" inputMode="numeric" min={0} value={r.rate} aria-label={`${r.name || "この店舗"}の単価`} placeholder="案件の単価" onChange={(e) => editRow(r.key, { rate: e.target.value })} />
+                      </div>
+                    )}
                   </div>
                 </li>
               );
@@ -229,7 +243,10 @@ export function NewJobClient({ clients, venues, roles, today, initialText = "", 
               {lines.map((l) => (
                 <li key={`${l.date}|${l.venueText}`} className="flex items-center gap-2 py-1">
                   <span className="w-20 shrink-0 tabular-nums">{formatShortJa(l.date)}</span>
-                  <span className="min-w-0 flex-1 truncate">{l.venueText}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {l.venueText}
+                    {l.label && <span className="ml-1 text-xs text-muted-foreground">{l.label}</span>}
+                  </span>
                   <span className="shrink-0 tabular-nums">{l.count}名</span>
                 </li>
               ))}
