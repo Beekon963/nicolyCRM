@@ -18,6 +18,12 @@ export function dbErrorMessage(error: PgError, fallback = "保存できません
     case "P0001":
       // DB 側で日本語のメッセージを出している（締め済み・取引先の種別など）
       return error.message ?? fallback;
+    case "PGRST204": // PostgREST: 列がスキーマキャッシュにない（本番の DB にマイグレーションがまだ）
+    case "PGRST202": // PostgREST: 関数がない
+    case "42703": // undefined_column
+    case "42P01": // undefined_table
+    case "42883": // undefined_function
+      return "データベースがまだ新しくなっていません。GitHub Actions の「本番のデータベースを更新」を実行してから、もう一度お試しください。";
     default:
       return fallback;
   }
