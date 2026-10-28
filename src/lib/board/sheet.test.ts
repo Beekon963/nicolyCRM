@@ -64,14 +64,14 @@ describe("スプレッドシートへの書き出し", () => {
     expect(rows[8][col(3)]).toBe("");
   });
 
-  it("下の段: 名前の行（単価・空）→ 場所（確定した場所だけ。打診中は書かない）→ シフト（⭕️🔺❌）。稼働日数を右端に", () => {
+  it("下の段: 名前の行（単価・空）→ 場所（確定した場所だけ。打診中は書かない）→ シフト（⭕️🔺❌。確定した日は ⭐️）。稼働日数を右端に", () => {
     const [name, place, shift] = rows.slice(9, 12);
     expect(name.slice(0, 4)).toEqual(["S", "山田 太郎", "架空駅", "単価"]);
     expect(name.at(-1)).toBe("1");
     expect(place.slice(0, 4)).toEqual(["", "", "", "場所"]);
     expect(place[col(1)]).toBe("DSテスト中央");
     expect(place[col(2)]).toBe("");
-    expect([shift[col(1)], shift[col(2)], shift[col(3)], shift[col(4)]]).toEqual(["⭕️", "🔺", "", "❌"]);
+    expect([shift[col(1)], shift[col(2)], shift[col(3)], shift[col(4)]]).toEqual(["⭐️", "🔺", "", "❌"]);
   });
 
   it("金額は書き出さない（「単価」の行は並びをそろえるためだけで、中は空）", () => {

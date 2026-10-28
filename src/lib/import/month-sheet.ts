@@ -56,14 +56,22 @@ export function parseYen(raw: string): { amount: number | null; transport: boole
   return { amount: m ? Number(m[0]) : null, transport };
 }
 
-/** ⭕️ ○ → ok、🔺 △ → maybe、❌ × → ng */
+/**
+ * ⭕️ ○ → ok、🔺 △ → maybe、❌ × → ng。
+ * ⭐️（確定した日の印）は「出られる日」なので ok として読む（確定した予定そのものは「場所」の行から入る）
+ */
 export function parseShift(raw: string): SheetShift | null {
-  const s = (raw ?? "").replace(/️/g, "").trim();
+  const s = (raw ?? "").replace(/\uFE0F/g, "").trim();
   if (!s) return null;
-  if (/^[⭕○◯〇oO]$/.test(s)) return "ok";
+  if (/^[⭕○◯〇oO⭐★]$/.test(s)) return "ok";
   if (/^[🔺△▲]$/u.test(s)) return "maybe";
   if (/^[❌×✕✖xX]$/.test(s)) return "ng";
   return null;
+}
+
+/** ⭐️ ★（確定した日の印）か。書き戻しでは、確定したときに書き、○△× で上書きしない */
+export function isConfirmedMark(raw: string): boolean {
+  return /^[⭐★]$/.test((raw ?? "").replace(/\uFE0F/g, "").trim());
 }
 
 export type SheetLayout = {

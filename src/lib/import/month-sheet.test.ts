@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessMonth, parseMonthSheet, parseShift, parseYen } from "./month-sheet";
+import { guessMonth, isConfirmedMark, parseMonthSheet, parseShift, parseYen } from "./month-sheet";
 
 /** 今の月のシートと同じ形のダミー（名前・会場はすべて架空） */
 function sheet(): string[][] {
@@ -53,6 +53,9 @@ describe("単価・シフトの読み取り", () => {
 
   it("⭕️○→ok、🔺△→maybe、❌×→ng、それ以外は読まない", () => {
     expect(["⭕️", "○", "◯", "🔺", "△", "❌", "×", "？", ""].map(parseShift)).toEqual(["ok", "ok", "ok", "maybe", "maybe", "ng", "ng", null, null]);
+    // ⭐️（確定した日の印）は出られる日として ok。確定の印かどうかは別に分かる
+    expect(["⭐️", "⭐", "★"].map(parseShift)).toEqual(["ok", "ok", "ok"]);
+    expect(["⭐️", "⭐", "★", "⭕️", "○", ""].map(isConfirmedMark)).toEqual([true, true, true, false, false, false]);
   });
 });
 

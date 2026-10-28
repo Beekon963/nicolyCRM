@@ -21,8 +21,8 @@ function sheet(): { rows: string[][]; lay: SheetLayout } {
     row(["", "", "", "現場"], { 3: "DS浦和" }),
     row(["", "", "", "人数"], { 3: "1" }),
     row(["A", "検証 太郎", "大宮", "単価"], { 3: "¥15,000" }),
-    row(["", "", "", "場所"], { 3: "DS大宮", 7: "よその現場" }),
-    row(["", "", "", "シフト"], { 4: "⭕️", 5: "❌", 6: "○" }),
+    row(["", "", "", "場所"], { 3: "DS大宮", 7: "よその現場", 11: "DS船橋" }),
+    row(["", "", "", "シフト"], { 4: "⭕️", 5: "❌", 6: "○", 11: "⭐️", 12: "⭐️" }),
   ];
   const lay = layoutMonthSheet(rows);
   if ("error" in lay) throw new Error("layout");
@@ -34,11 +34,12 @@ const d = (day: number) => `2026-11-${String(day).padStart(2, "0")}`;
 describe("書き戻しのマスの決め方", () => {
   it("シートで使っている○△×の書き方を選ぶ（いちばん多いもの）", () => {
     const { rows, lay } = sheet();
-    expect(detectSymbols(rows, lay)).toEqual({ ok: "⭕️", maybe: "🔺", ng: "❌" });
+    expect(detectSymbols(rows, lay)).toEqual({ ok: "⭕️", maybe: "🔺", ng: "❌", confirmed: "⭐️" });
     expect(DEFAULT_SYMBOLS.maybe).toBe("🔺");
+    expect(DEFAULT_SYMBOLS.confirmed).toBe("⭐️");
   });
 
-  it("場所: 同じなら書かない、違えば書く、CRM になければ消す（合わない名前は触らない）", () => {
+  it("場所: 同じなら書かない、違えば書く、CRM になければ消す（合わない名前は触らない）。確定したらシフトに ⭐️、外れたら ⭐️ → ⭕️", () => {
     const { rows, lay } = sheet();
     const r = planCellWrites(
       rows,
@@ -55,17 +56,51 @@ describe("書き戻しのマスの決め方", () => {
     );
     const by = Object.fromEntries(r.results.map((x) => [x.id, x]));
     expect(by[1].status).toBe("done");
-    expect(by[1].message).toContain("変更なし");
+    // 場所は同じでも、確定した日なのでシフトに ⭐️ を書く
+    expect(by[1].message).toContain("シフトに「⭐️」を書きました");
     expect(by[2].message).toContain("「DS浦和」を書きました");
+    expect(by[2].message).toContain("「⭐️」を書きました");
     expect(by[3].message).toContain("消しました");
+    expect(by[3].message).toContain("「⭐️」を「⭕️」に戻しました");
     expect(by[4].status).toBe("skipped");
     expect(by[5].status).toBe("skipped");
     expect(by[6].status).toBe("failed");
     expect(by[6].message).toContain("行がありません");
-    // 3日は id 3 の「消す」が最後なので空に、4日は DS浦和
-    const placeRow = lay.staffBlocks[0].placeRow;
-    expect(r.writes).toEqual(expect.arrayContaining([{ row: placeRow, col: 3 + 3, value: "" }, { row: placeRow, col: 3 + 4, value: "DS浦和" }]));
-    expect(r.writes).toHaveLength(2);
+    // 3日は id 3 の「消す」が最後なので空に（⭐️ も ⭕️ に戻る）、4日は DS浦和 と ⭐️
+    const { placeRow, shiftRow } = lay.staffBlocks[0];
+    expect(r.writes).toEqual(
+      expect.arrayContaining([
+        { row: placeRow, col: 3 + 3, value: "" },
+        { row: shiftRow, col: 3 + 3, value: "⭕️" },
+        { row: placeRow, col: 3 + 4, value: "DS浦和" },
+        { row: shiftRow, col: 3 + 4, value: "⭐️" },
+      ]),
+    );
+    expect(r.writes).toHaveLength(4);
+  });
+
+  it("⭐️（確定）の日: 場所が同じなら何も書かない。読めない印の日は ⭐️ を書かない。○△× の書き戻しで ⭐️ は上書きしない", () => {
+    const { rows, lay } = sheet();
+    const r = planCellWrites(
+      rows,
+      lay,
+      [
+        { id: 1, kind: "staff_day", date: d(11), staffNames: ["検証 太郎"], venues: ["DS船橋"] },
+        { id: 2, kind: "staff_day", date: d(12), staffNames: ["検証 太郎"], venues: [] },
+        { id: 3, kind: "availability", date: d(11), staffNames: ["検証 太郎"], status: "ng" },
+        { id: 4, kind: "availability", date: d(11), staffNames: ["検証 太郎"], status: "ok" },
+      ],
+      { symbols: DEFAULT_SYMBOLS, knownVenueKeys: known },
+    );
+    const by = Object.fromEntries(r.results.map((x) => [x.id, x]));
+    expect(by[1].message).toContain("変更なし（DS船橋）");
+    // 12日は場所が空で ⭐️ だけ → 確定が外れたので ⭕️ に戻す
+    expect(by[2].message).toContain("「⭐️」を「⭕️」に戻しました");
+    expect(by[3].status).toBe("skipped");
+    expect(by[3].message).toContain("確定の印なので触りません");
+    expect(by[4].message).toContain("変更なし");
+    const { shiftRow } = lay.staffBlocks[0];
+    expect(r.writes).toEqual([{ row: shiftRow, col: 3 + 12, value: "⭕️" }]);
   });
 
   it("シフト: シートの書き方で書く。消さない。読めない印は触らない", () => {
@@ -80,7 +115,7 @@ describe("書き戻しのマスの決め方", () => {
         { id: 4, kind: "availability", date: d(5), staffNames: ["検証 太郎"], status: null },
         { id: 5, kind: "availability", date: d(9), staffNames: ["検証 太郎"], status: null },
       ],
-      { symbols: { ok: "⭕️", maybe: "🔺", ng: "❌" }, knownVenueKeys: known },
+      { symbols: { ok: "⭕️", maybe: "🔺", ng: "❌", confirmed: "⭐️" }, knownVenueKeys: known },
     );
     const by = Object.fromEntries(r.results.map((x) => [x.id, x]));
     expect(by[1].message).toContain("変更なし");
