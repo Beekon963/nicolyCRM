@@ -176,11 +176,13 @@ describe("書き戻し", () => {
     batchBodies = [];
     const r = await run();
     expect(r.ok).toBe(true);
-    expect(r.written).toBe(4);
+    expect(r.written).toBe(5);
     // 13日 = 4 + 13 列目 → Q（A=1 … Q=17）。上の段: 現場 4行目・人数 5行目、下の段: 場所 7行目、シフト 8行目は 14日 = R
     expect(cellOf("Q4")).toBe(names.venue);
     expect(cellOf("Q5")).toBe("2");
     expect(cellOf("Q7")).toBe(names.venue);
+    // 確定した日のシフトは ⭐️
+    expect(cellOf("Q8")).toBe("⭐️");
     expect(cellOf("R8")).toBe("⭕️");
     const { rows } = await q(`select status, message from public.sheet_writes where ref_id = any($1) and status <> 'pending' order by id`, [[clientId, staffId]]);
     expect(rows.every((x) => x.status === "done")).toBe(true);
@@ -203,6 +205,8 @@ describe("書き戻し", () => {
     expect(r.ok).toBe(true);
     expect(cellOf("R8")).toBe("❌");
     expect(cellOf("Q7")).toBe("");
+    // 確定が外れたので ⭐️ → ⭕️
+    expect(cellOf("Q8")).toBe("⭕️");
     expect(cellOf("X7")).toBe("よその現場");
     const { rows } = await q(`select status, message from public.sheet_writes where ref_id = $1 and date = $2 and status <> 'pending' order by id desc limit 1`, [staffId, day(20)]);
     expect(rows[0].status).toBe("skipped");

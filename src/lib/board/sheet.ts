@@ -2,12 +2,14 @@
  * 稼働表を、今の月のスプレッドシートと同じ並びの表（行 × 列の文字）にする（Phase 1.5 の書き出し）。
  * - 1行目: 日付、2行目: ランク / 名前 / 最寄り駅 / 曜日
  * - 上の段: 取引先ごと・会場ごとに「単価 / 現場 / 人数（確定/必要）」の3行（今のシートと同じ並び）、その下に「欠員」
- * - 下の段: スタッフごとに「単価 / 場所（確定した現場）/ シフト（⭕️🔺❌）」の3行、右端に稼働日数
+ * - 下の段: スタッフごとに「単価 / 場所（確定した現場）/ シフト（⭕️🔺❌。確定した日は ⭐️）」の3行、右端に稼働日数
  * 金額（単価・売上など）は書き出さない（共有するシートのため）。「単価」の行は並びを今のシートとそろえるために置き、中は空にする。
  */
 import type { Board } from "./index";
 
 const SHIFT: Record<string, string> = { ok: "⭕️", maybe: "🔺", ng: "❌" };
+/** 確定した日のシフトの印（いつものシートの書き方） */
+const CONFIRMED = "⭐️";
 
 /**
  * シートのタブ名。いつもの管理用シートに書き出しても、手で作った「202611」などのタブと重ならないよう
@@ -70,7 +72,14 @@ export function boardToSheetValues(board: Board, updatedAt: string): string[][] 
             .join(" / "),
         ),
       ),
-      row(["", "", "", "シフト"], days.map((d) => (s.cells[d.date].availability ? SHIFT[s.cells[d.date].availability!] : ""))),
+      row(
+        ["", "", "", "シフト"],
+        days.map((d) => {
+          const c = s.cells[d.date];
+          if (c.assignments.some((a) => a.status === "confirmed")) return CONFIRMED;
+          return c.availability ? SHIFT[c.availability] : "";
+        }),
+      ),
     );
   }
   return rows;

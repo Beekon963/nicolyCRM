@@ -8,27 +8,30 @@
  * - 単価の行には触らない
  * - シートの書き方が CRM の会場と合わないマス（合わない名前）は消さない・上書きしない
  * - ○△× は消さない（CRM で消しても、シートの印はそのまま。消すのはシートで）
+ * - ⭐️（確定の印）: CRM で確定したら「場所」と一緒にシフトに ⭐️ を書く（空欄か ○△× のときだけ）。確定が外れたら ⭐️ を ⭕️ に戻す。
+ *   ○△× の書き戻しでは ⭐️ を上書きしない
  * - 行は設定（行がない人・取引先は行を足す。Phase 20）がオンのときだけ足す。足す位置と書くマスは planNewBlock で決める
  */
 import { companyKey, searchNorm } from "@/lib/search";
 import { venueKey } from "./line-plan";
-import { parseShift, type SheetLayout, type SheetShift } from "./month-sheet";
+import { isConfirmedMark, parseShift, type SheetLayout, type SheetShift } from "./month-sheet";
 
-export type ShiftSymbols = { ok: string; maybe: string; ng: string };
-export const DEFAULT_SYMBOLS: ShiftSymbols = { ok: "⭕️", maybe: "🔺", ng: "❌" };
+/** シフトの印の書き方（ok/maybe/ng = ○△×、confirmed = 確定した日の ⭐️） */
+export type ShiftSymbols = { ok: string; maybe: string; ng: string; confirmed: string };
+export const DEFAULT_SYMBOLS: ShiftSymbols = { ok: "⭕️", maybe: "🔺", ng: "❌", confirmed: "⭐️" };
 
-/** シートで使っている ○△× の書き方（いちばん多いもの。なければ ⭕️🔺❌） */
+/** シートで使っている ○△×⭐️ の書き方（いちばん多いもの。なければ ⭕️🔺❌⭐️） */
 export function detectSymbols(rows: string[][], lay: SheetLayout): ShiftSymbols {
-  const counts: Record<SheetShift, Map<string, number>> = { ok: new Map(), maybe: new Map(), ng: new Map() };
+  const counts: Record<keyof ShiftSymbols, Map<string, number>> = { ok: new Map(), maybe: new Map(), ng: new Map(), confirmed: new Map() };
   for (const b of lay.staffBlocks) {
     for (const { col } of lay.dayCols) {
       const raw = (rows[b.shiftRow]?.[col] ?? "").trim();
-      const st = parseShift(raw);
+      const st: keyof ShiftSymbols | null = isConfirmedMark(raw) ? "confirmed" : parseShift(raw);
       if (st) counts[st].set(raw, (counts[st].get(raw) ?? 0) + 1);
     }
   }
-  const top = (st: SheetShift) => [...counts[st].entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? DEFAULT_SYMBOLS[st];
-  return { ok: top("ok"), maybe: top("maybe"), ng: top("ng") };
+  const top = (st: keyof ShiftSymbols) => [...counts[st].entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? DEFAULT_SYMBOLS[st];
+  return { ok: top("ok"), maybe: top("maybe"), ng: top("ng"), confirmed: top("confirmed") };
 }
 
 export type CellWrite = { row: number; col: number; value: string };
@@ -137,7 +140,8 @@ export function planCellWrites(rows: string[][], lay: SheetLayout, items: WriteI
   const writes = new Map<string, CellWrite>();
   const results: ItemResult[] = [];
   const put = (row: number, col: number, value: string) => writes.set(`${row}:${col}`, { row, col, value });
-  const current = (row: number, col: number) => (rows[row]?.[col] ?? "").trim();
+  /** マスの今の中身（この計画でもう書くことにしたものがあればそれ） */
+  const current = (row: number, col: number) => writes.get(`${row}:${col}`)?.value ?? (rows[row]?.[col] ?? "").trim();
   const colOf = (date: string) => lay.dayCols.find((d) => d.day === Number(date.slice(8)))?.col;
   const known = (text: string) => opts.knownVenueKeys.has(venueKey(text));
   const same = (a: string, b: string) => venueKey(a) === venueKey(b);
@@ -160,29 +164,47 @@ export function planCellWrites(rows: string[][], lay: SheetLayout, items: WriteI
       if (it.kind === "staff_day") {
         const cur = current(block.placeRow, col);
         const want = it.venues.join("・");
+        const notes: string[] = [];
+        let status: ItemResult["status"] = "done";
         if (!it.venues.length) {
-          if (!cur) results.push({ id: it.id, status: "done", message: `${who} ${md(it.date)}: 変更なし` });
-          else if (!known(cur)) results.push({ id: it.id, status: "skipped", message: `${who} ${md(it.date)}: シートの「${cur}」は CRM の会場と合わないので触りません` });
-          else {
+          if (cur && !known(cur)) {
+            status = "skipped";
+            notes.push(`シートの「${cur}」は CRM の会場と合わないので触りません`);
+          } else if (cur) {
             put(block.placeRow, col, "");
-            results.push({ id: it.id, status: "done", message: `${who} ${md(it.date)}: 場所「${cur}」を消しました` });
+            notes.push(`場所「${cur}」を消しました`);
           }
-          continue;
+        } else if (cur && it.venues.some((v) => same(v, cur))) {
+          // 場所はもう書いてある
+        } else if (cur && !known(cur)) {
+          status = "skipped";
+          notes.push(`シートの「${cur}」は CRM の会場と合わないので触りません`);
+        } else {
+          put(block.placeRow, col, want);
+          notes.push(`場所に「${want}」を書きました`);
         }
-        if (cur && it.venues.some((v) => same(v, cur))) {
-          results.push({ id: it.id, status: "done", message: `${who} ${md(it.date)}: 変更なし（${cur}）` });
-          continue;
+        // シフトの印: 確定なら ⭐️（空欄か ○△× のときだけ書く。読めない印は触らない）、確定が外れたら ⭐️ → ⭕️（出られる日だったので）
+        if (status !== "skipped") {
+          const shiftRaw = current(block.shiftRow, col);
+          if (it.venues.length) {
+            if (!isConfirmedMark(shiftRaw) && (!shiftRaw || parseShift(shiftRaw))) {
+              put(block.shiftRow, col, opts.symbols.confirmed);
+              notes.push(`シフトに「${opts.symbols.confirmed}」を書きました`);
+            }
+          } else if (isConfirmedMark(shiftRaw)) {
+            put(block.shiftRow, col, opts.symbols.ok);
+            notes.push(`シフトの「${shiftRaw}」を「${opts.symbols.ok}」に戻しました`);
+          }
         }
-        if (cur && !known(cur)) {
-          results.push({ id: it.id, status: "skipped", message: `${who} ${md(it.date)}: シートの「${cur}」は CRM の会場と合わないので触りません` });
-          continue;
-        }
-        put(block.placeRow, col, want);
-        results.push({ id: it.id, status: "done", message: `${who} ${md(it.date)}: 場所に「${want}」を書きました` });
+        results.push({ id: it.id, status, message: `${who} ${md(it.date)}: ${notes.length ? notes.join("、") : `変更なし${cur ? `（${cur}）` : ""}`}` });
         continue;
       }
       // availability
       const curRaw = current(block.shiftRow, col);
+      if (isConfirmedMark(curRaw) && it.status && it.status !== "ok") {
+        results.push({ id: it.id, status: "skipped", message: `${who} ${md(it.date)}: シートの「${curRaw}」は確定の印なので触りません` });
+        continue;
+      }
       const cur = parseShift(curRaw);
       if (!it.status) {
         results.push({ id: it.id, status: cur ? "skipped" : "done", message: cur ? `${who} ${md(it.date)}: CRM に○△×がないので、シートの「${curRaw}」はそのままにします` : `${who} ${md(it.date)}: 変更なし` });

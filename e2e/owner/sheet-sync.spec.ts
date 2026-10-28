@@ -41,7 +41,8 @@ function csvRows(): string[][] {
     row(["", "", "", "人数"], { [lastDay]: "2" }),
     row(["A", staff.name, "大宮", "単価"]),
     row(["", "", "", "場所"], { [lastDay]: venueName }),
-    row(["", "", "", "シフト"], { [lastDay - 1]: "⭕️" }),
+    // 確定した日は ⭐️（出られる日として読む。読めない印にしない）
+    row(["", "", "", "シフト"], { [lastDay - 1]: "⭕️", [lastDay]: "⭐️" }),
     row(["B", unknownStaff, "", "単価"]),
     row(["", "", "", "場所"], { [lastDay]: venueName }),
     row(["", "", "", "シフト"]),
@@ -101,8 +102,9 @@ test("オーナーが読む元を決めて「今すぐ読む」と、現場・�
   await expect(page.getByText("自動で読むのを止めました")).toBeVisible();
 
   await panel.getByRole("button", { name: "今すぐ読む" }).click();
-  await expect(panel.getByRole("status")).toContainText(`${tab}: 現場 +1・人 +1・○△× 1`, { timeout: 20_000 });
+  await expect(panel.getByRole("status")).toContainText(`${tab}: 現場 +1・人 +1・○△× 2`, { timeout: 20_000 });
   await expect(panel.getByRole("status")).toContainText("合わない名前 2件");
+  await expect(panel).not.toContainText("読めないので取り込みません");
   const unmatched = page.getByTestId("sheet-sync-unmatched");
   await expect(unmatched).toContainText(unknownStaff);
   // 名字だけの行には、名簿の人が「候補」として先に選ばれている（Phase 20）
@@ -121,7 +123,7 @@ test("オーナーが読む元を決めて「今すぐ読む」と、現場・�
   );
   expect(ev.required).toBe(2);
   expect(ev.confirmed).toBe(1);
-  expect(ev.ok).toBe(1);
+  expect(ev.ok).toBe(2);
   expect(ev.rate).toBe(20000);
 
   // 候補どおりにまとめて決める（候補があるのは名字だけの行の1件）

@@ -71,7 +71,7 @@ Phase 0 で決めた要件からの変更・追加は `docs/phase0-questions.md`
 - 秘密キーで書くが、やるのはこの取り込みだけ。**名簿にない人・ない会場・取引先は自動で作らない**（`sheet_name_aliases` で対応づけてから）。シートから消えたものを外すのは、台帳（`sheet_sync_items`）にあるもののうち、今日以降・報告や実績のないものだけ。本人が出した稼働可能日（`source = self`）は上書きしない。
 - 近い名前の候補（`src/lib/import/name-match.ts`。名字だけ・ふりがな・「株式会社」や「DS」の有無。Phase 20）は、画面の「合わない名前」と月の稼働表の取り込みで**先に選んでおくだけ**。自動の読み取りで候補を使って入れない（決めるのはオーナー）。2人以上に合うときは候補を出さない。
 - Google の設定がなくても、リンク共有のシートを CSV（`gviz/tq?tqx=out:csv`）で読める。テストは偽のスプレッドシート（`e2e/mock-sheets.mjs`、`GOOGLE_DOCS_BASE`）に向ける。結果は `sheet_syncs` に残す（金額は入れない）。
-- **書き戻し**（`src/lib/sheet-writeback.ts`。Phase 19）: 予定・現場・必要人数・○△× の変更は DB のトリガーが待ち行列 `sheet_writes` に印を付け、2分ごとの定期実行（`/api/cron/sheet-writeback`）が CRM の今の状態を読み直して、手で作っているタブの「場所・シフト・現場・人数」のマスだけに、違うときだけ書く（`sheet-writeback-plan.ts`。純粋な関数でテストする）。**単価の行は書かない・合わない名前のマスは触らない・○△× は消さない**。行を足すのは設定 `sheet_sync.add_rows` がオンのときだけ（Phase 20。その段のいちばん下に3行の組。書式と右側の計算式はすぐ上の組を写す `planNewBlock` / `copiedFormulas`。似た名前の行があるときは足さない）。シートの位置の読み方は `layoutMonthSheet()` を読み取りと共通にする。
+- **書き戻し**（`src/lib/sheet-writeback.ts`。Phase 19）: 予定・現場・必要人数・○△× の変更は DB のトリガーが待ち行列 `sheet_writes` に印を付け、2分ごとの定期実行（`/api/cron/sheet-writeback`）が CRM の今の状態を読み直して、手で作っているタブの「場所・シフト・現場・人数」のマスだけに、違うときだけ書く（`sheet-writeback-plan.ts`。純粋な関数でテストする）。**単価の行は書かない・合わない名前のマスは触らない・○△× は消さない**。シフトの ⭐️（確定の印）は、確定したら「場所」と一緒に書き、確定が外れたら ⭕️ に戻す。○△× の書き戻しで ⭐️ を上書きしない（読むときは ⭐️ = ○）。行を足すのは設定 `sheet_sync.add_rows` がオンのときだけ（Phase 20。その段のいちばん下に3行の組。書式と右側の計算式はすぐ上の組を写す `planNewBlock` / `copiedFormulas`。似た名前の行があるときは足さない）。シートの位置の読み方は `layoutMonthSheet()` を読み取りと共通にする。
 
 ## 案件（`src/lib/jobs`・`/jobs`。Phase 21）
 
