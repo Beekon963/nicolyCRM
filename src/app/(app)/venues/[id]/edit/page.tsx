@@ -22,6 +22,7 @@ export default async function EditVenuePage({ params }: PageProps<"/venues/[id]/
         initial={{
           id: v.id,
           name: v.name,
+          short_name: v.short_name,
           kana: v.kana,
           address: v.address,
           nearest_station: v.nearest_station,

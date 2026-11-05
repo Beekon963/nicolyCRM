@@ -10,6 +10,8 @@ import { VENUE_COLOR_KEYS } from "@/lib/venue-colors";
 const schema = z.object({
   id: z.uuid().optional(),
   name: z.string().trim().min(1, "会場名を入力してください"),
+  /** 稼働表のチップに出す場所の短い名前（例: 村山）。空なら会場名の先頭を使う */
+  short_name: z.string().trim().max(20, "場所の短い名前は20文字までです").default(""),
   kana: z.string().trim(),
   address: z.string().trim(),
   nearest_station: z.string().trim(),

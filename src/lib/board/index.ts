@@ -21,6 +21,9 @@ export type BoardEvent = {
   venue_name: string;
   /** 会場の色（src/lib/venue-colors.ts のキー） */
   venue_color?: string;
+  /** 稼働表のチップに出す短い名前の元（Phase 22）: 会場の「場所の短い名前」と取引先の「扱うキャリア」。見るだけリンクでは空 */
+  venue_short?: string;
+  carrier?: string;
   required_total: number;
   confirmed_total: number;
   shortage_total: number;
@@ -76,6 +79,10 @@ export type BoardEventChip = {
   venueId: string;
   venueName: string;
   venueColor: string;
+  /** 場所の短い名前（空なら会場名から作る。src/lib/board/short-name.ts） */
+  venueShort: string;
+  /** 取引先の扱うキャリア（空 = 未設定） */
+  carrier: string;
   required: number;
   confirmed: number;
   shortage: number;
@@ -92,6 +99,8 @@ export type BoardStaffAssignment = {
   venueId: string;
   venueName: string;
   venueColor: string;
+  venueShort: string;
+  carrier: string;
   clientName: string;
   status: BoardAssignmentStatus;
 };
@@ -155,6 +164,8 @@ export function buildBoard(input: BoardInput): Board {
       venueId: e.venue_id,
       venueName: e.venue_name,
       venueColor: e.venue_color ?? "",
+      venueShort: e.venue_short ?? "",
+      carrier: e.carrier ?? "",
       required: e.required_total,
       confirmed: e.confirmed_total,
       shortage: e.cancelled ? 0 : e.shortage_total,
@@ -174,7 +185,18 @@ export function buildBoard(input: BoardInput): Board {
     const key = `${a.staff_id}|${e.date}`;
     asgByStaffDate.set(key, [
       ...(asgByStaffDate.get(key) ?? []),
-      { id: a.id, eventId: e.id, roleId: a.role_id, venueId: e.venue_id, venueName: e.venue_name, venueColor: e.venue_color ?? "", clientName: e.client_name, status: a.status },
+      {
+        id: a.id,
+        eventId: e.id,
+        roleId: a.role_id,
+        venueId: e.venue_id,
+        venueName: e.venue_name,
+        venueColor: e.venue_color ?? "",
+        venueShort: e.venue_short ?? "",
+        carrier: e.carrier ?? "",
+        clientName: e.client_name,
+        status: a.status,
+      },
     ]);
   }
   const staff = [...input.staff]

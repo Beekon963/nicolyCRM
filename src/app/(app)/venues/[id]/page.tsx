@@ -53,6 +53,7 @@ export default async function VenueDetailPage({ params, searchParams }: PageProp
                 )}
               </Field>
               <Field label="最寄り駅">{venue.nearest_station}</Field>
+              <Field label="稼働表の短い名前">{venue.short_name || <span className="text-muted-foreground">（空。会場名の先頭を使います）</span>}</Field>
               <Field label="色">
                 <span className="inline-flex items-center gap-2">
                   <VenueColorDot color={venue.color} />

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { CARRIERS } from "@/lib/carriers";
 import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
 import { assertMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -10,6 +11,8 @@ const companySchema = z.object({
   id: z.uuid().optional(),
   kind: z.enum(["client", "partner"]),
   name: z.string().trim().min(1, "会社名を入力してください"),
+  /** 扱うキャリア（取引先のとき。稼働表のチップの前半「docomo 村山」に使う。空 = 未設定） */
+  carrier: z.union([z.enum(CARRIERS), z.literal("")]).default(""),
   kana: z.string().trim(),
   phone: z.string().trim(),
   address: z.string().trim(),

@@ -180,6 +180,7 @@ erDiagram
   venues {
     uuid id PK
     text name
+    text short_name "稼働表のチップに出す場所の短い名前（Phase 22）"
     text address
     text nearest_station
     text prefecture
@@ -217,6 +218,7 @@ erDiagram
     uuid id PK
     enum kind "取引先/協力会社"
     text name
+    text carrier "扱うキャリア docomo/au/softbank/rakuten/other（Phase 22）"
     text kana
     text name_key "重複判定用（株式会社などを除いた名前）"
     text phone
@@ -567,6 +569,7 @@ erDiagram
 | 対象 | 内容 |
 |---|---|
 | `event_groups`（案件） | まとめて作った現場のまとまりを「案件」として育てた（`20261024000001_jobs.sql`）。取引先（`client_id`。「取引先」の会社だけ。トリガーで確かめる）・受けた日・稼働時間（`start_time` / `end_time` と書き方のまま `hours_note`）・備考・取引先の担当者・貼った文（`source_text`）・エントリー期限（`entry_deadline`。取引先に返事をする期限。`20261025000001_jobs_deadline_rate_note.sql`）・終わった日時（`closed_at`）。現場は `events.group_id` でぶら下がる |
+| `companies.carrier` / `venues.short_name` | 稼働表のチップに出す短い名前「docomo 村山」の元（`20261105000001_board_short_names.sql`。Phase 22）。取引先の扱うキャリア（空・docomo・au・softbank・rakuten・other の check）と、会場の場所の短い名前（20文字まで）。金額ではないので管理者も読める。見るだけリンク（`board_json()`）には足していない |
 | `event_group_private` | ★ 案件の単価（請求の人日単価・交通費込）と単価のまわりの文（`rate_note`。「弱 30,000円 / 一律 24,000円」のような金額の行をそのまま。`20261025000001_jobs_deadline_rate_note.sql`）。オーナーだけが読める・入れる。案件から現場を作るときに現場の `event_rates`（人日）にも同じ額を入れる。変更履歴に残す |
 | `group_candidates` | 案件 × スタッフ の段階（`candidate_stage`: 候補 → 本人OK → スキルシート提出済 → 候補日あり → 候補日送付済 → 面談日時共有済 → 面談済 → 合格 → 現場詳細展開済 ／ 不合格 ／ 辞退・取り下げ）。本人からの候補日時（文のまま）・面談の日時とリンク・合否のメモ。段階を変えると `stage_changed_at` が実際の時刻になる（トリガー）。オーナー・管理者が読める・入れる・直す・消す。変更履歴に残す（`audit_trigger('id')`） |
 | 読み方 | 段階の意味・だれの番か・色は `src/lib/jobs/stages.ts`、LINE に貼る文は `src/lib/jobs/messages.ts`、文の読み取りは `src/lib/jobs/parse.ts`、画面用のまとめは `src/lib/data/jobs.ts`。合格 → その案件の打診中・補欠の予定を確定（`setAssignmentStatus`。確定連絡・シートの書き戻しは今までの仕組み）、不合格・辞退 → 辞退 |

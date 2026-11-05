@@ -19,7 +19,7 @@ export async function loadBoard(month: string) {
       supabase
         .from("event_overview")
         .select(
-          "id, date, start_time, end_time, meeting_time, meeting_place, belongings, client_id, venue_id, cancelled_at, required_total, confirmed_total, shortage_total, offered_count, by_role, venue:venues(id, name, address, color), client:companies(id, name)",
+          "id, date, start_time, end_time, meeting_time, meeting_place, belongings, client_id, venue_id, cancelled_at, required_total, confirmed_total, shortage_total, offered_count, by_role, venue:venues(id, name, address, color, short_name), client:companies(id, name, carrier)",
         )
         .gte("date", start)
         .lte("date", end)
@@ -73,6 +73,8 @@ export async function loadBoard(month: string) {
       venue_id: e.venue_id!,
       venue_name: e.venue?.name ?? "",
       venue_color: e.venue?.color ?? "",
+      venue_short: e.venue?.short_name ?? "",
+      carrier: e.client?.carrier ?? "",
       required_total: e.required_total ?? 0,
       confirmed_total: e.confirmed_total ?? 0,
       shortage_total: e.shortage_total ?? 0,
@@ -114,6 +116,8 @@ export async function loadBoard(month: string) {
           clientName: e.client?.name ?? "",
           venueName: e.venue?.name ?? "",
           venueColor: e.venue?.color ?? "",
+          venueShort: e.venue?.short_name ?? "",
+          carrier: e.client?.carrier ?? "",
           cancelled: e.cancelled_at != null,
           shortage: e.shortage_total ?? 0,
           byRole: (e.by_role ?? {}) as Record<string, { required: number; confirmed: number; shortage: number }>,
