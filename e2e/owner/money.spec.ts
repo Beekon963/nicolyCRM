@@ -68,6 +68,19 @@ test("稼働表: オーナーには右端に売上・報酬の列と、その月
   await expect(page.getByRole("cell", { name: /^[\d,]+円$/ }).first()).toBeAttached();
   // マスの中に単価（今のシートの「単価」の行と同じ情報）
   await expect(page.getByText(/^¥[\d,]+(〜[\d,]+)?$/).first()).toBeAttached();
+  // 週のマスを押したシートには、現場の単価（と確定した人の日当）が1行出る（Phase 22。マスのチップには出さない）
+  await page.goto("/events/board?tab=week");
+  await page.getByTestId("board-week").waitFor();
+  await expect(page.locator('[data-testid="board-week"]').getByText(/円/)).toHaveCount(0);
+  let chip = page.locator('[data-testid="board-week"] [data-chip="confirmed"]').first();
+  for (let i = 0; i < 5 && (await chip.count()) === 0; i++) {
+    await page.getByRole("button", { name: "次の週" }).click();
+    await page.getByTestId("board-week").waitFor();
+    chip = page.locator('[data-testid="board-week"] [data-chip="confirmed"]').first();
+  }
+  await chip.locator("xpath=ancestor::button[1]").click();
+  await expect(page.getByRole("dialog").getByTestId("sheet-rate").first()).toContainText(/単価 [\d,]+(〜[\d,]+)?円/);
+  await page.keyboard.press("Escape");
 });
 
 test("管理者はお金の画面を開けず、ホームにも今月の数字が出ない", async ({ browser }) => {

@@ -109,12 +109,14 @@ export function BoardScreen({
   data,
   money,
   initialDay,
+  initialTab,
 }: {
   data: BoardPageData;
   money?: BoardMoney;
-  /** 日ビューで最初に出す日（?date=。この月の中） */ initialDay?:
-    | string
-    | null;
+  /** 日ビューで最初に出す日（?date=。この月の中） */
+  initialDay?: string | null;
+  /** 最初に出すタブ（?tab=。タブを押したら端末に覚えた設定に戻る） */
+  initialTab?: BoardTab | null;
 }) {
   const router = useRouter();
   const [sel, setSel] = useState<Sel>(null);
@@ -131,10 +133,12 @@ export function BoardScreen({
   const [tabPref, setTabPref] = useLocalPref("nicoly.board.tab", rawPref);
   const [legacyView] = useLocalPref("nicoly.board.view", rawPref);
   const phone = useIsPhone();
-  const tab: BoardTab | null =
-    tabFromPrefs(tabPref, legacyView) ??
-    (phone == null ? null : phone ? "day" : "week");
-  const setTab = (t: BoardTab) => setTabPref(t);
+  const [tabOverride, setTabOverride] = useState<BoardTab | null>(initialTab ?? null);
+  const tab: BoardTab | null = tabOverride ?? tabFromPrefs(tabPref, legacyView) ?? (phone == null ? null : phone ? "day" : "week");
+  const setTab = (t: BoardTab) => {
+    setTabOverride(null);
+    setTabPref(t);
+  };
   // 日・週・月の絞り込み（現場未定だけ・現場別・名前）と、見ている週
   const [staffFilter, setStaffFilter] = useState<StaffFilter>(NO_STAFF_FILTER);
   const [weekStart, setWeekStart] = useState<DateString | null>(null);
