@@ -1,9 +1,12 @@
 "use client";
 
-import { AlertTriangleIcon } from "lucide-react";
+import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
+import { BoardTabs, StaffFilterBar } from "@/components/app/board/board-tabs";
+import { ChipLegend } from "@/components/app/board/staff-chip";
+import { WeekGrid } from "@/components/app/board/week-grid";
 import { BoardGauge, BoardGrid, BoardLegend, type BoardMoney } from "@/components/app/board-grid";
 import { MessageDialog, type Recipient } from "@/components/app/message-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +15,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from "@/components/ui/toaster";
 import { type BoardStaffAssignment, type BoardStaffRow, isDropped } from "@/lib/board";
 import { type AvailabilityChange, applyAvailability, reverseChanges } from "@/lib/board/grid";
-import { type BoardFilters, filterBoard, filterCounts, NO_FILTERS } from "@/lib/board/view";
+import { type BoardFilters, filterBoard, filterCounts, NO_FILTERS, venuesOf } from "@/lib/board/view";
+import { type BoardTab, filterStaff, initialWeek, NO_STAFF_FILTER, type StaffFilter, tabFromPrefs, unassignedCount, weekDates } from "@/lib/board/views";
 import { useIsPhone, useLocalPref } from "@/hooks/use-local-pref";
-import { formatShortJa } from "@/lib/date";
+import { addDays, type DateString, formatShortJa } from "@/lib/date";
 import type { BoardEventInfo, BoardPageData } from "@/lib/data/board";
 import { AVAILABILITY } from "@/lib/labels";
+import { chipLabel } from "@/lib/board/short-name";
 import { buildMessage } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { removeOffer } from "../actions";
@@ -32,7 +37,7 @@ const parseFilters = (raw: string | null): BoardFilters => {
     return NO_FILTERS;
   }
 };
-const parseView = (raw: string | null): BoardView | null => (raw === '"list"' ? "list" : raw === '"table"' ? "table" : null);
+const rawPref = (raw: string | null) => raw;
 
 type Sel = { staffId: string; date: string } | { clientId: string; date: string } | null;
 
@@ -45,13 +50,23 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
   const [shown, showChanges] = useOptimistic(board, applyAvailability);
   const [, startSave] = useTransition();
   const [filters, setFilters] = useLocalPref("nicoly.board.filters", parseFilters);
-  const [savedView, setView] = useLocalPref("nicoly.board.view", parseView);
+  // 見せ方のタブ（日・週・月・表。Phase 22）。古い「リスト／表」の設定も読む。選んでいなければ、スマホは日、PC は週
+  const [tabPref, setTabPref] = useLocalPref("nicoly.board.tab", rawPref);
+  const [legacyView] = useLocalPref("nicoly.board.view", rawPref);
   const phone = useIsPhone();
-  // 選んでいなければ、スマホは日ごとのリスト、PC は表（画面の幅が分かるまでは骨組み）
-  const view: BoardView | null = savedView ?? (phone == null ? null : phone ? "list" : "table");
+  const tab: BoardTab | null = tabFromPrefs(tabPref, legacyView) ?? (phone == null ? null : phone ? "day" : "week");
+  const setTab = (t: BoardTab) => setTabPref(t);
+  // 日・週・月の絞り込み（現場未定だけ・現場別・名前）と、見ている週
+  const [staffFilter, setStaffFilter] = useState<StaffFilter>(NO_STAFF_FILTER);
+  const [weekStart, setWeekStart] = useState<DateString | null>(null);
+  const week = weekStart ? weekDates(weekStart) : initialWeek(shown);
+  const monthFirst = shown.days[0]?.date;
+  const monthLast = shown.days.at(-1)?.date;
+  const weekRows = filterStaff(shown.staff, staffFilter, week);
+  const view: BoardView | null = tab == null ? null : tab === "day" ? "list" : "table";
   const counts = filterCounts(shown, filters);
   const visible = filterBoard(shown, view === "list" ? { ...filters, freeOnly: false, fromToday: false } : filters);
-  const filterBar = view && <BoardFilterBar filters={filters} setFilters={setFilters} counts={counts} view={view} setView={setView} />;
+  const filterBar = view && <BoardFilterBar filters={filters} setFilters={setFilters} counts={counts} view={view} />;
   // 絞り込んだ結果、何もないとき（次に何をすればいいかを出す）
   const emptyNote =
     view === "table" && filters.shortageOnly && counts.shortage === 0 ? (
@@ -96,15 +111,39 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
               この月に出せるスタッフがいません（稼働表に出るのは「稼働中」の人と、この月に予定がある人です）。「データ取り込み」でスタッフ名簿を取り込むか、「スタッフ」の画面で状態を「すべて」にして、休止・終了になっていないか確かめてください。
             </p>
           )}
-          {view == null ? (
+          {tab && <BoardTabs tab={tab} setTab={setTab} />}
+          {tab == null ? (
             // 画面の幅が分かるまでの骨組み（一瞬だけ）
             <div aria-hidden className="mx-4 h-64 rounded-xl bg-muted motion-safe:animate-pulse" />
-          ) : view === "list" ? (
+          ) : tab === "day" ? (
             <>
               <BoardGauge board={shown} />
               {filterBar}
               <BoardDayList board={visible} filters={filters} onStaffDay={(staffId, date) => setSel({ staffId, date })} />
             </>
+          ) : tab === "week" ? (
+            <>
+              <StaffFilterBar filter={staffFilter} setFilter={setStaffFilter} venues={venuesOf(shown)} unassigned={unassignedCount(shown.staff, week)} />
+              <div className="flex items-center justify-between px-4 pb-2">
+                <Button variant="ghost" size="sm" disabled={!monthFirst || week[0] <= monthFirst} onClick={() => setWeekStart(addDays(week[0], -7))}>
+                  <ChevronLeftIcon />
+                  前の週
+                </Button>
+                <span className="text-sm font-semibold tabular-nums">
+                  {formatShortJa(week[0])}〜{formatShortJa(week[6])}
+                </span>
+                <Button variant="ghost" size="sm" disabled={!monthLast || week[6] >= monthLast} onClick={() => setWeekStart(addDays(week[0], 7))}>
+                  次の週
+                  <ChevronRightIcon />
+                </Button>
+              </div>
+              <WeekGrid board={shown} dates={week} rows={weekRows} onCell={(staffId, date) => setSel({ staffId, date })} />
+              <ChipLegend />
+            </>
+          ) : tab === "month" ? (
+            <div className="mx-4 rounded-2xl border border-dashed p-6 text-center text-muted-foreground" data-testid="board-month-placeholder">
+              月ビュー（稼働日数のヒートマップと人別の合計）は、このあとのステップで作ります。
+            </div>
           ) : (
             <BoardGrid
               board={visible}
@@ -125,7 +164,7 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
           )}
         </>
       )}
-      {view === "table" && <BoardLegend admin />}
+      {tab === "table" && <BoardLegend admin />}
 
       <Dialog open={!!staffRow} onOpenChange={(o) => !o && setSel(null)}>
         <DialogContent side="bottom" className="max-h-[85dvh] overflow-y-auto md:top-1/2 md:bottom-auto md:left-1/2 md:max-w-xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-lg">
@@ -135,6 +174,7 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
               row={staffRow}
               date={sel.date}
               data={data}
+              money={money}
               onOffered={(r) => {
                 setSel(null);
                 setSent([r]);
@@ -179,7 +219,7 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
 }
 
 /** スタッフ × 日付のマスを押したとき: 稼働可能日の入力と、その日の現場への打診・確定 */
-function StaffDay({ row, date, data, onOffered }: { row: BoardStaffRow; date: string; data: BoardPageData; onOffered: (r: Recipient) => void }) {
+function StaffDay({ row, date, data, money, onOffered }: { row: BoardStaffRow; date: string; data: BoardPageData; money?: BoardMoney; onOffered: (r: Recipient) => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   // ダイアログを開いている間はトーストが押せないので、「元に戻す」はダイアログの中に出す
@@ -272,6 +312,7 @@ function StaffDay({ row, date, data, onOffered }: { row: BoardStaffRow; date: st
                 date={date}
                 assignment={cell?.assignments.find((a) => a.eventId === e.id)}
                 data={data}
+                money={money}
                 pending={pending}
                 start={start}
                 notify={notify}
@@ -295,6 +336,7 @@ function EventRow({
   date,
   assignment,
   data,
+  money,
   pending,
   start,
   notify,
@@ -306,6 +348,8 @@ function EventRow({
   date: string;
   assignment: BoardStaffAssignment | undefined;
   data: BoardPageData;
+  /** ★ オーナーだけ: この現場の人日単価と、確定した人の日当（マスには出さず、ここにだけ出す） */
+  money?: BoardMoney;
   pending: boolean;
   start: (fn: () => Promise<void>) => void;
   notify: (text: string | undefined, undo?: () => Promise<unknown>) => void;
@@ -369,7 +413,17 @@ function EventRow({
           <Link href={`/events/${e.id}`} className="block truncate font-medium hover:underline">
             {e.venueName}
           </Link>
-          <span className="block truncate text-sm text-muted-foreground">{e.clientName}</span>
+          <span className="block truncate text-sm text-muted-foreground">
+            {e.clientName}
+            <span className="ml-2 rounded bg-muted px-1 text-xs">{chipLabel(e)}</span>
+          </span>
+          {money && (money.eventRate[e.id] || (assignment?.status === "confirmed" && money.daily[assignment.id])) && (
+            <span className="block text-sm text-muted-foreground" data-testid="sheet-rate">
+              {money.eventRate[e.id] && `単価 ${money.eventRate[e.id]}円`}
+              {money.eventRate[e.id] && assignment?.status === "confirmed" && money.daily[assignment.id] ? "・" : ""}
+              {assignment?.status === "confirmed" && money.daily[assignment.id] ? `日当 ${money.daily[assignment.id].toLocaleString("ja-JP")}円` : ""}
+            </span>
+          )}
         </span>
         {e.shortage > 0 ? <Badge tone="alert">欠員{e.shortage}</Badge> : <Badge tone="done">埋まっている</Badge>}
       </div>

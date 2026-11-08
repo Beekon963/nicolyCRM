@@ -110,6 +110,8 @@ export type BoardStaffCell = { assignments: BoardStaffAssignment[]; availability
 export type BoardStaffRow = {
   id: string;
   name: string;
+  /** ふりがな（名前で探すとき用。Phase 22） */
+  kana: string;
   rankName: string | null;
   station: string;
   cells: Record<string, BoardStaffCell>;
@@ -209,7 +211,7 @@ export function buildBoard(input: BoardInput): Board {
         if (asg.some((a) => a.status === "confirmed")) workedDays++;
         cells[d.date] = { assignments: asg, availability: availability.get(`${s.id}|${d.date}`) ?? null };
       }
-      return { id: s.id, name: s.name, rankName: s.rank_name, station: s.nearest_station, cells, workedDays };
+      return { id: s.id, name: s.name, kana: s.kana, rankName: s.rank_name, station: s.nearest_station, cells, workedDays };
     });
 
   const live = events.filter((e) => !e.cancelled);

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, ListIcon, Table2Icon } from "lucide-react";
+import { AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { SeatBar, ThinBar } from "@/components/app/seat-bar";
@@ -46,22 +46,11 @@ const Count = ({ n, tone }: { n: number; tone: "alert" | "done" | "muted" }) => 
 );
 
 /**
- * 稼働表の上の絞り込み（Phase 10）: 欠員の現場だけ・○で空いている人だけ・今日から。リストと表の切りかえ。
- * リストは今日から並び、○で空いている人も日ごとに出るので、リストのときは「欠員の現場だけ」だけ出す
+ * 今までの表（「表」タブ）と日のリストの絞り込み（Phase 10）: 欠員の現場だけ・○で空いている人だけ・今日から。
+ * リストは今日から並び、○で空いている人も日ごとに出るので、リストのときは「欠員の現場だけ」だけ出す。
+ * 見せ方の切りかえは上のタブ（日・週・月・表。Phase 22）に移した
  */
-export function BoardFilterBar({
-  filters,
-  setFilters,
-  counts,
-  view,
-  setView,
-}: {
-  filters: BoardFilters;
-  setFilters: (f: BoardFilters) => void;
-  counts: { shortage: number; free: number; past: number };
-  view: BoardView;
-  setView: (v: BoardView) => void;
-}) {
+export function BoardFilterBar({ filters, setFilters, counts, view }: { filters: BoardFilters; setFilters: (f: BoardFilters) => void; counts: { shortage: number; free: number; past: number }; view: BoardView }) {
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-2" role="group" aria-label="絞り込み">
       <Toggle on={filters.shortageOnly} label={`欠員の現場だけ ${counts.shortage}件`} onClick={() => setFilters({ ...filters, shortageOnly: !filters.shortageOnly })}>
@@ -85,28 +74,6 @@ export function BoardFilterBar({
           <span className="text-xs font-normal text-muted-foreground max-md:hidden">（過ぎた{counts.past}日を隠す）</span>
         </Toggle>
       )}
-      <div className="ml-auto flex rounded-full border bg-muted p-0.5" role="group" aria-label="見せ方">
-        {(
-          [
-            ["list", "リスト", ListIcon],
-            ["table", "表", Table2Icon],
-          ] as const
-        ).map(([v, label, Icon]) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={view === v}
-            onClick={() => setView(v)}
-            className={cn(
-              "inline-flex min-h-10 items-center gap-1 rounded-full px-3 text-sm font-semibold",
-              view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Icon aria-hidden className="size-4" />
-            {label}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

@@ -19,6 +19,8 @@ export default defineConfig({
     locale: "ja-JP",
     timezoneId: "Asia/Tokyo",
     trace: "retain-on-failure",
+    // 入っている Chromium の版が Playwright の期待と違う環境（開発用のクラウドなど）では、その実行ファイルを指定して使う
+    ...(process.env.PW_CHROMIUM_PATH ? { launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } } : {}),
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },

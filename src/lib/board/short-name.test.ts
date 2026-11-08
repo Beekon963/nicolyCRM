@@ -7,6 +7,9 @@ describe("稼働表の短い名前", () => {
     expect(autoShortName("イオンモール架空村山")).toBe("架空村山");
     expect(autoShortName("ヨドバシカメラ 架空北店")).toBe("架空北店");
     expect(autoShortName("コジマ×ビックカメラ 架空店")).toBe("架空店");
+    // 「ショッピングモール○○」は場所だけ（同じ「ショッピング」が並ばないように）
+    expect(autoShortName("ショッピングモール架空府中")).toBe("架空府中");
+    expect(autoShortName("ショッピングセンター架空北")).toBe("架空北");
     expect(autoShortName("架空店")).toBe("架空店");
     // 8文字より長いときは先頭6文字
     expect(autoShortName("架空エリア外販テレアポ拠点")).toBe("架空エリア外");
