@@ -1,5 +1,6 @@
 "use server";
 
+import { parseCarrier } from "@/lib/carriers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/action-result";
@@ -105,6 +106,7 @@ export async function runImport(target: ImportTarget, rows: Record<string, strin
       } else if (t.data === "venue") {
         const values = {
           name: v.name,
+          ...(v.short_name !== undefined && { short_name: v.short_name.slice(0, 20) }),
           ...(v.kana !== undefined && { kana: v.kana }),
           ...(v.address !== undefined && { address: v.address }),
           ...(v.nearest_station !== undefined && { nearest_station: v.nearest_station }),
@@ -120,6 +122,7 @@ export async function runImport(target: ImportTarget, rows: Record<string, strin
       } else {
         const values = {
           name: v.name,
+          ...(v.carrier !== undefined && { carrier: parseCarrier(v.carrier) }),
           ...(v.kana !== undefined && { kana: v.kana }),
           ...(v.phone !== undefined && { phone: v.phone }),
           ...(v.address !== undefined && { address: v.address }),

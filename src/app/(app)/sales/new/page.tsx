@@ -18,6 +18,7 @@ export default async function NewCompanyPage({ searchParams }: PageProps<"/sales
         initial={{
           kind,
           name: "",
+          carrier: "",
           kana: "",
           phone: "",
           address: "",

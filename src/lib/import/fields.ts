@@ -55,6 +55,7 @@ export const TARGETS: Record<ImportTarget, { label: string; fields: FieldDef[]; 
     dupHelp: "会社名が同じ（「株式会社」「(株)」などの違いは無視）会社を重複候補として出します",
     fields: [
       { key: "name", label: "会社名", required: true, aliases: ["会社名", "取引先", "取引先名", "社名", "name"] },
+      { key: "carrier", label: "扱うキャリア", aliases: ["キャリア", "扱うキャリア"], help: "docomo / au / SoftBank / 楽天 / その他（稼働表のチップに付きます）" },
       { key: "kana", label: "かな", aliases: ["かな", "カナ", "フリガナ"] },
       { key: "phone", label: "電話", aliases: ["電話", "電話番号", "TEL"] },
       { key: "address", label: "住所", aliases: ["住所", "所在地"] },
@@ -71,6 +72,7 @@ export const TARGETS: Record<ImportTarget, { label: string; fields: FieldDef[]; 
     dupHelp: "会場名が同じ会場を重複候補として出します",
     fields: [
       { key: "name", label: "会場名", required: true, aliases: ["会場名", "会場", "店舗名", "現場", "name"] },
+      { key: "short_name", label: "場所の短い名前", aliases: ["場所の短い名前", "短い名前", "短縮名", "略称"], help: "稼働表のチップに出す名前（例: 村山）。空なら会場名の先頭を使います" },
       { key: "kana", label: "かな", aliases: ["かな", "カナ", "フリガナ"] },
       { key: "address", label: "住所", aliases: ["住所", "所在地"] },
       { key: "nearest_station", label: "最寄り駅", aliases: ["最寄り駅", "最寄駅", "駅"] },

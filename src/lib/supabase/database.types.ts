@@ -314,13 +314,13 @@ isOneToOne: false
                   ]
                 },"companies": {
                   Row: {
-                    "address": string,"created_at": string,"id": string,"is_active": boolean,"kana": string,"kind": Database["public"]['Enums']["company_kind"],"memo": string,"name": string,"name_key": string | null,"next_action": string,"next_action_date": string | null,"owner_user_id": string | null,"phone": string,"phone_digits": string | null,"priority": Database["public"]['Enums']["priority"],"search_text": string | null,"status": Database["public"]['Enums']["company_status"],"updated_at": string,"website": string
+                    "address": string,"carrier": string,"created_at": string,"id": string,"is_active": boolean,"kana": string,"kind": Database["public"]['Enums']["company_kind"],"memo": string,"name": string,"name_key": string | null,"next_action": string,"next_action_date": string | null,"owner_user_id": string | null,"phone": string,"phone_digits": string | null,"priority": Database["public"]['Enums']["priority"],"search_text": string | null,"status": Database["public"]['Enums']["company_status"],"updated_at": string,"website": string
                   }
                   Insert: {
-                    "address"?: string,"created_at"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"kind": Database["public"]['Enums']["company_kind"],"memo"?: string,"name": string,"name_key"?: never,"next_action"?: string,"next_action_date"?: string | null,"owner_user_id"?: string | null,"phone"?: string,"phone_digits"?: never,"priority"?: Database["public"]['Enums']["priority"],"search_text"?: never,"status"?: Database["public"]['Enums']["company_status"],"updated_at"?: string,"website"?: string
+                    "address"?: string,"carrier"?: string,"created_at"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"kind": Database["public"]['Enums']["company_kind"],"memo"?: string,"name": string,"name_key"?: never,"next_action"?: string,"next_action_date"?: string | null,"owner_user_id"?: string | null,"phone"?: string,"phone_digits"?: never,"priority"?: Database["public"]['Enums']["priority"],"search_text"?: never,"status"?: Database["public"]['Enums']["company_status"],"updated_at"?: string,"website"?: string
                   }
                   Update: {
-                    "address"?: string,"created_at"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"kind"?: Database["public"]['Enums']["company_kind"],"memo"?: string,"name"?: string,"name_key"?: never,"next_action"?: string,"next_action_date"?: string | null,"owner_user_id"?: string | null,"phone"?: string,"phone_digits"?: never,"priority"?: Database["public"]['Enums']["priority"],"search_text"?: never,"status"?: Database["public"]['Enums']["company_status"],"updated_at"?: string,"website"?: string
+                    "address"?: string,"carrier"?: string,"created_at"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"kind"?: Database["public"]['Enums']["company_kind"],"memo"?: string,"name"?: string,"name_key"?: never,"next_action"?: string,"next_action_date"?: string | null,"owner_user_id"?: string | null,"phone"?: string,"phone_digits"?: never,"priority"?: Database["public"]['Enums']["priority"],"search_text"?: never,"status"?: Database["public"]['Enums']["company_status"],"updated_at"?: string,"website"?: string
                   }
                   Relationships: [
                     {
@@ -1342,13 +1342,13 @@ isOneToOne: false
                   ]
                 },"venues": {
                   Row: {
-                    "access_notes": string,"address": string,"area_id": string | null,"color": string,"created_at": string,"green_room": string,"id": string,"is_active": boolean,"kana": string,"memo": string,"name": string,"nearest_station": string,"parking": string,"prefecture": string,"search_text": string | null,"updated_at": string
+                    "access_notes": string,"address": string,"area_id": string | null,"color": string,"created_at": string,"green_room": string,"id": string,"is_active": boolean,"kana": string,"memo": string,"name": string,"nearest_station": string,"parking": string,"prefecture": string,"search_text": string | null,"short_name": string,"updated_at": string
                   }
                   Insert: {
-                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"color"?: string,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name": string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"updated_at"?: string
+                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"color"?: string,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name": string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"short_name"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"color"?: string,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name"?: string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"updated_at"?: string
+                    "access_notes"?: string,"address"?: string,"area_id"?: string | null,"color"?: string,"created_at"?: string,"green_room"?: string,"id"?: string,"is_active"?: boolean,"kana"?: string,"memo"?: string,"name"?: string,"nearest_station"?: string,"parking"?: string,"prefecture"?: string,"search_text"?: never,"short_name"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {

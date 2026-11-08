@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { type ActionResult, dbErrorMessage, fail, ok } from "@/lib/action-result";
+import {
+  type ActionResult,
+  dbErrorMessage,
+  fail,
+  ok,
+} from "@/lib/action-result";
 import { assertMember } from "@/lib/auth";
 import { enqueueConfirmed } from "@/lib/line/notify";
 import { createClient } from "@/lib/supabase/server";
@@ -30,20 +35,36 @@ export async function assignFromBoard(
 ): Promise<ActionResult<{ id: string; previous: LiveStatus | null }>> {
   const me = await assertMember();
   const parsed = z
-    .object({ eventId: z.uuid(), staffId: z.uuid(), roleId: z.uuid(), status: z.enum(["offered", "confirmed"]) })
+    .object({
+      eventId: z.uuid(),
+      staffId: z.uuid(),
+      roleId: z.uuid(),
+      status: z.enum(["offered", "confirmed"]),
+    })
     .safeParse({ eventId, staffId, roleId, status });
   if (!parsed.success) return fail("入力内容を確認してください");
   const supabase = await createClient();
 
-  const { data: cur } = await supabase.from("assignments").select("id, status").eq("event_id", eventId).eq("staff_id", staffId).maybeSingle();
+  const { data: cur } = await supabase
+    .from("assignments")
+    .select("id, status")
+    .eq("event_id", eventId)
+    .eq("staff_id", staffId)
+    .maybeSingle();
   if (cur) {
     if (status === "offered") return fail("すでにこの現場に入っています");
     if (cur.status === "confirmed") return fail("すでに確定しています");
-    if (!["offered", "waitlisted"].includes(cur.status)) return fail("辞退・キャンセルした人は、現場の画面から状態を変えてください");
+    if (!["offered", "waitlisted"].includes(cur.status))
+      return fail(
+        "辞退・キャンセルした人は、現場の画面から状態を変えてください",
+      );
     const r = await setAssignmentStatus(cur.id, "confirmed");
     if (!r.ok) return r;
     revalidate(eventId);
-    return ok(await confirmedMessage(eventId), { id: cur.id, previous: cur.status as LiveStatus });
+    return ok(await confirmedMessage(eventId), {
+      id: cur.id,
+      previous: cur.status as LiveStatus,
+    });
   }
 
   const now = new Date().toISOString();
@@ -54,29 +75,112 @@ export async function assignFromBoard(
       staff_id: staffId,
       role_id: roleId,
       status,
-      ...(status === "confirmed" ? { responded_at: now, response_source: "admin" as const } : {}),
+      ...(status === "confirmed"
+        ? { responded_at: now, response_source: "admin" as const }
+        : {}),
     })
     .select("id")
     .single();
   if (error || !data) return fail(dbErrorMessage(error));
   if (status === "confirmed") await enqueueConfirmed([data.id], me.id);
   revalidate(eventId);
-  return ok(status === "confirmed" ? await confirmedMessage(eventId) : "打診しました", { id: data.id, previous: null });
+  return ok(
+    status === "confirmed" ? await confirmedMessage(eventId) : "打診しました",
+    { id: data.id, previous: null },
+  );
 }
 
 /** 確定したあとの文。この確定で現場の欠員がなくなったら、そう伝える */
 async function confirmedMessage(eventId: string) {
   const supabase = await createClient();
-  const { data } = await supabase.from("event_overview").select("shortage_total").eq("id", eventId).maybeSingle();
-  return data?.shortage_total === 0 ? "確定にしました。この現場は全員そろいました！" : "確定にしました";
+  const { data } = await supabase
+    .from("event_overview")
+    .select("shortage_total")
+    .eq("id", eventId)
+    .maybeSingle();
+  return data?.shortage_total === 0
+    ? "確定にしました。この現場は全員そろいました！"
+    : "確定にしました";
+}
+
+/**
+ * 何日かまとめて（Phase 22-6）: 1人 × 何日かの現場に、同じ状態（打診 or 確定）で入れる。1日ずつ assignFromBoard と同じ処理。
+ * 入れられなかった日は理由つきで返し、入れた分はまとめて元に戻せる
+ */
+export async function assignFromBoardMany(
+  items: {
+    eventId: string;
+    staffId: string;
+    roleId: string;
+    status: "offered" | "confirmed";
+  }[],
+): Promise<
+  ActionResult<{
+    done: { eventId: string; id: string; previous: LiveStatus | null }[];
+    failed: { eventId: string; message: string }[];
+  }>
+> {
+  await assertMember();
+  if (!Array.isArray(items) || items.length === 0 || items.length > 62)
+    return fail("入力内容を確認してください");
+  const done: { eventId: string; id: string; previous: LiveStatus | null }[] =
+    [];
+  const failed: { eventId: string; message: string }[] = [];
+  for (const it of items) {
+    const r = await assignFromBoard(
+      it.eventId,
+      it.staffId,
+      it.roleId,
+      it.status,
+    );
+    if (r.ok && r.data)
+      done.push({
+        eventId: it.eventId,
+        id: r.data.id,
+        previous: r.data.previous,
+      });
+    else
+      failed.push({
+        eventId: it.eventId,
+        message: r.ok ? "入れられませんでした" : r.message,
+      });
+  }
+  if (done.length === 0)
+    return fail(failed[0]?.message ?? "入れられませんでした");
+  const what = items[0].status === "confirmed" ? "確定" : "打診";
+  return ok(
+    `${done.length}日を${what}にしました${failed.length ? `（${failed.length}日は入れられませんでした）` : ""}`,
+    { done, failed },
+  );
+}
+
+/** assignFromBoardMany を元に戻す */
+export async function undoAssignFromBoardMany(
+  done: { id: string; previous: LiveStatus | null }[],
+): Promise<ActionResult> {
+  await assertMember();
+  if (!Array.isArray(done) || done.length === 0 || done.length > 62)
+    return fail("入力内容を確認してください");
+  for (const d of done) {
+    const r = await undoAssignFromBoard(d.id, d.previous);
+    if (!r.ok) return r;
+  }
+  return ok("元に戻しました");
 }
 
 /** assignFromBoard を元に戻す */
-export async function undoAssignFromBoard(id: string, previous: LiveStatus | null): Promise<ActionResult> {
+export async function undoAssignFromBoard(
+  id: string,
+  previous: LiveStatus | null,
+): Promise<ActionResult> {
   await assertMember();
   if (!z.uuid().safeParse(id).success) return fail("不正な指定です");
   const supabase = await createClient();
-  const { data: cur } = await supabase.from("assignments").select("status, event_id").eq("id", id).maybeSingle();
+  const { data: cur } = await supabase
+    .from("assignments")
+    .select("status, event_id")
+    .eq("id", id)
+    .maybeSingle();
   if (!cur) return fail("見つかりません");
   if (previous) {
     const r = await setAssignmentStatus(id, previous);
@@ -100,13 +204,37 @@ export async function setAvailabilityDay(
   status: "ok" | "maybe" | "ng" | null,
 ): Promise<ActionResult<{ previous: "ok" | "maybe" | "ng" | null }>> {
   const me = await assertMember();
-  const parsed = z.object({ staffId: z.uuid(), date: z.iso.date(), status: z.enum(["ok", "maybe", "ng"]).nullable() }).safeParse({ staffId, date, status });
+  const parsed = z
+    .object({
+      staffId: z.uuid(),
+      date: z.iso.date(),
+      status: z.enum(["ok", "maybe", "ng"]).nullable(),
+    })
+    .safeParse({ staffId, date, status });
   if (!parsed.success) return fail("入力内容を確認してください");
   const supabase = await createClient();
-  const { data: cur } = await supabase.from("availability").select("status").eq("staff_id", staffId).eq("date", date).maybeSingle();
+  const { data: cur } = await supabase
+    .from("availability")
+    .select("status")
+    .eq("staff_id", staffId)
+    .eq("date", date)
+    .maybeSingle();
   const { error } = status
-    ? await supabase.from("availability").upsert({ staff_id: staffId, date, status, source: "admin", updated_by: me.id, updated_at: new Date().toISOString() })
-    : await supabase.from("availability").delete().eq("staff_id", staffId).eq("date", date);
+    ? await supabase
+        .from("availability")
+        .upsert({
+          staff_id: staffId,
+          date,
+          status,
+          source: "admin",
+          updated_by: me.id,
+          updated_at: new Date().toISOString(),
+        })
+    : await supabase
+        .from("availability")
+        .delete()
+        .eq("staff_id", staffId)
+        .eq("date", date);
   if (error) return fail(dbErrorMessage(error));
   revalidatePath("/events/board");
   revalidatePath("/availability", "layout");
@@ -114,7 +242,13 @@ export async function setAvailabilityDay(
 }
 
 const cellsSchema = z
-  .array(z.object({ staffId: z.uuid(), date: z.iso.date(), status: z.enum(["ok", "maybe", "ng"]).nullable() }))
+  .array(
+    z.object({
+      staffId: z.uuid(),
+      date: z.iso.date(),
+      status: z.enum(["ok", "maybe", "ng"]).nullable(),
+    }),
+  )
   .min(1)
   .max(1000, "一度に変えられるのは1000マスまでです");
 
@@ -122,28 +256,55 @@ const cellsSchema = z
  * 稼働表で選んだマスの稼働可能日をまとめて代理入力する（キーで ○△× を入れたとき。null は未入力に戻す）。
  * 元に戻すときは、前の値を入れてもう一度呼ぶ。
  */
-export async function setAvailabilityCells(cells: { staffId: string; date: string; status: "ok" | "maybe" | "ng" | null }[]): Promise<ActionResult> {
+export async function setAvailabilityCells(
+  cells: {
+    staffId: string;
+    date: string;
+    status: "ok" | "maybe" | "ng" | null;
+  }[],
+): Promise<ActionResult> {
   const me = await assertMember();
   const parsed = cellsSchema.safeParse(cells);
-  if (!parsed.success) return fail(parsed.error.issues[0].message.startsWith("一度に") ? parsed.error.issues[0].message : "入力内容を確認してください");
+  if (!parsed.success)
+    return fail(
+      parsed.error.issues[0].message.startsWith("一度に")
+        ? parsed.error.issues[0].message
+        : "入力内容を確認してください",
+    );
   const supabase = await createClient();
   const now = new Date().toISOString();
   const upserts = parsed.data
     .filter((c) => c.status)
-    .map((c) => ({ staff_id: c.staffId, date: c.date, status: c.status!, source: "admin" as const, updated_by: me.id, updated_at: now }));
+    .map((c) => ({
+      staff_id: c.staffId,
+      date: c.date,
+      status: c.status!,
+      source: "admin" as const,
+      updated_by: me.id,
+      updated_at: now,
+    }));
   if (upserts.length) {
     const { error } = await supabase.from("availability").upsert(upserts);
     if (error) return fail(dbErrorMessage(error));
   }
   // 未入力に戻すマスはスタッフごとにまとめて消す
   const clears = new Map<string, string[]>();
-  for (const c of parsed.data.filter((x) => !x.status)) clears.set(c.staffId, [...(clears.get(c.staffId) ?? []), c.date]);
+  for (const c of parsed.data.filter((x) => !x.status))
+    clears.set(c.staffId, [...(clears.get(c.staffId) ?? []), c.date]);
   for (const [staffId, dates] of clears) {
-    const { error } = await supabase.from("availability").delete().eq("staff_id", staffId).in("date", dates);
+    const { error } = await supabase
+      .from("availability")
+      .delete()
+      .eq("staff_id", staffId)
+      .in("date", dates);
     if (error) return fail(dbErrorMessage(error));
   }
   revalidatePath("/events/board");
   revalidatePath("/availability", "layout");
   const n = parsed.data.length;
-  return ok(upserts.length ? `稼働可能日を${n}マス入れました` : `稼働可能日を${n}マス消しました`);
+  return ok(
+    upserts.length
+      ? `稼働可能日を${n}マス入れました`
+      : `稼働可能日を${n}マス消しました`,
+  );
 }

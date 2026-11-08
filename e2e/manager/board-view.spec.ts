@@ -7,7 +7,7 @@ import { expectNoHorizontalScroll } from "../helpers/layout";
  * - 現場のマスは人数分のマス（確定は塗り・打診中は縞・空きは白）。欠員の現場に「○N」（その日○で空いている人）
  * - 1つのマスに出す現場は1件。あふれた分は「＋N件」（隠れた欠員は赤で）
  * - 絞り込み: 欠員の現場だけ・○で空いている人だけ（端末に覚える）
- * - スマホは日ごとのリスト（欠員の現場が上）。○で空いている人から打診の画面へ
+ * - 日ビュー（Phase 22-3。スマホは最初からこれ）: 上に「現場未定 N人」の帯、現場のカードは欠員が先。「空き」から候補を選んで打診の画面へ
  */
 test.describe.configure({ mode: "serial" });
 
@@ -49,8 +49,8 @@ test.afterAll(async () => {
   await sql(`delete from companies where id = $1`, [client.id]);
 });
 
-const board = (page: import("@playwright/test").Page, view: "table" | "list") =>
-  page.addInitScript((v) => window.localStorage.setItem("nicoly.board.view", JSON.stringify(v)), view);
+// 見せ方のタブ（Phase 22: 日・週・月・表）を端末に覚えた状態で開く
+const board = (page: import("@playwright/test").Page, view: "table" | "day" | "week" | "month") => page.addInitScript((v) => window.localStorage.setItem("nicoly.board.tab", JSON.stringify(v)), view);
 
 test("表: 現場は人数分のマスで、欠員の現場が先。もう1件は「＋1件」。○で空いている人の数が出る", async ({ page, isMobile }) => {
   test.skip(isMobile, "表は PC で確かめる");
@@ -88,23 +88,110 @@ test("表: 「欠員の現場だけ」でそろった現場が消え、「○で
   await expect(page.getByRole("link", { name: busy.name, exact: true })).toBeAttached();
 });
 
-test("リスト: 日ごとに欠員の現場が上。○で空いている人を押すと、打診・確定の画面が開く。横にずれない", async ({ page, isMobile }) => {
-  if (!isMobile) await board(page, "list");
-  await page.goto(`/events/board?month=${date.slice(0, 7)}`);
-  const list = page.getByTestId("board-day-list");
-  const section = list.getByRole("region", { name: new RegExp(`^${Number(date.slice(5, 7))}/${day}\\(`) });
-  const rows = section.locator("[data-tile]");
-  await expect(rows.first()).toContainText(venues.short);
-  await expect(rows.first()).toHaveAttribute("data-tile", "shortage");
-  await expect(rows.nth(1)).toContainText(venues.full);
-  await expect(rows.first().getByRole("img", { name: "2人中1人確定" })).toBeVisible();
-  await section.getByText(/この日○で空いている人/).click();
-  await section.getByRole("button", { name: free.name }).click();
-  await expect(page.getByRole("dialog").getByRole("heading", { name: new RegExp(`^${free.name}`) })).toBeVisible();
+test("日: 現場未定の人が上の帯に出る。現場のカードは欠員が先で、「空き」から候補を選ぶと打診・確定の画面が開く。横にずれない", async ({ page, isMobile }) => {
+  if (!isMobile) await board(page, "day");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${date}`);
+  const view = page.getByTestId("board-day");
+  await expect(view.getByRole("heading", { name: new RegExp(`^${Number(date.slice(5, 7))}/${day}\\(`) })).toBeVisible();
+  // 帯: ○で現場が決まっていない人（多いときは「ほか N人を見る」の中）
+  const band = view.getByTestId("unassigned-band");
+  const more = band.getByRole("button", { name: /^ほか \d+人を見る$/ });
+  if (await more.count()) await more.click();
+  await expect(band.getByRole("button", { name: free.name })).toBeVisible();
+  // 現場のカード: 欠員の現場が先。配置／必要と、入っている人の名前
+  const cards = view.locator("[data-card]");
+  await expect(cards.first()).toHaveAttribute("data-card", "shortage");
+  await expect(cards.first()).toContainText(venues.short);
+  await expect(cards.first()).toContainText("1/2人");
+  await expect(cards.first().locator('[data-name-chip="confirmed"]')).toHaveText(people[0].name);
+  await expect(cards.nth(1)).toHaveAttribute("data-card", "filled");
+  await expect(cards.nth(1)).toContainText(venues.full);
+  // 「空き」→ 候補（その日○△の人）→ 名前 で、その人の打診・確定の画面。入れたい現場が先頭に枠つきで出る
+  await cards.first().getByRole("button", { name: /空きに人を入れる$/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: free.name }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: new RegExp(`^${free.name}`) })).toBeVisible();
+  await expect(sheet.locator("[data-focused]")).toContainText(venues.short);
   await page.keyboard.press("Escape");
   await expectNoHorizontalScroll(page);
-  // 「欠員だけ」にすると、そろった現場は出ない
-  await page.getByRole("button", { name: /^欠員の現場だけ/ }).click();
-  await expect(section.locator("[data-tile]")).toHaveCount(1);
-  await page.getByRole("button", { name: /^欠員の現場だけ/ }).click();
+  // 「現場未定だけ」にすると、そろった現場のカードは出ない
+  await page.getByRole("button", { name: /^現場未定だけ/ }).click();
+  await expect(view.locator("[data-card]")).toHaveCount(1);
+  await page.getByRole("button", { name: /^現場未定だけ/ }).click();
+});
+
+test("週: 行がスタッフ、列が7日。確定は会場の色のチップ、○なのに現場がない人は「現場未定」。最下行に配置／必要。前後の週へ動き、月の外に出ると次の月を開く", async ({ page }) => {
+  await board(page, "week");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${date}`);
+  const grid = page.getByTestId("board-week");
+  const md = `${Number(date.slice(5, 7))}/${day}`;
+  const cell = grid.getByRole("button", { name: `${people[0].name} ${md}`, exact: true });
+  await expect(cell.locator('[data-chip="confirmed"]')).toBeVisible();
+  await expect(grid.getByRole("button", { name: `${free.name} ${md}`, exact: true }).locator('[data-chip="unassigned"]')).toContainText("現場未定");
+  // 最下行の配置／必要: この日は 必要3・確定2 → 欠1
+  const total = grid.locator(`[data-testid="week-total"][data-date="${date}"]`);
+  await expect(total).toContainText("2/3");
+  await expect(total).toContainText("欠1");
+  await expectNoHorizontalScroll(page);
+  // 次の週 → この日のマスは消える。前の週 → 戻る
+  await page.getByRole("button", { name: "次の週" }).click();
+  await expect(cell).toHaveCount(0);
+  await page.getByRole("button", { name: "前の週" }).click();
+  await expect(cell).toBeVisible();
+  // 月の最後の週で「次の週」→ 次の月が開く（URL に month と date が付く）
+  const [y, m] = date.slice(0, 7).split("-").map(Number);
+  const last = `${date.slice(0, 7)}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
+  const next = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}`;
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${last}`);
+  await page.getByRole("button", { name: "次の週" }).click();
+  await expect(page).toHaveURL(new RegExp(`month=${next}&date=${next}-`));
+  await expect(page.getByTestId("board-week")).toBeVisible();
+});
+
+test("月: 行がスタッフ、列が月の日。確定は会場の色の印、○なのに現場がない人は「○」。右端にその月の稼働日数、最下行に配置／必要。横にずれない", async ({ page }) => {
+  await board(page, "month");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}`);
+  const grid = page.getByTestId("board-month");
+  const md = `${Number(date.slice(5, 7))}/${day}`;
+  await expect(grid.getByRole("button", { name: `${people[0].name} ${md}`, exact: true }).locator('[data-chip="confirmed"]')).toBeVisible();
+  await expect(grid.getByRole("button", { name: `${free.name} ${md}`, exact: true }).locator('[data-chip="unassigned"]')).toHaveText("○");
+  // 右端: この人はこの月この現場の1日だけ
+  await expect(grid.locator("tbody tr", { hasText: people[0].name }).getByTestId("month-worked")).toHaveText("1日");
+  // 最下行: この日は 配置2／必要3（欠1）
+  await expect(grid.locator(`[data-testid="month-total"][data-date="${date}"]`)).toHaveAttribute("aria-label", "配置2／必要3（欠1）");
+  await expectNoHorizontalScroll(page);
+  // マスを押すと、その人のその日の打診・確定の画面
+  await grid.getByRole("button", { name: `${free.name} ${md}`, exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: new RegExp(`^${free.name}`) })).toBeVisible();
+  await page.keyboard.press("Escape");
+});
+
+test("週: マスを長押しして横に動かすと何日か選べ、「まとめて入れる」で同じ現場に確定できる", async ({ page, isMobile }) => {
+  test.skip(isMobile, "長押しドラッグはマウスで確かめる（スマホは実機で）");
+  await board(page, "week");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${date}`);
+  const grid = page.getByTestId("board-week");
+  const md = `${Number(date.slice(5, 7))}/${day}`;
+  const cell = grid.getByRole("button", { name: `${free.name} ${md}`, exact: true });
+  await cell.scrollIntoViewIfNeeded();
+  const box = (await cell.boundingBox())!;
+  // 長押し（400ms）→ となりの日（同じ週の中）へ動かす
+  const dir = new Date(`${date}T00:00:00Z`).getUTCDay() === 0 ? -1 : 1;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.move(box.x + box.width / 2 + dir * box.width, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up();
+  const bar = page.getByTestId("selection-bar");
+  await expect(bar).toContainText(`${free.name}・2日を選択中`);
+  await expect(grid.locator("[data-selected]")).toHaveCount(2);
+  // まとめて入れる → 欠員の現場を選んで確定（もう1日はその現場がないので飛ばす）
+  await bar.getByRole("button", { name: "まとめて入れる" }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: `${free.name}・2日をまとめて` })).toBeVisible();
+  await sheet.getByRole("radio", { name: new RegExp(venues.short) }).click();
+  await sheet.getByRole("button", { name: "確定にする" }).click();
+  await expect(page.getByText("1日を確定にしました")).toBeVisible();
+  await expect(cell.locator('[data-chip="confirmed"]')).toBeVisible();
+  await expect(bar).toHaveCount(0);
 });

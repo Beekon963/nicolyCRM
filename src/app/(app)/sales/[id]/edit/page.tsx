@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { isCarrier } from "@/lib/carriers";
 import { PageHeader } from "@/components/app/page-header";
 import { requireMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -24,6 +25,7 @@ export default async function EditCompanyPage({ params }: PageProps<"/sales/[id]
           id: c.id,
           kind: c.kind,
           name: c.name,
+          carrier: isCarrier(c.carrier) ? c.carrier : "",
           kana: c.kana,
           phone: c.phone,
           address: c.address,

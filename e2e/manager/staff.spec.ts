@@ -54,9 +54,11 @@ test("会場を登録すると地図リンク付きで表示される", async ({
   const name = `テスト会場 ${uniq()}`;
   await page.goto("/venues/new");
   await page.getByLabel("会場名（必須）").fill(name);
+  await page.getByLabel("場所の短い名前").fill("テスト短");
   await page.getByLabel("住所（テレアポなどは空でよい）").fill("東京都千代田区丸の内1-0-0");
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page.getByRole("heading", { name })).toBeVisible();
+  await expect(page.getByText("テスト短", { exact: true })).toBeVisible();
   await expect(page.locator('a[href*="google.com/maps"]')).toContainText("東京都千代田区丸の内");
   await expectNoHorizontalScroll(page);
 });

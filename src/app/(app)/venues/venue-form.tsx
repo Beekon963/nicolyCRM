@@ -17,6 +17,7 @@ import { saveVenue, type VenueInput } from "./actions";
 
 const EMPTY: VenueInput = {
   name: "",
+  short_name: "",
   kana: "",
   address: "",
   nearest_station: "",
@@ -65,6 +66,11 @@ export function VenueForm({ initial, areas }: { initial?: VenueInput; areas: { i
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {text("name", "会場名（必須）", { required: true })}
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="v-short_name">場所の短い名前</Label>
+          <Input id="v-short_name" value={form.short_name ?? ""} maxLength={20} placeholder="例: 村山" onChange={(e) => set("short_name", e.target.value)} />
+          <p className="text-sm text-muted-foreground">稼働表のチップに「docomo 村山」のように出ます（キャリアは取引先の設定）。空なら会場名の先頭を使います</p>
+        </div>
         {text("address", "住所（テレアポなどは空でよい）")}
         {text("nearest_station", "最寄り駅")}
         <div className="flex flex-col gap-1">

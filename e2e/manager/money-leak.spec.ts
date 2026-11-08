@@ -19,6 +19,9 @@ const PAGES = [
   "/events",
   "/events?view=calendar",
   "/events/board",
+  "/events/board?tab=day",
+  "/events/board?tab=week",
+  "/events/board?tab=month",
   "/events/new",
   "/events/bulk",
   "/jobs",
@@ -66,6 +69,21 @@ test("管理者が開くどの画面の通信にも金額・口座が含まれ�
   // 金額の目印を持つスタッフ（seed の1人目）の詳細
   await openFirst(page, "/staff", "090-0000-0001");
   await expect(page.getByText("お金・契約")).toHaveCount(0);
+  // 稼働表（週）のマスを押したシートにも、現場の単価・日当（オーナーだけ）は出ない（Phase 22）
+  await page.goto("/events/board?tab=week");
+  await page.getByTestId("board-week").waitFor();
+  let chip = page.locator('[data-testid="board-week"] [data-chip="confirmed"]').first();
+  for (let i = 0; i < 5 && (await chip.count()) === 0; i++) {
+    await page.getByRole("button", { name: "次の週" }).click();
+    await page.getByTestId("board-week").waitFor();
+    chip = page.locator('[data-testid="board-week"] [data-chip="confirmed"]').first();
+  }
+  await chip.locator("xpath=ancestor::button[1]").click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: "この日の現場" })).toBeVisible();
+  await expect(sheet.getByTestId("sheet-rate")).toHaveCount(0);
+  await expect(sheet.getByText(/[\d,]+円/)).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   expect(rec.count()).toBeGreaterThan(10);
   expect(rec.leaks()).toEqual([]);

@@ -1,5 +1,6 @@
 import "server-only";
 import { buildBoard, type BoardAssignment, type BoardStaff } from "@/lib/board";
+import { weekDates } from "@/lib/board/views";
 import { monthRange, todayJst } from "@/lib/date";
 import { holidaysBetween } from "@/lib/date/holidays";
 import { getMasters } from "@/lib/data/masters";
@@ -14,15 +15,18 @@ const BOARD_STATUSES = ["offered", "confirmed", "waitlisted", "cancelled", "no_s
 export async function loadBoard(month: string) {
   const supabase = await createClient();
   const { start, end } = monthRange(month);
+  // 週ビューで月をまたぐ週も出せるよう、月の最初の週の月曜から最後の週の日曜まで読む（Phase 22-4。表・合計は月の分だけ）
+  const padStart = weekDates(start)[0];
+  const padEnd = weekDates(end)[6];
   const [events, assignments, availability, activeStaff, ng, tpl, masters] = await Promise.all([
     selectAll((from, to) =>
       supabase
         .from("event_overview")
         .select(
-          "id, date, start_time, end_time, meeting_time, meeting_place, belongings, client_id, venue_id, cancelled_at, required_total, confirmed_total, shortage_total, offered_count, by_role, venue:venues(id, name, address, color), client:companies(id, name)",
+          "id, date, start_time, end_time, meeting_time, meeting_place, belongings, client_id, venue_id, cancelled_at, required_total, confirmed_total, shortage_total, offered_count, by_role, venue:venues(id, name, address, color, short_name), client:companies(id, name, carrier)",
         )
-        .gte("date", start)
-        .lte("date", end)
+        .gte("date", padStart)
+        .lte("date", padEnd)
         .order("date")
         .order("id")
         .range(from, to),
@@ -32,13 +36,13 @@ export async function loadBoard(month: string) {
         .from("assignments")
         .select("id, event_id, staff_id, role_id, status, event:events!inner(date)")
         .in("status", [...BOARD_STATUSES])
-        .gte("event.date", start)
-        .lte("event.date", end)
+        .gte("event.date", padStart)
+        .lte("event.date", padEnd)
         .order("id")
         .range(from, to),
     ),
     selectAll((from, to) =>
-      supabase.from("availability").select("staff_id, date, status").gte("date", start).lte("date", end).order("staff_id").order("date").range(from, to),
+      supabase.from("availability").select("staff_id, date, status").gte("date", padStart).lte("date", padEnd).order("staff_id").order("date").range(from, to),
     ),
     selectAll((from, to) =>
       supabase
@@ -64,7 +68,8 @@ export async function loadBoard(month: string) {
   const board = buildBoard({
     month,
     today: todayJst(),
-    holidays: holidaysBetween(start, end),
+    holidays: holidaysBetween(padStart, padEnd),
+    pad: { start: padStart, end: padEnd },
     events: events.map((e) => ({
       id: e.id!,
       date: e.date!,
@@ -73,6 +78,8 @@ export async function loadBoard(month: string) {
       venue_id: e.venue_id!,
       venue_name: e.venue?.name ?? "",
       venue_color: e.venue?.color ?? "",
+      venue_short: e.venue?.short_name ?? "",
+      carrier: e.client?.carrier ?? "",
       required_total: e.required_total ?? 0,
       confirmed_total: e.confirmed_total ?? 0,
       shortage_total: e.shortage_total ?? 0,
@@ -114,6 +121,8 @@ export async function loadBoard(month: string) {
           clientName: e.client?.name ?? "",
           venueName: e.venue?.name ?? "",
           venueColor: e.venue?.color ?? "",
+          venueShort: e.venue?.short_name ?? "",
+          carrier: e.client?.carrier ?? "",
           cancelled: e.cancelled_at != null,
           shortage: e.shortage_total ?? 0,
           byRole: (e.by_role ?? {}) as Record<string, { required: number; confirmed: number; shortage: number }>,

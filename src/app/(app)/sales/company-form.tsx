@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toaster";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { CARRIER_LABEL, CARRIERS } from "@/lib/carriers";
 import { COMPANY_KIND, COMPANY_STATUS, PRIORITY } from "@/lib/labels";
 import { saveCompany, type CompanyInput } from "./actions";
 
@@ -58,6 +59,18 @@ export function CompanyForm({ initial, users }: { initial: CompanyInput; users: 
             <option value="client">{COMPANY_KIND.client}（案件を発注してくれる会社）</option>
             <option value="partner">{COMPANY_KIND.partner}（提携・開拓先）</option>
           </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="c-carrier">扱うキャリア</Label>
+          <NativeSelect id="c-carrier" value={form.carrier ?? ""} onChange={(e) => set("carrier", e.target.value as CompanyInput["carrier"])}>
+            <option value="">未設定</option>
+            {CARRIERS.map((k) => (
+              <option key={k} value={k}>
+                {CARRIER_LABEL[k]}
+              </option>
+            ))}
+          </NativeSelect>
+          <p className="text-sm text-muted-foreground">稼働表のチップに「docomo 村山」のように、会場の短い名前の前に付きます</p>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="c-status">ステータス</Label>
