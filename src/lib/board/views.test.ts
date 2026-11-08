@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type BoardAssignment, type BoardEvent, type BoardInput, type BoardStaff, buildBoard } from "./index";
-import { chipsOf, dayTotal, eventsOfDay, eventStaff, filterDayCards, filterStaff, initialDate, initialWeek, tabFromPrefs, unassignedCount, unassignedStaff, weekDates } from "./views";
+import { chipsOf, dayTotal, eventsOfDay, eventStaff, filterDayCards, filterStaff, initialDate, initialWeek, isPadDay, tabFromPrefs, unassignedCount, unassignedStaff, weekBounds, weekDates } from "./views";
 
 const ev = (p: Partial<BoardEvent> & Pick<BoardEvent, "id" | "date">): BoardEvent => ({
   client_id: "c1",
@@ -105,6 +105,16 @@ describe("稼働表の新しい見せ方", () => {
     expect(filterDayCards(cards, { unassignedOnly: false, venueId: "v3", query: "" }).map((c) => c.id)).toEqual(["e3"]);
     expect(filterDayCards(cards, { unassignedOnly: false, venueId: null, query: "けんしょう" }).map((c) => c.id)).toEqual(["e1"]);
     expect(filterDayCards(cards, { unassignedOnly: false, venueId: null, query: "いない" })).toEqual([]);
+  });
+
+  it("前後の日（pad）がある月: 配置／必要は前後の日も引ける。今日が前後の日なら最初の週はその週。行き来できる週の範囲", () => {
+    const b = buildBoard({ ...input, today: "2026-12-02", pad: { start: "2026-10-26", end: "2026-12-06" }, events: [...input.events, ev({ id: "e9", date: "2026-12-02", confirmed_total: 2, shortage_total: 0 })] });
+    expect(dayTotal(b, "2026-12-02")).toEqual({ confirmed: 2, required: 2, shortage: 0 });
+    expect(dayTotal(board, "2026-12-02")).toBeNull();
+    expect(isPadDay(b, "2026-12-02")).toBe(true);
+    expect(isPadDay(b, "2026-11-30")).toBe(false);
+    expect(initialWeek(b)[0]).toBe("2026-11-30");
+    expect(weekBounds(b)).toEqual({ first: "2026-10-26", last: "2026-11-30" });
   });
 
   it("端末に覚えた見せ方: 新しいキーが先、古い「リスト／表」も読む", () => {

@@ -17,9 +17,9 @@ import { toast } from "@/components/ui/toaster";
 import { type BoardStaffAssignment, type BoardStaffRow, isDropped } from "@/lib/board";
 import { type AvailabilityChange, applyAvailability, reverseChanges } from "@/lib/board/grid";
 import { type BoardFilters, filterBoard, filterCounts, NO_FILTERS, venuesOf } from "@/lib/board/view";
-import { type BoardTab, filterStaff, initialDate, initialWeek, NO_STAFF_FILTER, type StaffFilter, tabFromPrefs, unassignedCount, weekDates } from "@/lib/board/views";
+import { type BoardTab, filterStaff, initialDate, initialWeek, NO_STAFF_FILTER, type StaffFilter, tabFromPrefs, unassignedCount, weekBounds, weekDates } from "@/lib/board/views";
 import { useIsPhone, useLocalPref } from "@/hooks/use-local-pref";
-import { addDays, type DateString, formatShortJa } from "@/lib/date";
+import { addDays, type DateString, formatShortJa, monthOf } from "@/lib/date";
 import type { BoardEventInfo, BoardPageData } from "@/lib/data/board";
 import { AVAILABILITY } from "@/lib/labels";
 import { chipLabel } from "@/lib/board/short-name";
@@ -60,13 +60,28 @@ export function BoardScreen({ data, money, initialDay }: { data: BoardPageData; 
   // 日・週・月の絞り込み（現場未定だけ・現場別・名前）と、見ている週
   const [staffFilter, setStaffFilter] = useState<StaffFilter>(NO_STAFF_FILTER);
   const [weekStart, setWeekStart] = useState<DateString | null>(null);
-  const week = weekStart ? weekDates(weekStart) : initialWeek(shown);
-  const monthFirst = shown.days[0]?.date;
-  const monthLast = shown.days.at(-1)?.date;
+  const inMonth = (d: string | null | undefined) => !!d && shown.days.some((x) => x.date === d);
+  const week = weekStart ? weekDates(weekStart) : inMonth(initialDay) ? weekDates(initialDay!) : initialWeek(shown);
+  const bounds = weekBounds(shown);
+  const thisWeek = initialWeek(shown);
   const weekRows = filterStaff(shown.staff, staffFilter, week);
   // 日ビューで見ている日（この月の外になったら、今日か月の最初の日）
   const [dayPick, setDayPick] = useState<DateString | null>(null);
-  const day = dayPick && shown.days.some((d) => d.date === dayPick) ? dayPick : initialDate(shown, initialDay);
+  const day = inMonth(dayPick) ? dayPick! : initialDate(shown, initialDay);
+  // 週・日を切り替えたときの動き（新しい方が横から入る）。月の外に出るときは前後の月を開く（日付も渡す）
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
+  function goWeek(delta: 1 | -1) {
+    const start = addDays(week[0], 7 * delta);
+    setSlide(delta > 0 ? "next" : "prev");
+    if (start >= bounds.first && start <= bounds.last) return setWeekStart(start);
+    router.push(`/events/board?month=${monthOf(start)}&date=${start}`);
+  }
+  function goDay(d: DateString) {
+    setSlide(d > day ? "next" : "prev");
+    if (inMonth(d)) return setDayPick(d);
+    router.push(`/events/board?month=${monthOf(d)}&date=${d}`);
+  }
+  const slideCls = slide === "next" ? "motion-safe:animate-board-slide-next" : slide === "prev" ? "motion-safe:animate-board-slide-prev" : "";
   // 「表」タブの絞り込み（欠員の現場だけ・○で空いている人だけ・今日から）
   const counts = filterCounts(shown, filters);
   const visible = filterBoard(shown, filters);
@@ -122,25 +137,32 @@ export function BoardScreen({ data, money, initialDay }: { data: BoardPageData; 
           ) : tab === "day" ? (
             <>
               <StaffFilterBar filter={staffFilter} setFilter={setStaffFilter} venues={venuesOf(shown)} unassigned={unassignedCount(shown.staff, [day])} />
-              <DayView board={shown} date={day} setDate={setDayPick} filter={staffFilter} events={data.events} roles={data.roles} onStaff={(staffId, date, eventId) => setSel({ staffId, date, eventId })} />
+              <DayView board={shown} date={day} setDate={goDay} slideCls={slideCls} filter={staffFilter} events={data.events} roles={data.roles} onStaff={(staffId, date, eventId) => setSel({ staffId, date, eventId })} />
             </>
           ) : tab === "week" ? (
             <>
               <StaffFilterBar filter={staffFilter} setFilter={setStaffFilter} venues={venuesOf(shown)} unassigned={unassignedCount(shown.staff, week)} />
               <div className="flex items-center justify-between px-4 pb-2">
-                <Button variant="ghost" size="sm" disabled={!monthFirst || week[0] <= monthFirst} onClick={() => setWeekStart(addDays(week[0], -7))}>
+                <Button variant="ghost" size="sm" onClick={() => goWeek(-1)}>
                   <ChevronLeftIcon />
                   前の週
                 </Button>
-                <span className="text-sm font-semibold tabular-nums">
+                <span className="flex items-center gap-2 text-sm font-semibold tabular-nums">
                   {formatShortJa(week[0])}〜{formatShortJa(week[6])}
+                  {week[0] !== thisWeek[0] && [...shown.days, ...shown.pad].some((d) => d.isToday) && (
+                    <button type="button" className="min-h-11 text-sm font-semibold text-primary" onClick={() => goWeek(thisWeek[0] > week[0] ? 1 : -1)}>
+                      今週へ
+                    </button>
+                  )}
                 </span>
-                <Button variant="ghost" size="sm" disabled={!monthLast || week[6] >= monthLast} onClick={() => setWeekStart(addDays(week[0], 7))}>
+                <Button variant="ghost" size="sm" onClick={() => goWeek(1)}>
                   次の週
                   <ChevronRightIcon />
                 </Button>
               </div>
-              <WeekGrid board={shown} dates={week} rows={weekRows} onCell={(staffId, date) => setSel({ staffId, date })} />
+              <div key={week[0]} className={slideCls}>
+                <WeekGrid board={shown} dates={week} rows={weekRows} onCell={(staffId, date) => setSel({ staffId, date })} />
+              </div>
               <ChipLegend />
             </>
           ) : tab === "month" ? (

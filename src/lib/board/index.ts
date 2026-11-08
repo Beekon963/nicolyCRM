@@ -56,6 +56,11 @@ export type BoardInput = {
   month: string;
   today: DateString;
   holidays: Record<string, string>;
+  /**
+   * 月の前後の日も持つとき（Phase 22-4。週ビューで月をまたぐ週を出すため）: 月の最初の週の月曜〜最後の週の日曜。
+   * この範囲の現場・予定・○△× を events / assignments / availability に入れておく。日付の並び（days）・合計・表には入れない
+   */
+  pad?: { start: DateString; end: DateString };
   events: BoardEvent[];
   staff: BoardStaff[];
   assignments: BoardAssignment[];
@@ -122,6 +127,8 @@ export type BoardStaffRow = {
 export type Board = {
   month: string;
   days: BoardDay[];
+  /** 月の前後の日（週ビュー用。pad を渡したときだけ。日付順） */
+  pad: BoardDay[];
   clients: BoardClientRow[];
   staff: BoardStaffRow[];
   /** 月の合計（中止を除く） */
@@ -139,11 +146,14 @@ export function isDropped(status: BoardAssignmentStatus) {
 
 export function buildBoard(input: BoardInput): Board {
   const { start, end } = monthRange(input.month);
+  const rangeStart = input.pad && input.pad.start < start ? input.pad.start : start;
+  const rangeEnd = input.pad && input.pad.end > end ? input.pad.end : end;
   const inMonth = (d: string) => d >= start && d <= end;
-  const events = input.events.filter((e) => inMonth(e.date));
+  const inRange = (d: string) => d >= rangeStart && d <= rangeEnd;
+  const events = input.events.filter((e) => inRange(e.date));
   const eventById = new Map(events.map((e) => [e.id, e]));
 
-  const days: BoardDay[] = eachDay(start, end).map((date) => {
+  const dayOf = (date: DateString): BoardDay => {
     const live = events.filter((e) => e.date === date && !e.cancelled);
     return {
       date,
@@ -155,12 +165,18 @@ export function buildBoard(input: BoardInput): Board {
       confirmed: live.reduce((n, e) => n + e.confirmed_total, 0),
       shortage: live.reduce((n, e) => n + e.shortage_total, 0),
     };
-  });
+  };
+  const allDates = eachDay(rangeStart, rangeEnd);
+  const days = eachDay(start, end).map(dayOf);
+  const pad = allDates.filter((d) => !inMonth(d)).map(dayOf);
 
-  // 上の段: 現場のある取引先だけ（名前順）
+  // 上の段: この月に現場のある取引先だけ（名前順）。前後の日の現場は、その取引先の行のマスにだけ入れる
+  const sorted = [...events].sort((a, b) => ja(a.venue_name, b.venue_name));
   const clientMap = new Map<string, BoardClientRow>();
-  for (const e of [...events].sort((a, b) => ja(a.venue_name, b.venue_name))) {
-    const row = clientMap.get(e.client_id) ?? { id: e.client_id, name: e.client_name, cells: {} };
+  for (const e of sorted) if (inMonth(e.date) && !clientMap.has(e.client_id)) clientMap.set(e.client_id, { id: e.client_id, name: e.client_name, cells: {} });
+  for (const e of sorted) {
+    const row = clientMap.get(e.client_id);
+    if (!row) continue;
     (row.cells[e.date] ??= []).push({
       id: e.id,
       venueId: e.venue_id,
@@ -174,12 +190,11 @@ export function buildBoard(input: BoardInput): Board {
       offered: e.offered_count,
       cancelled: e.cancelled,
     });
-    clientMap.set(e.client_id, row);
   }
   const clients = [...clientMap.values()].sort((a, b) => ja(a.name, b.name));
 
   // 下の段: ランク順 → かな順
-  const availability = new Map(input.availability.filter((a) => inMonth(a.date)).map((a) => [`${a.staff_id}|${a.date}`, a.status]));
+  const availability = new Map(input.availability.filter((a) => inRange(a.date)).map((a) => [`${a.staff_id}|${a.date}`, a.status]));
   const asgByStaffDate = new Map<string, BoardStaffAssignment[]>();
   for (const a of input.assignments) {
     const e = eventById.get(a.event_id);
@@ -206,18 +221,21 @@ export function buildBoard(input: BoardInput): Board {
     .map((s): BoardStaffRow => {
       const cells: Record<string, BoardStaffCell> = {};
       let workedDays = 0;
-      for (const d of days) {
-        const asg = (asgByStaffDate.get(`${s.id}|${d.date}`) ?? []).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
-        if (asg.some((a) => a.status === "confirmed")) workedDays++;
-        cells[d.date] = { assignments: asg, availability: availability.get(`${s.id}|${d.date}`) ?? null };
+      for (const date of allDates) {
+        const asg = (asgByStaffDate.get(`${s.id}|${date}`) ?? []).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+        // 稼働日数はこの月の分だけ
+        if (inMonth(date) && asg.some((a) => a.status === "confirmed")) workedDays++;
+        cells[date] = { assignments: asg, availability: availability.get(`${s.id}|${date}`) ?? null };
       }
       return { id: s.id, name: s.name, kana: s.kana, rankName: s.rank_name, station: s.nearest_station, cells, workedDays };
     });
 
-  const live = events.filter((e) => !e.cancelled);
+  // 合計はこの月の分だけ（中止を除く）
+  const live = events.filter((e) => !e.cancelled && inMonth(e.date));
   return {
     month: input.month,
     days,
+    pad,
     clients,
     staff,
     totals: {

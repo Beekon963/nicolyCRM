@@ -50,7 +50,7 @@ test.afterAll(async () => {
 });
 
 // 見せ方のタブ（Phase 22: 日・週・月・表）を端末に覚えた状態で開く
-const board = (page: import("@playwright/test").Page, view: "table" | "day") => page.addInitScript((v) => window.localStorage.setItem("nicoly.board.tab", JSON.stringify(v)), view);
+const board = (page: import("@playwright/test").Page, view: "table" | "day" | "week") => page.addInitScript((v) => window.localStorage.setItem("nicoly.board.tab", JSON.stringify(v)), view);
 
 test("表: 現場は人数分のマスで、欠員の現場が先。もう1件は「＋1件」。○で空いている人の数が出る", async ({ page, isMobile }) => {
   test.skip(isMobile, "表は PC で確かめる");
@@ -120,3 +120,30 @@ test("日: 現場未定の人が上の帯に出る。現場のカードは欠員
   await page.getByRole("button", { name: /^現場未定だけ/ }).click();
 });
 
+test("週: 行がスタッフ、列が7日。確定は会場の色のチップ、○なのに現場がない人は「現場未定」。最下行に配置／必要。前後の週へ動き、月の外に出ると次の月を開く", async ({ page }) => {
+  await board(page, "week");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${date}`);
+  const grid = page.getByTestId("board-week");
+  const md = `${Number(date.slice(5, 7))}/${day}`;
+  const cell = grid.getByRole("button", { name: `${people[0].name} ${md}`, exact: true });
+  await expect(cell.locator('[data-chip="confirmed"]')).toBeVisible();
+  await expect(grid.getByRole("button", { name: `${free.name} ${md}`, exact: true }).locator('[data-chip="unassigned"]')).toContainText("現場未定");
+  // 最下行の配置／必要: この日は 必要3・確定2 → 欠1
+  const total = grid.locator(`[data-testid="week-total"][data-date="${date}"]`);
+  await expect(total).toContainText("2/3");
+  await expect(total).toContainText("欠1");
+  await expectNoHorizontalScroll(page);
+  // 次の週 → この日のマスは消える。前の週 → 戻る
+  await page.getByRole("button", { name: "次の週" }).click();
+  await expect(cell).toHaveCount(0);
+  await page.getByRole("button", { name: "前の週" }).click();
+  await expect(cell).toBeVisible();
+  // 月の最後の週で「次の週」→ 次の月が開く（URL に month と date が付く）
+  const [y, m] = date.slice(0, 7).split("-").map(Number);
+  const last = `${date.slice(0, 7)}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
+  const next = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}`;
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${last}`);
+  await page.getByRole("button", { name: "次の週" }).click();
+  await expect(page).toHaveURL(new RegExp(`month=${next}&date=${next}-`));
+  await expect(page.getByTestId("board-week")).toBeVisible();
+});

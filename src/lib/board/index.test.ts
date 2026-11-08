@@ -151,4 +151,39 @@ describe("稼働表を組み立てる", () => {
     expect(b.clients[0].cells["2026-11-07"][0].venueColor).toBe("sky");
     expect(b.clients[0].cells["2026-11-08"][0].venueColor).toBe("");
   });
+
+  it("前後の日（pad）: 週ビュー用に月の前後の日のマスも持つが、日付の並び・合計・稼働日数・取引先の行は月の分だけ", () => {
+    const b = buildBoard({
+      ...base,
+      pad: { start: "2026-10-26", end: "2026-12-06" },
+      events: [
+        ev({ id: "e-oct", date: "2026-10-30", confirmed_total: 1, shortage_total: 1 }),
+        ev({ id: "e-nov", date: "2026-11-10" }),
+        ev({ id: "e-dec", date: "2026-12-02", client_id: "c2", client_name: "別のテスト通信" }),
+      ],
+      staff: [st({ id: "s1", name: "検証 太郎" })],
+      assignments: [
+        { id: "a1", event_id: "e-oct", staff_id: "s1", role_id: "r1", status: "confirmed" },
+        { id: "a2", event_id: "e-nov", staff_id: "s1", role_id: "r1", status: "confirmed" },
+      ],
+      availability: [{ staff_id: "s1", date: "2026-12-01", status: "ok" }],
+    });
+    expect(b.days[0].date).toBe("2026-11-01");
+    expect(b.days.at(-1)?.date).toBe("2026-11-30");
+    expect(b.pad).toHaveLength(12);
+    expect(b.pad[0].date).toBe("2026-10-26");
+    expect(b.pad.at(-1)?.date).toBe("2026-12-06");
+    expect(b.pad.find((d) => d.date === "2026-10-30")).toMatchObject({ required: 2, confirmed: 1, shortage: 1 });
+    // マスは前後の日にもある
+    const s1 = b.staff[0];
+    expect(s1.cells["2026-10-30"].assignments.map((a) => a.eventId)).toEqual(["e-oct"]);
+    expect(s1.cells["2026-12-01"].availability).toBe("ok");
+    // 稼働日数・合計は月の分だけ。取引先の行はこの月に現場のある取引先だけ（12月だけの取引先は出ない）が、その行には前後の日の現場も入る
+    expect(s1.workedDays).toBe(1);
+    expect(b.totals).toMatchObject({ events: 1, required: 2, workedDays: 1 });
+    expect(b.clients.map((c) => c.id)).toEqual(["c1"]);
+    expect(b.clients[0].cells["2026-10-30"]?.map((e) => e.id)).toEqual(["e-oct"]);
+    // pad を渡さなければ空
+    expect(buildBoard(base).pad).toEqual([]);
+  });
 });

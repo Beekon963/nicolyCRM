@@ -6,7 +6,7 @@
  */
 import { addDays, type DateString, eachDay } from "@/lib/date";
 import { searchNorm } from "@/lib/search";
-import { type Board, type BoardEventChip, type BoardStaffAssignment, type BoardStaffCell, type BoardStaffRow, isDropped } from "./index";
+import { type Board, type BoardDay, type BoardEventChip, type BoardStaffAssignment, type BoardStaffCell, type BoardStaffRow, isDropped } from "./index";
 
 export type BoardTab = "day" | "week" | "month" | "table";
 export const BOARD_TABS: { key: BoardTab; label: string; help: string }[] = [
@@ -88,15 +88,32 @@ export function weekDates(date: DateString): DateString[] {
   return eachDay(start, addDays(start, 6));
 }
 
-/** 最初に出す週: 今日がこの月なら今日の週、そうでなければ月の最初の週 */
+/** その日の情報（月の日か、前後の日）。どちらでもなければ undefined */
+export function dayOf(board: Board, date: DateString): BoardDay | undefined {
+  return board.days.find((x) => x.date === date) ?? board.pad.find((x) => x.date === date);
+}
+
+/** 月の前後の日か（週ビューで薄く出す） */
+export function isPadDay(board: Board, date: DateString): boolean {
+  return board.pad.some((x) => x.date === date);
+}
+
+/** 最初に出す週: 今日がこの月（前後の日を含む）なら今日の週、そうでなければ月の最初の週 */
 export function initialWeek(board: Board): DateString[] {
-  const today = board.days.find((d) => d.isToday);
+  const today = board.days.find((d) => d.isToday) ?? board.pad.find((d) => d.isToday);
   return weekDates(today?.date ?? board.days[0]?.date ?? (`${board.month}-01` as DateString));
 }
 
-/** 日ごとの 配置／必要（中止を除く）。月の外の日は null */
+/** 週ビューで行き来できる週（月曜の日付）: 月の最初の日の週 〜 月の最後の日の週。それを超えたら前後の月を開く */
+export function weekBounds(board: Board): { first: DateString; last: DateString } {
+  const first = board.days[0]?.date ?? (`${board.month}-01` as DateString);
+  const last = board.days.at(-1)?.date ?? first;
+  return { first: weekDates(first)[0], last: weekDates(last)[0] };
+}
+
+/** 日ごとの 配置／必要（中止を除く）。月とその前後の日の外は null */
 export function dayTotal(board: Board, date: DateString): { confirmed: number; required: number; shortage: number } | null {
-  const d = board.days.find((x) => x.date === date);
+  const d = dayOf(board, date);
   return d ? { confirmed: d.confirmed, required: d.required, shortage: d.shortage } : null;
 }
 
