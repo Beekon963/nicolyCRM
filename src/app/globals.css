@@ -129,6 +129,8 @@
   /* 週・日の切り替え（Phase 22-4）: 新しい週（日）が横から 250ms で入る。transform と opacity だけ（動きを減らす設定では出さない） */
   --animate-board-slide-next: board-slide-next 250ms cubic-bezier(0.2, 0, 0, 1);
   --animate-board-slide-prev: board-slide-prev 250ms cubic-bezier(0.2, 0, 0, 1);
+  /* 新しく出たチップ（Phase 22-6）: 0.9 倍から 200ms でポンと出る */
+  --animate-board-chip: board-chip 200ms cubic-bezier(0.2, 0, 0, 1);
   @keyframes pop {
     0% { transform: scale(0.92); opacity: 0; }
     60% { transform: scale(1.03); opacity: 1; }
@@ -159,6 +161,10 @@
   @keyframes board-slide-prev {
     0% { transform: translateX(-24px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes board-chip {
+    0% { transform: scale(0.9); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
   }
   /* 日本語は端末標準フォントを使う（Webフォントを読み込まず表示を速くする） */
   --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",

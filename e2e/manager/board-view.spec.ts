@@ -165,3 +165,33 @@ test("月: 行がスタッフ、列が月の日。確定は会場の色の印、
   await expect(page.getByRole("dialog").getByRole("heading", { name: new RegExp(`^${free.name}`) })).toBeVisible();
   await page.keyboard.press("Escape");
 });
+
+test("週: マスを長押しして横に動かすと何日か選べ、「まとめて入れる」で同じ現場に確定できる", async ({ page, isMobile }) => {
+  test.skip(isMobile, "長押しドラッグはマウスで確かめる（スマホは実機で）");
+  await board(page, "week");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${date}`);
+  const grid = page.getByTestId("board-week");
+  const md = `${Number(date.slice(5, 7))}/${day}`;
+  const cell = grid.getByRole("button", { name: `${free.name} ${md}`, exact: true });
+  await cell.scrollIntoViewIfNeeded();
+  const box = (await cell.boundingBox())!;
+  // 長押し（400ms）→ となりの日（同じ週の中）へ動かす
+  const dir = new Date(`${date}T00:00:00Z`).getUTCDay() === 0 ? -1 : 1;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.move(box.x + box.width / 2 + dir * box.width, box.y + box.height / 2, { steps: 6 });
+  await page.mouse.up();
+  const bar = page.getByTestId("selection-bar");
+  await expect(bar).toContainText(`${free.name}・2日を選択中`);
+  await expect(grid.locator("[data-selected]")).toHaveCount(2);
+  // まとめて入れる → 欠員の現場を選んで確定（もう1日はその現場がないので飛ばす）
+  await bar.getByRole("button", { name: "まとめて入れる" }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: `${free.name}・2日をまとめて` })).toBeVisible();
+  await sheet.getByRole("radio", { name: new RegExp(venues.short) }).click();
+  await sheet.getByRole("button", { name: "確定にする" }).click();
+  await expect(page.getByText("1日を確定にしました")).toBeVisible();
+  await expect(cell.locator('[data-chip="confirmed"]')).toBeVisible();
+  await expect(bar).toHaveCount(0);
+});

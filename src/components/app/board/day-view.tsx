@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useFreshIds } from "@/hooks/use-fresh-ids";
 import { CompanyName } from "@/components/app/company-name";
 import { StatusPill } from "@/components/app/status-pill";
 import { Button } from "@/components/ui/button";
@@ -348,7 +349,10 @@ function UnassignedBand({
       <h4 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold text-status-alert">
         <AlertTriangleIcon aria-hidden className="size-4 shrink-0" />
         現場未定
-        <span className="rounded-full bg-status-alert-solid px-2 leading-5 text-white tabular-nums">
+        <span
+          className="rounded-full bg-status-alert-solid px-2 leading-5 text-white tabular-nums motion-safe:animate-shake"
+          data-testid="unassigned-count"
+        >
           {people.length}人
         </span>
         <span className="font-normal text-muted-foreground">
@@ -419,6 +423,8 @@ function EventCard({
   onPick: (card: DayCard) => void;
 }) {
   const short = !card.cancelled && card.shortage > 0;
+  // 新しく入った人の札だけ、ポンと出る
+  const fresh = useFreshIds(card.staff.map((s) => s.a.id));
   const time =
     info?.message.start_time && info.message.end_time
       ? `${hm(info.message.start_time)}〜${hm(info.message.end_time)}`
@@ -530,6 +536,7 @@ function EventCard({
                   key={a.id}
                   row={row}
                   a={a}
+                  fresh={fresh.has(a.id)}
                   onClick={() => onStaff(row.id, date, card.id)}
                 />
               ))}
@@ -561,14 +568,18 @@ function EventCard({
 function NameChip({
   row,
   a,
+  fresh,
   onClick,
 }: {
   row: BoardStaffRow;
   a: BoardStaffAssignment;
+  fresh?: boolean;
   onClick: () => void;
 }) {
-  const base =
-    "inline-flex min-h-11 max-w-full items-center gap-1 rounded-full px-3 text-sm font-semibold motion-safe:active:translate-y-px";
+  const base = cn(
+    "inline-flex min-h-11 max-w-full items-center gap-1 rounded-full px-3 text-sm font-semibold motion-safe:active:translate-y-px",
+    fresh && "motion-safe:animate-board-chip",
+  );
   if (isDropped(a.status))
     return (
       <button
