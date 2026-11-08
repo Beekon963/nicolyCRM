@@ -50,7 +50,7 @@ test.afterAll(async () => {
 });
 
 // 見せ方のタブ（Phase 22: 日・週・月・表）を端末に覚えた状態で開く
-const board = (page: import("@playwright/test").Page, view: "table" | "day" | "week") => page.addInitScript((v) => window.localStorage.setItem("nicoly.board.tab", JSON.stringify(v)), view);
+const board = (page: import("@playwright/test").Page, view: "table" | "day" | "week" | "month") => page.addInitScript((v) => window.localStorage.setItem("nicoly.board.tab", JSON.stringify(v)), view);
 
 test("表: 現場は人数分のマスで、欠員の現場が先。もう1件は「＋1件」。○で空いている人の数が出る", async ({ page, isMobile }) => {
   test.skip(isMobile, "表は PC で確かめる");
@@ -146,4 +146,22 @@ test("週: 行がスタッフ、列が7日。確定は会場の色のチップ�
   await page.getByRole("button", { name: "次の週" }).click();
   await expect(page).toHaveURL(new RegExp(`month=${next}&date=${next}-`));
   await expect(page.getByTestId("board-week")).toBeVisible();
+});
+
+test("月: 行がスタッフ、列が月の日。確定は会場の色の印、○なのに現場がない人は「○」。右端にその月の稼働日数、最下行に配置／必要。横にずれない", async ({ page }) => {
+  await board(page, "month");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}`);
+  const grid = page.getByTestId("board-month");
+  const md = `${Number(date.slice(5, 7))}/${day}`;
+  await expect(grid.getByRole("button", { name: `${people[0].name} ${md}`, exact: true }).locator('[data-chip="confirmed"]')).toBeVisible();
+  await expect(grid.getByRole("button", { name: `${free.name} ${md}`, exact: true }).locator('[data-chip="unassigned"]')).toHaveText("○");
+  // 右端: この人はこの月この現場の1日だけ
+  await expect(grid.locator("tbody tr", { hasText: people[0].name }).getByTestId("month-worked")).toHaveText("1日");
+  // 最下行: この日は 配置2／必要3（欠1）
+  await expect(grid.locator(`[data-testid="month-total"][data-date="${date}"]`)).toHaveAttribute("aria-label", "配置2／必要3（欠1）");
+  await expectNoHorizontalScroll(page);
+  // マスを押すと、その人のその日の打診・確定の画面
+  await grid.getByRole("button", { name: `${free.name} ${md}`, exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: new RegExp(`^${free.name}`) })).toBeVisible();
+  await page.keyboard.press("Escape");
 });

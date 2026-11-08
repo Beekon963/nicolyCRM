@@ -7,7 +7,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { BoardTabs, StaffFilterBar } from "@/components/app/board/board-tabs";
 import { DayView } from "@/components/app/board/day-view";
 import { ChipLegend } from "@/components/app/board/staff-chip";
-import { WeekGrid } from "@/components/app/board/week-grid";
+import { MonthGrid, MonthLegend, WeekGrid } from "@/components/app/board/staff-grid";
 import { BoardGrid, BoardLegend, type BoardMoney } from "@/components/app/board-grid";
 import { MessageDialog, type Recipient } from "@/components/app/message-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +65,7 @@ export function BoardScreen({ data, money, initialDay }: { data: BoardPageData; 
   const bounds = weekBounds(shown);
   const thisWeek = initialWeek(shown);
   const weekRows = filterStaff(shown.staff, staffFilter, week);
+  const monthDates = shown.days.map((d) => d.date);
   // 日ビューで見ている日（この月の外になったら、今日か月の最初の日）
   const [dayPick, setDayPick] = useState<DateString | null>(null);
   const day = inMonth(dayPick) ? dayPick! : initialDate(shown, initialDay);
@@ -166,9 +167,11 @@ export function BoardScreen({ data, money, initialDay }: { data: BoardPageData; 
               <ChipLegend />
             </>
           ) : tab === "month" ? (
-            <div className="mx-4 rounded-2xl border border-dashed p-6 text-center text-muted-foreground" data-testid="board-month-placeholder">
-              月ビュー（稼働日数のヒートマップと人別の合計）は、このあとのステップで作ります。
-            </div>
+            <>
+              <StaffFilterBar filter={staffFilter} setFilter={setStaffFilter} venues={venuesOf(shown)} unassigned={unassignedCount(shown.staff, monthDates)} />
+              <MonthGrid board={shown} dates={monthDates} rows={filterStaff(shown.staff, staffFilter, monthDates)} onCell={(staffId, date) => setSel({ staffId, date })} />
+              <MonthLegend />
+            </>
           ) : (
             <BoardGrid
               board={visible}
