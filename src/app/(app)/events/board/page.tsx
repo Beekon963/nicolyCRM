@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { requireMember } from "@/lib/auth";
-import { addDays, formatTimeJst, monthOf, nextMonth, parse, todayJst, toJstDateString } from "@/lib/date";
+import { addDays, formatTimeJst, isDateString, monthOf, nextMonth, parse, todayJst, toJstDateString } from "@/lib/date";
 import { readServiceAccount } from "@/lib/google/sheets";
 import { loadBoard } from "@/lib/data/board";
 import { getMonthMoney } from "@/lib/data/money";
@@ -24,7 +24,9 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
   const me = await requireMember();
   const sp = await searchParams;
   const raw = typeof sp.month === "string" ? sp.month : "";
-  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : monthOf(todayJst());
+  // ?date=YYYY-MM-DD で日ビューの日を指定できる（月の指定がなければ、その日の月を開く）
+  const rawDate = typeof sp.date === "string" && isDateString(sp.date) ? sp.date : "";
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : rawDate ? monthOf(rawDate) : monthOf(todayJst());
   const supabase = await createClient();
   const [data, { data: share }, { data: sheet }, { data: last }, sync] = await Promise.all([
     loadBoard(month),
@@ -121,7 +123,7 @@ export default async function BoardPage({ searchParams }: PageProps<"/events/boa
           ))}
         </Link>
       )}
-      <BoardScreen data={data} money={boardMoney} />
+      <BoardScreen data={data} money={boardMoney} initialDay={rawDate.startsWith(month) ? rawDate : null} />
     </>
   );
 }

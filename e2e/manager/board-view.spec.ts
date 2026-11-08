@@ -7,7 +7,7 @@ import { expectNoHorizontalScroll } from "../helpers/layout";
  * - 現場のマスは人数分のマス（確定は塗り・打診中は縞・空きは白）。欠員の現場に「○N」（その日○で空いている人）
  * - 1つのマスに出す現場は1件。あふれた分は「＋N件」（隠れた欠員は赤で）
  * - 絞り込み: 欠員の現場だけ・○で空いている人だけ（端末に覚える）
- * - スマホは日ごとのリスト（欠員の現場が上）。○で空いている人から打診の画面へ
+ * - 日ビュー（Phase 22-3。スマホは最初からこれ）: 上に「現場未定 N人」の帯、現場のカードは欠員が先。「空き」から候補を選んで打診の画面へ
  */
 test.describe.configure({ mode: "serial" });
 
@@ -49,8 +49,8 @@ test.afterAll(async () => {
   await sql(`delete from companies where id = $1`, [client.id]);
 });
 
-const board = (page: import("@playwright/test").Page, view: "table" | "list") =>
-  page.addInitScript((v) => window.localStorage.setItem("nicoly.board.view", JSON.stringify(v)), view);
+// 見せ方のタブ（Phase 22: 日・週・月・表）を端末に覚えた状態で開く
+const board = (page: import("@playwright/test").Page, view: "table" | "day") => page.addInitScript((v) => window.localStorage.setItem("nicoly.board.tab", JSON.stringify(v)), view);
 
 test("表: 現場は人数分のマスで、欠員の現場が先。もう1件は「＋1件」。○で空いている人の数が出る", async ({ page, isMobile }) => {
   test.skip(isMobile, "表は PC で確かめる");
@@ -88,23 +88,35 @@ test("表: 「欠員の現場だけ」でそろった現場が消え、「○で
   await expect(page.getByRole("link", { name: busy.name, exact: true })).toBeAttached();
 });
 
-test("リスト: 日ごとに欠員の現場が上。○で空いている人を押すと、打診・確定の画面が開く。横にずれない", async ({ page, isMobile }) => {
-  if (!isMobile) await board(page, "list");
-  await page.goto(`/events/board?month=${date.slice(0, 7)}`);
-  const list = page.getByTestId("board-day-list");
-  const section = list.getByRole("region", { name: new RegExp(`^${Number(date.slice(5, 7))}/${day}\\(`) });
-  const rows = section.locator("[data-tile]");
-  await expect(rows.first()).toContainText(venues.short);
-  await expect(rows.first()).toHaveAttribute("data-tile", "shortage");
-  await expect(rows.nth(1)).toContainText(venues.full);
-  await expect(rows.first().getByRole("img", { name: "2人中1人確定" })).toBeVisible();
-  await section.getByText(/この日○で空いている人/).click();
-  await section.getByRole("button", { name: free.name }).click();
-  await expect(page.getByRole("dialog").getByRole("heading", { name: new RegExp(`^${free.name}`) })).toBeVisible();
+test("日: 現場未定の人が上の帯に出る。現場のカードは欠員が先で、「空き」から候補を選ぶと打診・確定の画面が開く。横にずれない", async ({ page, isMobile }) => {
+  if (!isMobile) await board(page, "day");
+  await page.goto(`/events/board?month=${date.slice(0, 7)}&date=${date}`);
+  const view = page.getByTestId("board-day");
+  await expect(view.getByRole("heading", { name: new RegExp(`^${Number(date.slice(5, 7))}/${day}\\(`) })).toBeVisible();
+  // 帯: ○で現場が決まっていない人（多いときは「ほか N人を見る」の中）
+  const band = view.getByTestId("unassigned-band");
+  const more = band.getByRole("button", { name: /^ほか \d+人を見る$/ });
+  if (await more.count()) await more.click();
+  await expect(band.getByRole("button", { name: free.name })).toBeVisible();
+  // 現場のカード: 欠員の現場が先。配置／必要と、入っている人の名前
+  const cards = view.locator("[data-card]");
+  await expect(cards.first()).toHaveAttribute("data-card", "shortage");
+  await expect(cards.first()).toContainText(venues.short);
+  await expect(cards.first()).toContainText("1/2人");
+  await expect(cards.first().locator('[data-name-chip="confirmed"]')).toHaveText(people[0].name);
+  await expect(cards.nth(1)).toHaveAttribute("data-card", "filled");
+  await expect(cards.nth(1)).toContainText(venues.full);
+  // 「空き」→ 候補（その日○△の人）→ 名前 で、その人の打診・確定の画面。入れたい現場が先頭に枠つきで出る
+  await cards.first().getByRole("button", { name: /空きに人を入れる$/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: free.name }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: new RegExp(`^${free.name}`) })).toBeVisible();
+  await expect(sheet.locator("[data-focused]")).toContainText(venues.short);
   await page.keyboard.press("Escape");
   await expectNoHorizontalScroll(page);
-  // 「欠員だけ」にすると、そろった現場は出ない
-  await page.getByRole("button", { name: /^欠員の現場だけ/ }).click();
-  await expect(section.locator("[data-tile]")).toHaveCount(1);
-  await page.getByRole("button", { name: /^欠員の現場だけ/ }).click();
+  // 「現場未定だけ」にすると、そろった現場のカードは出ない
+  await page.getByRole("button", { name: /^現場未定だけ/ }).click();
+  await expect(view.locator("[data-card]")).toHaveCount(1);
+  await page.getByRole("button", { name: /^現場未定だけ/ }).click();
 });
+

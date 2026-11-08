@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import { BoardTabs, StaffFilterBar } from "@/components/app/board/board-tabs";
+import { DayView } from "@/components/app/board/day-view";
 import { ChipLegend } from "@/components/app/board/staff-chip";
 import { WeekGrid } from "@/components/app/board/week-grid";
-import { BoardGauge, BoardGrid, BoardLegend, type BoardMoney } from "@/components/app/board-grid";
+import { BoardGrid, BoardLegend, type BoardMoney } from "@/components/app/board-grid";
 import { MessageDialog, type Recipient } from "@/components/app/message-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { toast } from "@/components/ui/toaster";
 import { type BoardStaffAssignment, type BoardStaffRow, isDropped } from "@/lib/board";
 import { type AvailabilityChange, applyAvailability, reverseChanges } from "@/lib/board/grid";
 import { type BoardFilters, filterBoard, filterCounts, NO_FILTERS, venuesOf } from "@/lib/board/view";
-import { type BoardTab, filterStaff, initialWeek, NO_STAFF_FILTER, type StaffFilter, tabFromPrefs, unassignedCount, weekDates } from "@/lib/board/views";
+import { type BoardTab, filterStaff, initialDate, initialWeek, NO_STAFF_FILTER, type StaffFilter, tabFromPrefs, unassignedCount, weekDates } from "@/lib/board/views";
 import { useIsPhone, useLocalPref } from "@/hooks/use-local-pref";
 import { addDays, type DateString, formatShortJa } from "@/lib/date";
 import type { BoardEventInfo, BoardPageData } from "@/lib/data/board";
@@ -26,7 +27,7 @@ import { buildMessage } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { removeOffer } from "../actions";
 import { assignFromBoard, setAvailabilityCells, setAvailabilityDay, undoAssignFromBoard } from "./actions";
-import { BoardDayList, BoardFilterBar, type BoardView } from "./board-views";
+import { BoardFilterBar } from "./board-views";
 
 /** 絞り込みとリスト・表は、この端末に覚えておく */
 const parseFilters = (raw: string | null): BoardFilters => {
@@ -39,9 +40,9 @@ const parseFilters = (raw: string | null): BoardFilters => {
 };
 const rawPref = (raw: string | null) => raw;
 
-type Sel = { staffId: string; date: string } | { clientId: string; date: string } | null;
+type Sel = { staffId: string; date: string; eventId?: string } | { clientId: string; date: string } | null;
 
-export function BoardScreen({ data, money }: { data: BoardPageData; money?: BoardMoney }) {
+export function BoardScreen({ data, money, initialDay }: { data: BoardPageData; money?: BoardMoney; /** 日ビューで最初に出す日（?date=。この月の中） */ initialDay?: string | null }) {
   const router = useRouter();
   const [sel, setSel] = useState<Sel>(null);
   const [sent, setSent] = useState<Recipient[] | null>(null);
@@ -63,15 +64,18 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
   const monthFirst = shown.days[0]?.date;
   const monthLast = shown.days.at(-1)?.date;
   const weekRows = filterStaff(shown.staff, staffFilter, week);
-  const view: BoardView | null = tab == null ? null : tab === "day" ? "list" : "table";
+  // 日ビューで見ている日（この月の外になったら、今日か月の最初の日）
+  const [dayPick, setDayPick] = useState<DateString | null>(null);
+  const day = dayPick && shown.days.some((d) => d.date === dayPick) ? dayPick : initialDate(shown, initialDay);
+  // 「表」タブの絞り込み（欠員の現場だけ・○で空いている人だけ・今日から）
   const counts = filterCounts(shown, filters);
-  const visible = filterBoard(shown, view === "list" ? { ...filters, freeOnly: false, fromToday: false } : filters);
-  const filterBar = view && <BoardFilterBar filters={filters} setFilters={setFilters} counts={counts} view={view} />;
+  const visible = filterBoard(shown, filters);
+  const filterBar = <BoardFilterBar filters={filters} setFilters={setFilters} counts={counts} />;
   // 絞り込んだ結果、何もないとき（次に何をすればいいかを出す）
   const emptyNote =
-    view === "table" && filters.shortageOnly && counts.shortage === 0 ? (
+    filters.shortageOnly && counts.shortage === 0 ? (
       <p className="mx-4 mb-2 rounded-xl bg-status-done-bg p-3 font-semibold text-status-done">✓ 欠員の現場はありません</p>
-    ) : view === "table" && filters.freeOnly && counts.free === 0 ? (
+    ) : filters.freeOnly && counts.free === 0 ? (
       <p className="mx-4 mb-2 rounded-xl bg-muted p-3 text-[#344054]">○で空いている人はいません。「稼働可能日の提出状況」から提出をお願いしてください。</p>
     ) : null;
 
@@ -117,9 +121,8 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
             <div aria-hidden className="mx-4 h-64 rounded-xl bg-muted motion-safe:animate-pulse" />
           ) : tab === "day" ? (
             <>
-              <BoardGauge board={shown} />
-              {filterBar}
-              <BoardDayList board={visible} filters={filters} onStaffDay={(staffId, date) => setSel({ staffId, date })} />
+              <StaffFilterBar filter={staffFilter} setFilter={setStaffFilter} venues={venuesOf(shown)} unassigned={unassignedCount(shown.staff, [day])} />
+              <DayView board={shown} date={day} setDate={setDayPick} filter={staffFilter} events={data.events} roles={data.roles} onStaff={(staffId, date, eventId) => setSel({ staffId, date, eventId })} />
             </>
           ) : tab === "week" ? (
             <>
@@ -173,6 +176,7 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
               key={`${sel.staffId}|${sel.date}`}
               row={staffRow}
               date={sel.date}
+              focusEventId={sel.eventId}
               data={data}
               money={money}
               onOffered={(r) => {
@@ -219,7 +223,22 @@ export function BoardScreen({ data, money }: { data: BoardPageData; money?: Boar
 }
 
 /** スタッフ × 日付のマスを押したとき: 稼働可能日の入力と、その日の現場への打診・確定 */
-function StaffDay({ row, date, data, money, onOffered }: { row: BoardStaffRow; date: string; data: BoardPageData; money?: BoardMoney; onOffered: (r: Recipient) => void }) {
+function StaffDay({
+  row,
+  date,
+  focusEventId,
+  data,
+  money,
+  onOffered,
+}: {
+  row: BoardStaffRow;
+  date: string;
+  /** 日ビューの「空き」から来たとき: その現場を先頭に出して枠で示す */
+  focusEventId?: string;
+  data: BoardPageData;
+  money?: BoardMoney;
+  onOffered: (r: Recipient) => void;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   // ダイアログを開いている間はトーストが押せないので、「元に戻す」はダイアログの中に出す
@@ -229,7 +248,7 @@ function StaffDay({ row, date, data, money, onOffered }: { row: BoardStaffRow; d
   const info = data.staff[row.id];
   const dayEvents = Object.values(data.events)
     .filter((e) => e.date === date && !e.cancelled)
-    .sort((a, b) => b.shortage - a.shortage || a.venueName.localeCompare(b.venueName, "ja"));
+    .sort((a, b) => Number(b.id === focusEventId) - Number(a.id === focusEventId) || b.shortage - a.shortage || a.venueName.localeCompare(b.venueName, "ja"));
 
   function setAvailability(v: "ok" | "maybe" | "ng" | null) {
     start(async () => {
@@ -308,6 +327,7 @@ function StaffDay({ row, date, data, money, onOffered }: { row: BoardStaffRow; d
               <EventRow
                 key={e.id}
                 e={e}
+                focused={e.id === focusEventId}
                 row={row}
                 date={date}
                 assignment={cell?.assignments.find((a) => a.eventId === e.id)}
@@ -332,6 +352,7 @@ function StaffDay({ row, date, data, money, onOffered }: { row: BoardStaffRow; d
 
 function EventRow({
   e,
+  focused,
   row,
   date,
   assignment,
@@ -344,6 +365,8 @@ function EventRow({
   info,
 }: {
   e: BoardEventInfo;
+  /** 日ビューの「空き」から来た現場（先頭に出して枠で示す） */
+  focused?: boolean;
   row: BoardStaffRow;
   date: string;
   assignment: BoardStaffAssignment | undefined;
@@ -407,7 +430,7 @@ function EventRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-md border p-3">
+    <li className={cn("flex flex-col gap-2 rounded-md border p-3", focused && "border-primary ring-2 ring-primary/30")} data-focused={focused ? "1" : undefined}>
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0">
           <Link href={`/events/${e.id}`} className="block truncate font-medium hover:underline">

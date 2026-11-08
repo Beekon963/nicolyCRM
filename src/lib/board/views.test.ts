@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type BoardAssignment, type BoardEvent, type BoardInput, type BoardStaff, buildBoard } from "./index";
-import { chipsOf, dayTotal, eventStaff, filterStaff, initialWeek, tabFromPrefs, unassignedCount, unassignedStaff, weekDates } from "./views";
+import { chipsOf, dayTotal, eventsOfDay, eventStaff, filterDayCards, filterStaff, initialDate, initialWeek, tabFromPrefs, unassignedCount, unassignedStaff, weekDates } from "./views";
 
 const ev = (p: Partial<BoardEvent> & Pick<BoardEvent, "id" | "date">): BoardEvent => ({
   client_id: "c1",
@@ -75,6 +75,36 @@ describe("稼働表の新しい見せ方", () => {
     expect(filterStaff(board.staff, { unassignedOnly: false, venueId: null, query: "ケンショウ" }, dates).map((r) => r.id)).toEqual(["s1"]);
     expect(filterStaff(board.staff, { unassignedOnly: false, venueId: null, query: "花子" }, dates).map((r) => r.id)).toEqual(["s2"]);
     expect(filterStaff(board.staff, { unassignedOnly: true, venueId: null, query: "" }, ["2026-11-04"])).toEqual([]);
+  });
+
+  it("日ビュー: その日の現場は 欠員 → そろった → 中止 の順で、入っている人が付く。最初に出す日は 指定 → 今日 → 月の最初", () => {
+    const b = buildBoard({
+      ...input,
+      events: [
+        ...input.events,
+        ev({ id: "e3", date: "2026-11-03", venue_id: "v3", venue_name: "架空店 北", confirmed_total: 2, shortage_total: 0 }),
+        ev({ id: "e4", date: "2026-11-03", venue_id: "v4", venue_name: "架空店 南", cancelled: true }),
+      ],
+    });
+    const cards = eventsOfDay(b, "2026-11-03");
+    expect(cards.map((c) => c.id)).toEqual(["e1", "e3", "e4"]);
+    expect(cards[0].clientName).toBe("架空通信");
+    expect(cards[0].staff.map((x) => `${x.row.name}:${x.a.status}`)).toEqual(["検証 太郎:confirmed"]);
+    expect(cards[2].shortage).toBe(0);
+    expect(eventsOfDay(b, "2026-11-10")).toEqual([]);
+    expect(initialDate(board, "2026-11-20")).toBe("2026-11-20");
+    expect(initialDate(board, "2026-12-01")).toBe("2026-11-04");
+    expect(initialDate(board, null)).toBe("2026-11-04");
+    expect(initialDate(buildBoard({ ...input, today: "2026-12-10" }))).toBe("2026-11-01");
+  });
+
+  it("日ビューの絞り込み: 現場未定だけ = 欠員のある現場、現場別、名前はその人が入っている現場", () => {
+    const b = buildBoard({ ...input, events: [...input.events, ev({ id: "e3", date: "2026-11-03", venue_id: "v3", venue_name: "架空店 北", confirmed_total: 2, shortage_total: 0 })] });
+    const cards = eventsOfDay(b, "2026-11-03");
+    expect(filterDayCards(cards, { unassignedOnly: true, venueId: null, query: "" }).map((c) => c.id)).toEqual(["e1"]);
+    expect(filterDayCards(cards, { unassignedOnly: false, venueId: "v3", query: "" }).map((c) => c.id)).toEqual(["e3"]);
+    expect(filterDayCards(cards, { unassignedOnly: false, venueId: null, query: "けんしょう" }).map((c) => c.id)).toEqual(["e1"]);
+    expect(filterDayCards(cards, { unassignedOnly: false, venueId: null, query: "いない" })).toEqual([]);
   });
 
   it("端末に覚えた見せ方: 新しいキーが先、古い「リスト／表」も読む", () => {

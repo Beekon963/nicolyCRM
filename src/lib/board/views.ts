@@ -6,7 +6,7 @@
  */
 import { addDays, type DateString, eachDay } from "@/lib/date";
 import { searchNorm } from "@/lib/search";
-import { type Board, type BoardStaffAssignment, type BoardStaffCell, type BoardStaffRow, isDropped } from "./index";
+import { type Board, type BoardEventChip, type BoardStaffAssignment, type BoardStaffCell, type BoardStaffRow, isDropped } from "./index";
 
 export type BoardTab = "day" | "week" | "month" | "table";
 export const BOARD_TABS: { key: BoardTab; label: string; help: string }[] = [
@@ -113,11 +113,16 @@ export function eventStaff(board: Board, eventId: string, date: DateString): { r
 export type StaffFilter = { unassignedOnly: boolean; venueId: string | null; query: string };
 export const NO_STAFF_FILTER: StaffFilter = { unassignedOnly: false, venueId: null, query: "" };
 
+/** 名前・ふりがな・最寄り駅が query に合うか（ひらがな・カタカナ・空白の違いは無視。空なら全員） */
+export function staffMatches(row: BoardStaffRow, query: string): boolean {
+  const q = searchNorm(query);
+  return !q || searchNorm(row.name).includes(q) || searchNorm(row.kana).includes(q) || searchNorm(row.station).includes(q);
+}
+
 /** スタッフの行だけを選ぶ（見ている日の範囲 dates で判定。日は変えない） */
 export function filterStaff(rows: BoardStaffRow[], f: StaffFilter, dates: DateString[]): BoardStaffRow[] {
-  const q = searchNorm(f.query);
   return rows.filter((row) => {
-    if (q && !searchNorm(row.name).includes(q) && !searchNorm(row.kana).includes(q) && !searchNorm(row.station).includes(q)) return false;
+    if (!staffMatches(row, f.query)) return false;
     if (f.unassignedOnly && !dates.some((d) => isUnassigned(row.cells[d]))) return false;
     if (f.venueId && !dates.some((d) => (row.cells[d]?.assignments ?? []).some((a) => a.venueId === f.venueId && !isDropped(a.status)))) return false;
     return true;
@@ -127,4 +132,31 @@ export function filterStaff(rows: BoardStaffRow[], f: StaffFilter, dates: DateSt
 /** 見ている日の範囲で、現場未定の人の数（絞り込みボタンの件数） */
 export function unassignedCount(rows: BoardStaffRow[], dates: DateString[]): number {
   return rows.filter((row) => dates.some((d) => isUnassigned(row.cells[d]))).length;
+}
+
+/** 日ビューの現場カード（Phase 22-3）: 現場のマスの情報に、取引先と入っている人を足したもの */
+export type DayCard = BoardEventChip & { clientId: string; clientName: string; staff: { row: BoardStaffRow; a: BoardStaffAssignment }[] };
+
+/** その日の現場（欠員 → そろった → 中止 の順。同じ組の中は会場名順） */
+export function eventsOfDay(board: Board, date: DateString): DayCard[] {
+  const out: DayCard[] = [];
+  for (const c of board.clients) for (const e of c.cells[date] ?? []) out.push({ ...e, clientId: c.id, clientName: c.name, staff: eventStaff(board, e.id, date) });
+  const rank = (e: DayCard) => (e.cancelled ? 2 : e.shortage > 0 ? 0 : 1);
+  return out.sort((a, b) => rank(a) - rank(b) || a.venueName.localeCompare(b.venueName, "ja"));
+}
+
+/** 最初に出す日: 指定の日（この月の中なら）→ 今日（この月なら）→ 月の最初の日 */
+export function initialDate(board: Board, requested?: string | null): DateString {
+  if (requested && board.days.some((d) => d.date === requested)) return requested;
+  return board.days.find((d) => d.isToday)?.date ?? board.days[0]?.date ?? (`${board.month}-01` as DateString);
+}
+
+/** 日ビューの現場カードの絞り込み: 現場未定だけ = 欠員のある現場だけ（入れる先）、現場別 = その会場、名前 = その人が入っている現場 */
+export function filterDayCards(cards: DayCard[], f: StaffFilter): DayCard[] {
+  return cards.filter((c) => {
+    if (f.venueId && c.venueId !== f.venueId) return false;
+    if (f.unassignedOnly && (c.cancelled || c.shortage <= 0)) return false;
+    if (searchNorm(f.query) && !c.staff.some(({ row }) => staffMatches(row, f.query))) return false;
+    return true;
+  });
 }
